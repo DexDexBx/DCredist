@@ -1,6 +1,6 @@
 {
-    "name": "ng-tailadmin",
-    "version": "1.2.0",
+    "name": "dcredits",
+    "version": "0.1.0",
     "scripts": {
         "ng": "ng",
         "start": "ng serve",
@@ -13,9 +13,6 @@
         "node": "22.x"
     },
     "dependencies": {
-        "@amcharts/amcharts5": "^5.13.5",
-        "@amcharts/amcharts5-geodata": "^5.1.4",
-        "@angular/cdk": "^22.1.4",
         "@angular/common": "^22.1.4",
         "@angular/compiler": "^22.1.4",
         "@angular/core": "^22.1.4",
@@ -26,17 +23,11 @@
         "@fullcalendar/angular": "^7.0.2",
         "@popperjs/core": "^2.11.8",
         "@tailwindcss/postcss": "^4.1.11",
-        "@types/prismjs": "^1.26.5",
-        "apexcharts": "^7.1.0",
+        "exceljs": "^4.4.0",
         "flatpickr": "^4.6.13",
         "fullcalendar": "^7.0.2",
-        "ng-apexcharts": "^3.1.0",
-        "ng-otp-input": "^2.0.9",
-        "prismjs": "^1.30.0",
         "rxjs": "~7.8.0",
-        "swiper": "^14.2.0",
         "tailwindcss": "^4.1.12",
-        "temporal-polyfill": "^1.0.4",
         "tslib": "^2.3.0",
         "zone.js": "~0.15.0"
     },

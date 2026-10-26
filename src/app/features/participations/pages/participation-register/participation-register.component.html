@@ -1,0 +1,1246 @@
+﻿<dc-page-header
+  title="Registrar participación"
+  description="Registra participantes en un evento. El estudiante siempre debe existir en el padrón."
+  [breadcrumbs]="[
+    { label: 'Inicio', link: '/dashboard' },
+    { label: 'Participaciones', link: '/participations' },
+    { label: 'Registrar' },
+  ]"
+>
+  <button
+    header-actions
+    type="button"
+    (click)="openImport()"
+    class="inline-flex items-center gap-2 rounded-xl border border-brand-200 bg-brand-50 px-4 py-2.5 text-sm font-medium text-brand-700 transition-colors hover:bg-brand-100 dark:border-brand-500/20 dark:bg-brand-500/10 dark:text-brand-200 dark:hover:bg-brand-500/20"
+  >
+    <dc-icon name="document" [size]="18" />
+    Importación masiva
+  </button>
+</dc-page-header>
+
+@if (errorMessage(); as message) {
+<div
+  class="mb-6 flex items-start gap-3 rounded-2xl border border-error-200 bg-error-50 px-4 py-3.5 dark:border-error-500/20 dark:bg-error-500/10"
+>
+  <dc-icon name="info" [size]="20" class="mt-0.5 text-error-600 dark:text-error-500" />
+  <p class="text-sm font-medium text-error-700 dark:text-error-500">{{ message }}</p>
+</div>
+}
+
+@if (successMessage(); as message) {
+<div
+  class="mb-6 flex flex-col gap-3 rounded-2xl border border-success-200 bg-success-50 px-4 py-3.5 dark:border-success-500/20 dark:bg-success-500/10 sm:flex-row sm:items-center"
+>
+  <dc-icon name="check" [size]="20" class="mt-0.5 text-success-600 dark:text-success-500" />
+  <p class="min-w-0 flex-1 text-sm font-medium text-success-700 dark:text-success-500">
+    {{ message }}
+  </p>
+  @if (createdCode(); as code) {
+  <a
+    routerLink="/verify"
+    [queryParams]="{ codigo: code }"
+    class="inline-flex items-center gap-1 text-sm font-medium text-success-800 underline dark:text-success-300"
+  >
+    Verificar {{ code }}
+  </a>
+  }
+</div>
+}
+
+<div class="space-y-6">
+  <form [formGroup]="form" (ngSubmit)="onSubmit()">
+    <dc-panel title="Registro manual" subtitle="Selecciona el evento y el estudiante para generar su código de participación.">
+      @if (selectedEvent(); as eventSel) {
+        @if (importCompleted() && !lateEnabled()) {
+          <div
+            class="mb-5 flex items-start gap-3 rounded-xl border border-error-200 bg-error-50 px-4 py-3 dark:border-error-500/20 dark:bg-error-500/10"
+          >
+            <dc-icon name="info" [size]="18" class="mt-0.5 text-error-600 dark:text-error-500" />
+            <p class="text-sm font-medium text-error-700 dark:text-error-500">
+              El registro de este evento está cerrado. Habilita las cargas extemporáneas desde el
+              panel "Estado de importación" para registrar una lista posterior.
+            </p>
+          </div>
+        }
+      }
+      @if (selectedEvent(); as eventSel) {
+        @if (loadState() === 'SIN_PRIMERA_CARGA') {
+          <div
+            class="mb-5 flex items-start gap-3 rounded-xl border border-info-200 bg-info-50 px-4 py-3 dark:border-info-500/20 dark:bg-info-500/10"
+          >
+            <dc-icon name="info" [size]="18" class="mt-0.5 text-info-600 dark:text-info-500" />
+            <p class="text-sm font-medium text-info-700 dark:text-info-500">
+              Aún no se ha realizado la primera carga de códigos para este evento. Puedes subir la
+              primera lista desde "Importación masiva".
+            </p>
+          </div>
+        }
+      }
+
+      <div class="grid gap-6 lg:grid-cols-2">
+        <div class="space-y-4">
+          <div class="flex items-center gap-2 text-xs font-semibold tracking-wide text-gray-400 uppercase dark:text-gray-500">
+            <dc-icon name="event" [size]="16" />
+            Evento
+          </div>
+
+          <dc-combobox
+            formControlName="eventId"
+            label="Evento"
+            [options]="eventOptions()"
+            placeholder="Selecciona el evento"
+            hint="Escribe para buscar por código, nombre u organizador."
+            emptyText="No se encontraron eventos."
+            [required]="true"
+            [invalid]="isInvalid('eventId')"
+          />
+
+          @if (selectedEvent(); as event) {
+          <div
+            class="rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3.5 text-sm dark:border-gray-800 dark:bg-white/[0.03]"
+          >
+            <div class="grid gap-x-6 gap-y-2 sm:grid-cols-3">
+              <div>
+                <p class="text-xs text-gray-500 dark:text-gray-400">Créditos</p>
+                <p class="mt-0.5 font-medium text-gray-800 dark:text-gray-100">{{ event.credits }}</p>
+              </div>
+              <div>
+                <p class="text-xs text-gray-500 dark:text-gray-400">Registrados</p>
+                <p class="mt-0.5 font-medium text-gray-800 dark:text-gray-100">
+                  {{ registeredCount() }}
+                  @if (event.capacity) {
+                  <span class="text-gray-400 dark:text-gray-500">/ {{ event.capacity }}</span>
+                  }
+                </p>
+              </div>
+              <div>
+                <p class="text-xs text-gray-500 dark:text-gray-400">Modalidad</p>
+                <p class="mt-0.5 font-medium text-gray-800 dark:text-gray-100">{{ event.modality }}</p>
+              </div>
+            </div>
+          </div>
+          }
+        </div>
+
+        <div class="space-y-4">
+          <div class="flex items-center gap-2 text-xs font-semibold tracking-wide text-gray-400 uppercase dark:text-gray-500">
+            <dc-icon name="users" [size]="16" />
+            Participante
+          </div>
+
+          <dc-combobox
+            formControlName="studentId"
+            label="Estudiante"
+            [options]="studentOptions()"
+            placeholder="Selecciona o busca al estudiante"
+            hint="Busca por código, nombre, escuela profesional o sede."
+            emptyText="No se encontraron estudiantes."
+            [required]="true"
+            [invalid]="isInvalid('studentId')"
+          />
+
+          <div class="grid gap-4 sm:grid-cols-3">
+            <dc-select
+              formControlName="participationType"
+              label="Tipo de participación"
+              [options]="typeOptions"
+              [required]="true"
+            />
+
+            <dc-input
+              formControlName="credits"
+              label="Créditos"
+              type="number"
+              hint="Por defecto toma los créditos del evento."
+              [required]="true"
+              [invalid]="isInvalid('credits')"
+            />
+
+            <dc-input
+              formControlName="grade"
+              label="Nota"
+              type="number"
+              hint="Opcional."
+            />
+          </div>
+        </div>
+      </div>
+
+      <div class="mt-6 flex flex-wrap items-center gap-2 border-t border-gray-100 pt-5 dark:border-gray-800">
+        <button
+          type="submit"
+          [disabled]="!selectedEventId() || !registrationOpen()"
+          class="inline-flex items-center gap-2 rounded-xl bg-brand-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          <dc-icon name="check" [size]="18" />
+          Registrar participación
+        </button>
+        <a
+          routerLink="/participations"
+          class="rounded-xl border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-white/[0.05]"
+        >
+          Ver participaciones
+        </a>
+      </div>
+    </dc-panel>
+  </form>
+
+  @if (createdCode(); as code) {
+  <dc-panel title="Código generado" subtitle="Único y estable para esta participación.">
+    <div class="flex flex-wrap items-center justify-between gap-4">
+      <dc-code [code]="code" size="md" />
+      <a
+        routerLink="/verify"
+        [queryParams]="{ codigo: code }"
+        class="inline-flex items-center gap-1.5 text-sm font-medium text-brand-600 hover:text-brand-700 dark:text-brand-300 dark:hover:text-brand-200"
+      >
+        Verificar participación
+        <dc-icon name="chevron-right" [size]="16" />
+      </a>
+    </div>
+  </dc-panel>
+  }
+
+  @if (selectedEvent(); as event) {
+  <dc-panel
+    title="Estado de la carga"
+    subtitle="El estado se calcula automáticamente. Las cargas extemporáneas se suben por solicitud y se registran al aprobarlas."
+  >
+    @if (loadState() === 'SIN_PRIMERA_CARGA') {
+      <div
+        class="mb-4 flex items-start gap-3 rounded-xl border border-info-200 bg-info-50 px-4 py-3 dark:border-info-500/20 dark:bg-info-500/10"
+      >
+        <dc-icon name="info" [size]="18" class="mt-0.5 text-info-600 dark:text-info-500" />
+        <p class="text-sm font-medium text-info-700 dark:text-info-500">
+          Aún no se ha realizado la primera carga de códigos para este evento. Puedes subir la
+          primera lista desde "Importación masiva" o desde este panel.
+        </p>
+      </div>
+    }
+    @switch (loadState()) {
+      @case ('SIN_PRIMERA_CARGA') {
+      <div
+        class="flex flex-col gap-4 rounded-2xl border border-blue-light-200 bg-blue-light-50 px-4 py-4 dark:border-blue-light-500/20 dark:bg-blue-light-500/10 sm:flex-row sm:items-center sm:justify-between"
+      >
+        <div class="flex items-start gap-3">
+          <span
+            class="flex size-10 shrink-0 items-center justify-center rounded-full bg-blue-light-100 text-blue-light-600 dark:bg-blue-light-500/20 dark:text-blue-light-400"
+          >
+            <dc-icon name="document" [size]="20" />
+          </span>
+          <div>
+            <div class="flex flex-wrap items-center gap-2">
+              <app-badge color="info">{{ loadStateLabel.SIN_PRIMERA_CARGA }}</app-badge>
+            </div>
+            <p class="mt-1 text-sm text-gray-600 dark:text-gray-300">
+              El registro está abierto. Al confirmar la primera importación masiva, el registro
+              se cerrará automáticamente.
+            </p>
+          </div>
+        </div>
+        <button
+          type="button"
+          (click)="openImport('NORMAL')"
+          class="inline-flex shrink-0 items-center gap-2 rounded-xl bg-brand-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-brand-700"
+        >
+          <dc-icon name="download" [size]="18" />
+          Subir primera lista
+        </button>
+      </div>
+      }
+      @case ('PRIMERA_CARGA_REALIZADA') {
+      <div
+        class="flex flex-col gap-4 rounded-2xl border border-error-200 bg-error-50 px-4 py-4 dark:border-error-500/20 dark:bg-error-500/10 sm:flex-row sm:items-center sm:justify-between"
+      >
+        <div class="flex items-start gap-3">
+          <span
+            class="flex size-10 shrink-0 items-center justify-center rounded-full bg-error-100 text-error-600 dark:bg-error-500/20 dark:text-error-400"
+          >
+            <dc-icon name="info" [size]="20" />
+          </span>
+          <div>
+            <div class="flex flex-wrap items-center gap-2">
+              <app-badge color="error">{{ loadStateLabel.PRIMERA_CARGA_REALIZADA }}</app-badge>
+            </div>
+            <p class="mt-1 text-sm text-gray-600 dark:text-gray-300">
+              La primera carga se confirmó el {{ formatStamp(event.importCompletedAt) }}. Para
+              subir una lista adicional, adjúntala en una solicitud de carga.
+            </p>
+          </div>
+        </div>
+        <button
+          type="button"
+          (click)="openNewRequest()"
+          class="inline-flex shrink-0 items-center gap-2 rounded-xl bg-brand-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-brand-700"
+        >
+          <dc-icon name="download" [size]="18" />
+          Subir carga extemporánea
+        </button>
+      </div>
+      }
+      @case ('RECARGA_HABILITADA') {
+      <div
+        class="flex flex-col gap-4 rounded-2xl border border-success-200 bg-success-50 px-4 py-4 dark:border-success-500/20 dark:bg-success-500/10 sm:flex-row sm:items-center sm:justify-between"
+      >
+        <div class="flex items-start gap-3">
+          <span
+            class="flex size-10 shrink-0 items-center justify-center rounded-full bg-success-100 text-success-600 dark:bg-success-500/20 dark:text-success-400"
+          >
+            <dc-icon name="check" [size]="20" />
+          </span>
+          <div>
+            <div class="flex flex-wrap items-center gap-2">
+              <app-badge color="success">{{ loadStateLabel.RECARGA_HABILITADA }}</app-badge>
+            </div>
+            <p class="mt-1 text-sm text-gray-600 dark:text-gray-300">
+              Recarga autorizada por
+              <span class="font-medium text-gray-800 dark:text-gray-100">{{
+                event.lateImportsEnabledBy || 'Responsable no registrado'
+              }}</span>
+              el {{ formatStamp(event.lateImportsEnabledAt) }}.
+            </p>
+            @if (event.lateImportsReason) {
+            <p class="mt-0.5 text-sm text-gray-600 dark:text-gray-300">
+              Motivo: <span class="italic">{{ event.lateImportsReason }}</span>
+            </p>
+            }
+          </div>
+        </div>
+        <button
+          type="button"
+          (click)="openImport('LATE')"
+          class="inline-flex shrink-0 items-center gap-2 rounded-xl bg-brand-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-brand-700"
+        >
+          <dc-icon name="download" [size]="18" />
+          Subir lista extemporánea
+        </button>
+      </div>
+      }
+    }
+
+    <!-- Solicitudes de carga (recargas) -->
+    <div class="mt-6">
+      <div class="flex flex-wrap items-center justify-between gap-2">
+        <p class="text-xs font-semibold tracking-wide text-gray-400 uppercase dark:text-gray-500">
+          Solicitudes de carga
+        </p>
+        <button
+          type="button"
+          (click)="openNewRequest()"
+          class="inline-flex items-center gap-2 rounded-xl border border-gray-300 px-3.5 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-white/[0.05]"
+        >
+          <dc-icon name="download" [size]="16" />
+          Subir carga extemporánea
+        </button>
+      </div>
+
+      @if (loadRequests().length) {
+      <ul class="mt-3 space-y-3">
+        @for (request of loadRequests(); track request.id) {
+        <li
+          class="rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3.5 text-sm dark:border-gray-800 dark:bg-white/[0.03]"
+        >
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <div class="flex flex-wrap items-center gap-2">
+              <app-badge [color]="requestStatusColor(request.status)">{{
+                requestStatusLabel[request.status]
+              }}</app-badge>
+              <span class="font-mono text-xs text-gray-500 dark:text-gray-400">{{
+                request.id
+              }}</span>
+            </div>
+            <span class="text-xs text-gray-500 dark:text-gray-400">{{
+              formatStamp(request.requestedAt)
+            }}</span>
+          </div>
+
+          <div
+            class="mt-2 grid gap-x-6 gap-y-1 text-xs text-gray-600 dark:text-gray-300 sm:grid-cols-2"
+          >
+            <p>
+              Subió:
+              <span class="font-medium text-gray-800 dark:text-gray-100">{{
+                request.requestedBy
+              }}</span>
+            </p>
+            <p>Motivo de la demora: <span class="italic">{{ request.reason }}</span></p>
+            <p>
+              Carga adjunta:
+              <span class="font-medium text-gray-800 dark:text-gray-100"
+                >{{ request.codes.length }} código(s)</span
+              >
+              @if (request.fileName) {
+              <span class="text-gray-500 dark:text-gray-400"> · {{ request.fileName }}</span>
+              }
+            </p>
+            @if (request.status === 'APPROVED') {
+            <p>
+              Registrados:
+              <span class="font-medium text-success-700 dark:text-success-300"
+                >{{ request.registeredCount ?? 0 }}</span
+              >
+              @if ((request.skippedCount ?? 0) > 0) {
+              <span class="text-gray-500 dark:text-gray-400"
+                > · {{ request.skippedCount }} omitido(s)</span
+              >
+              }
+            </p>
+            }
+            @if (request.resolvedBy) {
+            <p>
+              Resolvió:
+              <span class="font-medium text-gray-800 dark:text-gray-100">{{
+                request.resolvedBy
+              }}</span>
+              el {{ formatStamp(request.resolvedAt) }}
+            </p>
+            }
+            @if (request.resolutionNote) {
+            <p>Nota: <span class="italic">{{ request.resolutionNote }}</span></p>
+            }
+          </div>
+
+          @if (isPending(request)) {
+          <div class="mt-3">
+            <button
+              type="button"
+              (click)="openResolve(request)"
+              class="inline-flex items-center gap-2 rounded-xl bg-brand-600 px-3.5 py-2 text-sm font-medium text-white transition-colors hover:bg-brand-700"
+            >
+              <dc-icon name="check" [size]="16" />
+              Resolver solicitud
+            </button>
+          </div>
+          }
+        </li>
+        }
+      </ul>
+      } @else {
+      <p
+        class="mt-3 rounded-2xl border border-dashed border-gray-200 px-4 py-3 text-sm text-gray-500 dark:border-gray-800 dark:text-gray-400"
+      >
+        No hay solicitudes de carga registradas para este evento.
+      </p>
+      }
+    </div>
+
+    @if (eventBatches().length) {
+    <div class="mt-6">
+      <p class="text-xs font-semibold tracking-wide text-gray-400 uppercase dark:text-gray-500">
+        Trazabilidad de cargas
+      </p>
+      <ul class="mt-3 space-y-3">
+        @for (batch of eventBatches(); track batch.id) {
+        <li
+          class="rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3.5 text-sm dark:border-gray-800 dark:bg-white/[0.03]"
+        >
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <div class="flex flex-wrap items-center gap-2">
+              <app-badge [color]="isLateBatch(batch) ? 'warning' : 'primary'">
+                {{ batchModeLabel(batch) }}
+              </app-badge>
+              <span class="font-mono text-xs text-gray-500 dark:text-gray-400">{{
+                batch.id
+              }}</span>
+            </div>
+            <span class="text-xs text-gray-500 dark:text-gray-400">{{
+              formatStamp(batch.createdAt)
+            }}</span>
+          </div>
+
+          <div class="mt-2 grid gap-x-6 gap-y-1 text-xs text-gray-600 dark:text-gray-300 sm:grid-cols-2">
+            <p>
+              Subió:
+              <span class="font-medium text-gray-800 dark:text-gray-100">{{
+                batch.uploadedBy
+              }}</span>
+            </p>
+            <p>
+              Resultado:
+              <span class="font-medium text-gray-800 dark:text-gray-100"
+                >{{ batch.registered }} registrado(s)</span
+              >
+              · {{ batch.skipped }} omitido(s)
+            </p>
+            @if (isLateBatch(batch)) {
+            <p>
+              Habilitó:
+              <span class="font-medium text-gray-800 dark:text-gray-100">{{
+                batch.lateEnabledBy || '—'
+              }}</span>
+              el {{ formatStamp(batch.lateEnabledAt) }}
+            </p>
+            <p>
+              Motivo: <span class="italic">{{ batch.lateReason || '—' }}</span>
+            </p>
+            }
+          </div>
+        </li>
+        }
+      </ul>
+    </div>
+    }
+  </dc-panel>
+  }
+</div>
+
+<!-- ============================= ASISTENTE DE IMPORTACION ============================= -->
+<app-modal
+  [isOpen]="importOpen()"
+  (close)="closeImport()"
+  [showCloseButton]="false"
+  className="flex w-full max-w-3xl flex-col overflow-hidden rounded-3xl p-0"
+>
+  <!-- Encabezado -->
+  <div class="flex items-start justify-between gap-4 border-b border-gray-200 px-5 py-4 dark:border-gray-800 sm:px-6">
+    <div class="flex items-start gap-3">
+      <span
+        class="flex size-10 shrink-0 items-center justify-center rounded-xl bg-brand-50 text-brand-600 dark:bg-brand-500/10 dark:text-brand-300"
+      >
+        <dc-icon name="document" [size]="20" />
+      </span>
+      <div>
+        <h2 class="text-base font-semibold text-gray-900 dark:text-white/90">
+          {{ importMode() === 'LATE' ? 'Carga extemporánea' : 'Importación masiva' }}
+        </h2>
+        <p class="mt-0.5 text-sm text-gray-500 dark:text-gray-400">
+          @if (importMode() === 'LATE') {
+          Sube la lista posterior al cierre del registro. Queda registrada como carga
+          extemporánea.
+          } @else {
+          Carga códigos universitarios y regístralos en el evento seleccionado.
+          }
+        </p>
+      </div>
+    </div>
+    <button
+      type="button"
+      (click)="closeImport()"
+      aria-label="Cerrar"
+      class="flex size-9 shrink-0 items-center justify-center rounded-full bg-gray-100 text-gray-400 transition-colors hover:bg-gray-200 hover:text-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-white"
+    >
+      <dc-icon name="close" [size]="18" />
+    </button>
+  </div>
+
+  <!-- Stepper -->
+  <div class="border-b border-gray-200 bg-gray-50/60 px-5 py-4 dark:border-gray-800 dark:bg-white/[0.02] sm:px-6">
+    <ol class="flex items-center">
+      @for (step of importSteps; track step.id; let last = $last) {
+      <li class="flex items-center" [class.flex-1]="!last">
+        <button
+          type="button"
+          (click)="goToImportStep(step.id)"
+          class="flex items-center gap-2"
+          [class.cursor-default]="importStep() < step.id"
+        >
+          <span
+            class="flex size-8 items-center justify-center rounded-full text-sm font-semibold transition-colors"
+            [class]="stepCircleClass(step.id)"
+          >
+            @if (importStep() > step.id) {
+            <dc-icon name="check" [size]="16" />
+            } @else {
+            {{ step.id }}
+            }
+          </span>
+          <span class="hidden text-sm font-medium sm:inline" [class]="stepLabelClass(step.id)">
+            {{ step.label }}
+          </span>
+        </button>
+        @if (!last) {
+        <span
+          class="mx-3 h-px flex-1"
+          [class]="importStep() > step.id ? 'bg-brand-500' : 'bg-gray-200 dark:bg-gray-700'"
+          aria-hidden="true"
+        ></span>
+        }
+      </li>
+      }
+    </ol>
+  </div>
+
+  <!-- Cuerpo -->
+  <div class="max-h-[58vh] overflow-y-auto px-5 py-5 sm:px-6">
+    @if (importError(); as message) {
+    <div
+      class="mb-4 flex items-start gap-3 rounded-xl border border-error-200 bg-error-50 px-4 py-3 dark:border-error-500/20 dark:bg-error-500/10"
+    >
+      <dc-icon name="info" [size]="18" class="mt-0.5 text-error-600 dark:text-error-500" />
+      <p class="text-sm font-medium text-error-700 dark:text-error-500">{{ message }}</p>
+    </div>
+    }
+
+    @switch (importStep()) {
+      @case (1) {
+      <div class="flex flex-col gap-5">
+        @if (importMode() === 'LATE') {
+        <div
+          class="rounded-2xl border border-warning-200 bg-warning-50 px-4 py-3.5 dark:border-warning-500/20 dark:bg-warning-500/10"
+        >
+          <div class="flex items-center gap-2">
+            <app-badge color="warning">Carga extemporánea (subida posterior)</app-badge>
+          </div>
+          <p class="mt-1.5 text-sm text-warning-700 dark:text-orange-300">
+            El registro del evento está cerrado. Esta lista quedará en un lote extemporáneo con
+            fecha, responsable de autorización y responsable de la carga.
+          </p>
+          @if (selectedEvent(); as event) {
+          @if (event.lateImportsEnabledBy) {
+          <p class="mt-1 text-xs text-warning-700 dark:text-orange-300">
+            Habilitó {{ event.lateImportsEnabledBy }} el {{ formatStamp(event.lateImportsEnabledAt) }}
+            @if (event.lateImportsReason) { · Motivo: {{ event.lateImportsReason }} }
+          </p>
+          }
+          }
+        </div>
+
+        <label class="flex flex-col gap-2">
+          <span class="text-sm font-medium text-gray-700 dark:text-white/90"
+            >Quién sube la lista</span
+          >
+          <input
+            type="text"
+            [value]="lateUploadedBy()"
+            (input)="lateUploadedBy.set($any($event.target).value)"
+            placeholder="Nombre del responsable de la carga"
+            class="h-11 w-full rounded-xl border border-gray-300 bg-white px-3.5 text-sm text-gray-900 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-600 focus:ring-3 focus:ring-brand-500/15 focus:outline-none dark:border-gray-700 dark:bg-white/[0.03] dark:text-white/90"
+          />
+        </label>
+        }
+
+    <dc-combobox
+      [formControl]="modalEventId"
+      label="Evento de la carga"
+      [options]="eventOptions()"
+      placeholder="Selecciona el evento"
+      hint="Escribe para buscar por código, nombre u organizador."
+      emptyText="No se encontraron eventos."
+      [required]="true"
+    />
+
+        <div
+          class="rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3.5 dark:border-gray-800 dark:bg-white/[0.02]"
+        >
+          <p class="text-sm font-medium text-gray-900 dark:text-white/90">
+            ¿Qué debe tener el archivo?
+          </p>
+          <ul class="mt-2 space-y-1 text-xs leading-relaxed text-gray-600 dark:text-gray-300">
+            <li>1. Una fila por participante y su código universitario en la primera columna.</li>
+            <li>2. Las columnas de nombre y nota son solo referencia: no se importan.</li>
+            <li>3. La nota es opcional: si no se requiere, se deja en blanco.</li>
+            <li>4. La fila de encabezado va en la primera fila: se ignora automáticamente.</li>
+            <li>5. En .xlsx se lee la primera hoja; en .csv o .txt una fila por línea.</li>
+          </ul>
+          <button
+            type="button"
+            (click)="downloadImportTemplate()"
+            class="mt-3 inline-flex items-center gap-2 rounded-xl border border-gray-300 bg-white px-3.5 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 dark:border-gray-700 dark:bg-white/[0.03] dark:text-gray-200 dark:hover:bg-white/[0.06]"
+          >
+            <dc-icon name="download" [size]="16" />
+            Descargar plantilla
+          </button>
+        </div>
+
+        <div class="flex flex-col gap-2">
+          <span class="text-sm font-medium text-gray-700 dark:text-white/90">Archivo de códigos</span>
+          <label
+            class="flex cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed px-6 py-8 text-center transition-colors"
+            [class]="
+              isDragging()
+                ? 'border-brand-500 bg-brand-50 dark:bg-brand-500/10'
+                : 'border-gray-300 bg-gray-50 hover:border-brand-400 hover:bg-brand-50/50 dark:border-gray-700 dark:bg-white/[0.02] dark:hover:border-brand-500/50'
+            "
+            (dragover)="onDragOver($event)"
+            (dragleave)="onDragLeave($event)"
+            (drop)="onDrop($event)"
+          >
+            <input
+              type="file"
+              class="sr-only"
+              [accept]="fileAccept"
+              (change)="onFileSelected($event)"
+            />
+            <span
+              class="flex size-11 items-center justify-center rounded-full bg-white text-brand-600 shadow-theme-xs dark:bg-white/5 dark:text-brand-300"
+            >
+              <dc-icon name="download" [size]="22" />
+            </span>
+            <span class="mt-3 text-sm font-medium text-gray-900 dark:text-white/90">
+              Arrastra el archivo aquí o haz clic para seleccionarlo
+            </span>
+            <span class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+              Formatos .xlsx, .csv o .txt · código universitario en la primera columna
+            </span>
+          </label>
+
+          @if (importFileName(); as fileName) {
+          <div
+            class="flex items-center justify-between gap-3 rounded-xl border border-success-200 bg-success-50 px-3.5 py-2.5 dark:border-success-500/20 dark:bg-success-500/10"
+          >
+            <span class="flex min-w-0 items-center gap-2 text-sm font-medium text-success-700 dark:text-success-300">
+              <dc-icon name="document" [size]="16" />
+              <span class="truncate">{{ fileName }}</span>
+            </span>
+            <button
+              type="button"
+              (click)="clearImportFile()"
+              class="shrink-0 rounded-lg px-2 py-1 text-xs font-medium text-success-700 transition-colors hover:bg-success-100 dark:text-success-300 dark:hover:bg-success-500/20"
+            >
+              Quitar
+            </button>
+          </div>
+          }
+        </div>
+
+        <div class="flex flex-col gap-2">
+          <span class="text-sm font-medium text-gray-700 dark:text-white/90">…o pega los códigos</span>
+          <textarea
+            rows="6"
+            [value]="importText()"
+            (input)="importText.set($any($event.target).value); clearImportFile()"
+            placeholder="2213271&#10;2213065&#10;2213099"
+            class="w-full rounded-xl border border-gray-300 bg-white px-3.5 py-2.5 font-mono text-xs text-gray-900 placeholder:text-gray-400 focus:border-brand-600 focus:ring-3 focus:ring-brand-500/15 focus:outline-none dark:border-gray-700 dark:bg-white/[0.03] dark:text-white/90"
+          ></textarea>
+        </div>
+
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <span class="text-sm text-gray-500 dark:text-gray-400">
+            <span class="font-semibold text-gray-900 dark:text-white/90">{{ importPreviewCount() }}</span>
+            código(s) detectado(s)
+          </span>
+          <div class="flex flex-wrap items-center gap-2">
+            <label class="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
+              Estudiantes de ejemplo
+              <input
+                type="number"
+                min="1"
+                step="1"
+                [value]="exampleCount()"
+                (input)="exampleCount.set($any($event.target).valueAsNumber)"
+                class="h-9 w-24 rounded-lg border border-gray-300 bg-white px-2.5 text-right text-sm tabular-nums text-gray-900 focus:border-brand-600 focus:ring-3 focus:ring-brand-500/15 focus:outline-none dark:border-gray-700 dark:bg-white/[0.03] dark:text-white/90"
+              />
+            </label>
+            <button
+              type="button"
+              (click)="loadExample()"
+              class="inline-flex items-center gap-2 rounded-xl border border-gray-300 px-3.5 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-white/[0.05]"
+            >
+              <dc-icon name="refresh" [size]="16" />
+              Cargar ejemplo
+            </button>
+          </div>
+        </div>
+      </div>
+      }
+
+      @case (2) {
+      @if (importStage2(); as stage2) {
+      <div class="flex flex-col gap-5">
+        <div class="grid grid-cols-3 gap-3">
+          <div class="rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 dark:border-gray-800 dark:bg-white/[0.03]">
+            <p class="text-xs font-medium text-gray-500 dark:text-gray-400">Total</p>
+            <p class="mt-1 text-2xl font-semibold tabular-nums text-gray-900 dark:text-white/90">{{ stage2.total }}</p>
+          </div>
+          <div class="rounded-xl border border-success-200 bg-success-50 px-4 py-3 dark:border-success-500/20 dark:bg-success-500/10">
+            <p class="text-xs font-medium text-success-700 dark:text-success-400">Válidos</p>
+            <p class="mt-1 text-2xl font-semibold tabular-nums text-success-700 dark:text-success-400">{{ stage2.valid }}</p>
+          </div>
+          <div class="rounded-xl border border-error-200 bg-error-50 px-4 py-3 dark:border-error-500/20 dark:bg-error-500/10">
+            <p class="text-xs font-medium text-error-700 dark:text-error-500">Inválidos</p>
+            <p class="mt-1 text-2xl font-semibold tabular-nums text-error-700 dark:text-error-500">{{ stage2.invalid }}</p>
+          </div>
+        </div>
+
+        <div class="overflow-hidden rounded-xl border border-gray-200 dark:border-gray-800">
+          <div class="max-h-72 overflow-auto">
+            <table class="w-full text-left text-sm">
+              <thead class="sticky top-0 bg-gray-50 dark:bg-gray-900">
+                <tr class="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                  <th class="px-3 py-2.5 font-medium">Fila</th>
+                  <th class="px-3 py-2.5 font-medium">Código</th>
+                  <th class="px-3 py-2.5 font-medium">Estudiante</th>
+                  <th class="px-3 py-2.5 font-medium">Estado</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-gray-200 dark:divide-gray-800">
+                @for (item of stage2.items; track item.row) {
+                <tr class="align-top">
+                  <td class="px-3 py-2.5 text-gray-500 dark:text-gray-400">{{ item.row }}</td>
+                  <td class="px-3 py-2.5 font-mono text-gray-900 dark:text-white/90">{{ item.code || '—' }}</td>
+                  <td class="px-3 py-2.5 text-gray-700 dark:text-gray-300">
+                    @if (item.student) {
+                    {{ item.student.lastName }}, {{ item.student.firstName }}
+                    } @else {
+                    <span class="text-gray-400 dark:text-gray-500">—</span>
+                    }
+                  </td>
+                  <td class="px-3 py-2.5">
+                    <app-badge [color]="statusColor(item.valid)">
+                      {{ item.valid ? 'Válido' : 'Inválido' }}
+                    </app-badge>
+                    @if (item.error) {
+                    <p class="mt-1 text-xs text-error-600 dark:text-error-500">{{ item.error }}</p>
+                    }
+                  </td>
+                </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        @if (stage2.valid === 0) {
+        <p class="text-sm text-gray-500 dark:text-gray-400">
+          No hay códigos válidos para registrar. Corrige el archivo y vuelve a cargarlo.
+        </p>
+        }
+      </div>
+      }
+      }
+
+      @case (3) {
+      @if (importSummary(); as summary) {
+      <div class="flex flex-col gap-5">
+        <div class="flex items-start gap-3 rounded-2xl border border-success-200 bg-success-50 px-4 py-4 dark:border-success-500/20 dark:bg-success-500/10">
+          <span
+            class="flex size-10 shrink-0 items-center justify-center rounded-full bg-success-100 text-success-600 dark:bg-success-500/20 dark:text-success-400"
+          >
+            <dc-icon name="check" [size]="22" />
+          </span>
+          <div>
+            <p class="text-sm font-semibold text-success-800 dark:text-success-300">Importación completada</p>
+            <p class="mt-0.5 text-sm text-success-700 dark:text-success-400">
+              Se registraron {{ summary.registered }} participación(es) de {{ summary.total }} código(s).
+            </p>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-3 gap-3">
+          <div class="rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 dark:border-gray-800 dark:bg-white/[0.03]">
+            <p class="text-xs font-medium text-gray-500 dark:text-gray-400">Procesados</p>
+            <p class="mt-1 text-2xl font-semibold tabular-nums text-gray-900 dark:text-white/90">{{ summary.total }}</p>
+          </div>
+          <div class="rounded-xl border border-success-200 bg-success-50 px-4 py-3 dark:border-success-500/20 dark:bg-success-500/10">
+            <p class="text-xs font-medium text-success-700 dark:text-success-400">Registrados</p>
+            <p class="mt-1 text-2xl font-semibold tabular-nums text-success-700 dark:text-success-400">{{ summary.registered }}</p>
+          </div>
+          <div class="rounded-xl border border-warning-200 bg-warning-50 px-4 py-3 dark:border-warning-500/20 dark:bg-warning-500/10">
+            <p class="text-xs font-medium text-warning-700 dark:text-orange-400">Omitidos</p>
+            <p class="mt-1 text-2xl font-semibold tabular-nums text-warning-700 dark:text-orange-400">{{ summary.skipped }}</p>
+          </div>
+        </div>
+
+        @if (summary.batchId) {
+        <div
+          class="flex flex-col gap-1 rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3.5 text-sm dark:border-gray-800 dark:bg-white/[0.03]"
+        >
+          <div class="flex flex-wrap items-center gap-2">
+            <app-badge [color]="summary.mode === 'LATE' ? 'warning' : 'primary'">
+              {{ summary.mode === 'LATE' ? importModeLabel.LATE : importModeLabel.NORMAL }}
+            </app-badge>
+            <span class="font-mono text-xs text-gray-500 dark:text-gray-400">{{ summary.batchId }}</span>
+          </div>
+          @if (summary.uploadedBy) {
+          <p class="text-xs text-gray-600 dark:text-gray-300">
+            Subió: <span class="font-medium text-gray-800 dark:text-gray-100">{{ summary.uploadedBy }}</span>
+          </p>
+          }
+        </div>
+        }
+
+        @if (importErrors().length > 0) {
+        <div class="flex flex-col gap-2">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <p class="text-sm font-medium text-gray-900 dark:text-white/90">
+              Registros no procesados ({{ importErrors().length }})
+            </p>
+            <button
+              type="button"
+              (click)="downloadErrorReport()"
+              class="inline-flex items-center gap-2 rounded-xl border border-error-200 bg-error-50 px-3 py-2 text-sm font-medium text-error-700 transition-colors hover:bg-error-100 dark:border-error-500/20 dark:bg-error-500/10 dark:text-error-200"
+            >
+              <dc-icon name="download" [size]="16" />
+              Descargar reporte
+            </button>
+          </div>
+          <div class="max-h-56 overflow-auto rounded-xl border border-gray-200 dark:border-gray-800">
+            <table class="w-full text-left text-xs">
+              <thead class="sticky top-0 bg-gray-50 dark:bg-gray-900">
+                <tr class="text-gray-500 dark:text-gray-400">
+                  <th class="px-3 py-2 font-medium">Fila</th>
+                  <th class="px-3 py-2 font-medium">Código</th>
+                  <th class="px-3 py-2 font-medium">Motivo</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-gray-200 dark:divide-gray-800">
+                @for (err of importErrors(); track err.row + err.code + err.reason) {
+                <tr>
+                  <td class="px-3 py-2 text-gray-500 dark:text-gray-400">{{ err.row }}</td>
+                  <td class="px-3 py-2 font-mono text-gray-700 dark:text-gray-300">{{ err.code }}</td>
+                  <td class="px-3 py-2 text-error-600 dark:text-error-500">{{ err.reason }}</td>
+                </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        </div>
+        }
+      </div>
+      }
+      }
+    }
+  </div>
+
+  <!-- Pie de acciones -->
+  <div
+    class="flex flex-wrap items-center justify-between gap-2 border-t border-gray-200 bg-gray-50/60 px-5 py-4 dark:border-gray-800 dark:bg-white/[0.02] sm:px-6"
+  >
+    <button
+      type="button"
+      (click)="closeImport()"
+      class="rounded-xl border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-100 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-white/[0.05]"
+    >
+      Cerrar
+    </button>
+
+    <div class="flex flex-wrap items-center gap-2">
+      @switch (importStep()) {
+        @case (1) {
+        <button
+          type="button"
+          (click)="validateImport()"
+          [disabled]="!selectedEventId() || importPreviewCount() === 0"
+          class="inline-flex items-center gap-2 rounded-xl bg-brand-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          Validar códigos
+          <dc-icon name="chevron-right" [size]="18" />
+        </button>
+        }
+        @case (2) {
+        <button
+          type="button"
+          (click)="goToImportStep(1)"
+          class="inline-flex items-center gap-2 rounded-xl border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-100 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-white/[0.05]"
+        >
+          <dc-icon name="arrow-left" [size]="18" />
+          Atrás
+        </button>
+        <button
+          type="button"
+          (click)="confirmImport()"
+          [disabled]="!importStage2() || importStage2()!.valid === 0"
+          class="inline-flex items-center gap-2 rounded-xl bg-brand-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          <dc-icon name="check" [size]="18" />
+          Confirmar registro
+        </button>
+        }
+        @case (3) {
+        <button
+          type="button"
+          (click)="resetImport()"
+          class="inline-flex items-center gap-2 rounded-xl border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-100 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-white/[0.05]"
+        >
+          <dc-icon name="refresh" [size]="18" />
+          Nueva importación
+        </button>
+        }
+      }
+    </div>
+  </div>
+</app-modal>
+
+<!-- ============================= REGISTRAR SOLICITUD DE CARGA ============================= -->
+<app-modal
+  [isOpen]="requestOpen()"
+  (close)="closeNewRequest()"
+  [showCloseButton]="false"
+  className="flex w-full max-w-lg flex-col overflow-hidden rounded-3xl p-0"
+>
+  <div class="flex items-start justify-between gap-4 border-b border-gray-200 px-5 py-4 dark:border-gray-800 sm:px-6">
+    <div class="flex items-start gap-3">
+      <span
+        class="flex size-10 shrink-0 items-center justify-center rounded-xl bg-warning-50 text-warning-600 dark:bg-warning-500/10 dark:text-orange-400"
+      >
+        <dc-icon name="download" [size]="20" />
+      </span>
+      <div>
+        <h2 class="text-base font-semibold text-gray-900 dark:text-white/90">
+          Subir carga extemporánea
+        </h2>
+        <p class="mt-0.5 text-sm text-gray-500 dark:text-gray-400">
+          Adjunta la lista que llegó después del cierre y registra el motivo de la demora. Queda
+          pendiente hasta que un responsable la apruebe o la rechace.
+        </p>
+      </div>
+    </div>
+    <button
+      type="button"
+      (click)="closeNewRequest()"
+      aria-label="Cerrar"
+      class="flex size-9 shrink-0 items-center justify-center rounded-full bg-gray-100 text-gray-400 transition-colors hover:bg-gray-200 hover:text-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-white"
+    >
+      <dc-icon name="close" [size]="18" />
+    </button>
+  </div>
+
+  <form [formGroup]="requestForm" (ngSubmit)="confirmNewRequest()" class="flex flex-col gap-5 px-5 py-5 sm:px-6">
+    @if (requestError(); as message) {
+    <div
+      class="flex items-start gap-3 rounded-xl border border-error-200 bg-error-50 px-4 py-3 dark:border-error-500/20 dark:bg-error-500/10"
+    >
+      <dc-icon name="info" [size]="18" class="mt-0.5 text-error-600 dark:text-error-500" />
+      <p class="text-sm font-medium text-error-700 dark:text-error-500">{{ message }}</p>
+    </div>
+    }
+
+    <dc-combobox
+      [formControl]="form.controls.eventId"
+      label="Evento de la carga"
+      [options]="eventOptions()"
+      placeholder="Selecciona el evento"
+      hint="Toma el evento elegido arriba; puedes cambiarlo aquí."
+      emptyText="No se encontraron eventos."
+      [required]="true"
+    />
+
+    <dc-input
+      formControlName="requestedBy"
+      label="Quién sube la carga"
+      placeholder="Persona o área que envía la lista"
+      hint="Responsable de la lista extemporánea."
+      [required]="true"
+    />
+
+    <label class="flex flex-col gap-2">
+      <span class="text-sm font-medium text-gray-700 dark:text-white/90"
+        >Motivo de la demora <span class="text-error-500">*</span></span
+      >
+      <textarea
+        formControlName="reason"
+        rows="3"
+        placeholder="Por qué la lista llegó después del cierre"
+        class="w-full rounded-xl border border-gray-300 bg-white px-3.5 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 focus:border-brand-600 focus:ring-3 focus:ring-brand-500/15 focus:outline-none dark:border-gray-700 dark:bg-white/[0.03] dark:text-white/90"
+      ></textarea>
+    </label>
+
+    <div
+      class="rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3.5 dark:border-gray-800 dark:bg-white/[0.02]"
+    >
+      <p class="text-sm font-medium text-gray-900 dark:text-white/90">
+        ¿Qué debe tener el archivo?
+      </p>
+      <ul class="mt-2 space-y-1 text-xs leading-relaxed text-gray-600 dark:text-gray-300">
+        <li>1. Una fila por participante y su código universitario en la primera columna.</li>
+        <li>2. Las columnas de nombre y nota son solo referencia: no se importan.</li>
+        <li>3. La nota es opcional: si no se requiere, se deja en blanco.</li>
+        <li>4. La fila de encabezado va en la primera fila: se ignora automáticamente.</li>
+        <li>5. En .xlsx se lee la primera hoja; en .csv o .txt una fila por línea.</li>
+      </ul>
+      <button
+        type="button"
+        (click)="downloadImportTemplate()"
+        class="mt-3 inline-flex items-center gap-2 rounded-xl border border-gray-300 bg-white px-3.5 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 dark:border-gray-700 dark:bg-white/[0.03] dark:text-gray-200 dark:hover:bg-white/[0.06]"
+      >
+        <dc-icon name="download" [size]="16" />
+        Descargar plantilla
+      </button>
+    </div>
+
+    <div class="flex flex-col gap-2">
+      <span class="text-sm font-medium text-gray-700 dark:text-white/90"
+        >Carga adjunta (códigos universitarios) <span class="text-error-500">*</span></span
+      >
+      <label
+        class="flex cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed px-6 py-6 text-center transition-colors"
+        [class]="
+          isRequestDragging()
+            ? 'border-brand-500 bg-brand-50 dark:bg-brand-500/10'
+            : 'border-gray-300 bg-gray-50 hover:border-brand-400 hover:bg-brand-50/50 dark:border-gray-700 dark:bg-white/[0.02] dark:hover:border-brand-500/50'
+        "
+        (dragover)="onRequestDragOver($event)"
+        (dragleave)="onRequestDragLeave($event)"
+        (drop)="onRequestDrop($event)"
+      >
+        <input
+          type="file"
+          class="sr-only"
+          [accept]="fileAccept"
+          (change)="onRequestFileSelected($event)"
+        />
+        <span
+          class="flex size-11 items-center justify-center rounded-full bg-white text-brand-600 shadow-theme-xs dark:bg-white/5 dark:text-brand-300"
+        >
+          <dc-icon name="download" [size]="22" />
+        </span>
+        <span class="mt-3 text-sm font-medium text-gray-900 dark:text-white/90">
+          Arrastra el archivo aquí o haz clic para seleccionarlo
+        </span>
+        <span class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+          Formatos .xlsx, .csv o .txt · código universitario en la primera columna
+        </span>
+      </label>
+
+      @if (requestFileName(); as fileName) {
+      <div
+        class="flex items-center justify-between gap-3 rounded-xl border border-success-200 bg-success-50 px-3.5 py-2.5 dark:border-success-500/20 dark:bg-success-500/10"
+      >
+        <span class="flex min-w-0 items-center gap-2 text-sm font-medium text-success-700 dark:text-success-300">
+          <dc-icon name="document" [size]="16" />
+          <span class="truncate">{{ fileName }}</span>
+        </span>
+        <button
+          type="button"
+          (click)="clearRequestFile()"
+          class="shrink-0 rounded-lg px-2 py-1 text-xs font-medium text-success-700 transition-colors hover:bg-success-100 dark:text-success-300 dark:hover:bg-success-500/20"
+        >
+          Quitar
+        </button>
+      </div>
+      }
+
+      <span class="text-sm text-gray-500 dark:text-gray-400">…o pega los códigos</span>
+      <textarea
+        rows="5"
+        [value]="requestText()"
+        (input)="requestText.set($any($event.target).value); clearRequestFile()"
+        placeholder="2213271&#10;2213065&#10;2213099"
+        class="w-full rounded-xl border border-gray-300 bg-white px-3.5 py-2.5 font-mono text-xs text-gray-900 placeholder:text-gray-400 focus:border-brand-600 focus:ring-3 focus:ring-brand-500/15 focus:outline-none dark:border-gray-700 dark:bg-white/[0.03] dark:text-white/90"
+      ></textarea>
+
+      <span class="text-sm text-gray-500 dark:text-gray-400">
+        <span class="font-semibold text-gray-900 dark:text-white/90">{{ requestPreviewCount() }}</span>
+        código(s) detectado(s)
+      </span>
+    </div>
+
+    <div class="flex flex-wrap items-center justify-end gap-2 border-t border-gray-100 pt-4 dark:border-gray-800">
+      <button
+        type="button"
+        (click)="closeNewRequest()"
+        class="rounded-xl border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-100 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-white/[0.05]"
+      >
+        Cancelar
+      </button>
+      <button
+        type="submit"
+        class="inline-flex items-center gap-2 rounded-xl bg-brand-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-brand-700"
+      >
+        <dc-icon name="check" [size]="18" />
+        Registrar solicitud
+      </button>
+    </div>
+  </form>
+</app-modal>
+
+<!-- ============================= RESOLVER SOLICITUD ============================= -->
+<app-modal
+  [isOpen]="resolveOpen()"
+  (close)="closeResolve()"
+  [showCloseButton]="false"
+  className="flex w-full max-w-lg flex-col overflow-hidden rounded-3xl p-0"
+>
+  <div class="flex items-start justify-between gap-4 border-b border-gray-200 px-5 py-4 dark:border-gray-800 sm:px-6">
+    <div class="flex items-start gap-3">
+      <span
+        class="flex size-10 shrink-0 items-center justify-center rounded-xl bg-brand-50 text-brand-600 dark:bg-brand-500/10 dark:text-brand-300"
+      >
+        <dc-icon name="check" [size]="20" />
+      </span>
+      <div>
+        <h2 class="text-base font-semibold text-gray-900 dark:text-white/90">
+          Resolver solicitud
+        </h2>
+        @if (resolvingRequest(); as request) {
+        <p class="mt-0.5 text-sm text-gray-500 dark:text-gray-400">
+          {{ request.id }} · {{ request.requestedBy }} · {{ request.codes.length }} código(s).
+          Motivo: <span class="italic">{{ request.reason }}</span>
+        </p>
+        }
+      </div>
+    </div>
+    <button
+      type="button"
+      (click)="closeResolve()"
+      aria-label="Cerrar"
+      class="flex size-9 shrink-0 items-center justify-center rounded-full bg-gray-100 text-gray-400 transition-colors hover:bg-gray-200 hover:text-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-white"
+    >
+      <dc-icon name="close" [size]="18" />
+    </button>
+  </div>
+
+  <form [formGroup]="resolveForm" (ngSubmit)="confirmResolve()" class="flex flex-col gap-5 px-5 py-5 sm:px-6">
+    @if (resolveError(); as message) {
+    <div
+      class="flex items-start gap-3 rounded-xl border border-error-200 bg-error-50 px-4 py-3 dark:border-error-500/20 dark:bg-error-500/10"
+    >
+      <dc-icon name="info" [size]="18" class="mt-0.5 text-error-600 dark:text-error-500" />
+      <p class="text-sm font-medium text-error-700 dark:text-error-500">{{ message }}</p>
+    </div>
+    }
+
+    <div class="grid gap-2">
+      <label
+        class="flex cursor-pointer items-center gap-3 rounded-xl border px-4 py-3 text-sm transition-colors"
+        [class]="
+          resolveForm.controls.decision.value === 'APPROVED'
+            ? 'border-brand-500 bg-brand-50 dark:border-brand-500/40 dark:bg-brand-500/10'
+            : 'border-gray-200 bg-white dark:border-gray-700 dark:bg-white/[0.03]'
+        "
+      >
+        <input type="radio" formControlName="decision" value="APPROVED" class="accent-brand-600" />
+        <span class="font-medium text-gray-800 dark:text-gray-100"
+          >Aprobar y registrar la carga</span
+        >
+      </label>
+      <label
+        class="flex cursor-pointer items-center gap-3 rounded-xl border px-4 py-3 text-sm transition-colors"
+        [class]="
+          resolveForm.controls.decision.value === 'REJECTED'
+            ? 'border-error-300 bg-error-50 dark:border-error-500/40 dark:bg-error-500/10'
+            : 'border-gray-200 bg-white dark:border-gray-700 dark:bg-white/[0.03]'
+        "
+      >
+        <input type="radio" formControlName="decision" value="REJECTED" class="accent-error-600" />
+        <span class="font-medium text-gray-800 dark:text-gray-100">Rechazar la solicitud</span>
+      </label>
+    </div>
+
+    <dc-input
+      formControlName="resolvedBy"
+      label="Quién resuelve"
+      placeholder="Nombre del responsable"
+      hint="Persona que aprueba o rechaza la solicitud."
+      [required]="true"
+    />
+
+    <label class="flex flex-col gap-2">
+      <span class="text-sm font-medium text-gray-700 dark:text-white/90">Nota (opcional)</span>
+      <textarea
+        formControlName="note"
+        rows="2"
+        placeholder="Observación de la resolución"
+        class="w-full rounded-xl border border-gray-300 bg-white px-3.5 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 focus:border-brand-600 focus:ring-3 focus:ring-brand-500/15 focus:outline-none dark:border-gray-700 dark:bg-white/[0.03] dark:text-white/90"
+      ></textarea>
+    </label>
+
+    <div class="flex flex-wrap items-center justify-end gap-2 border-t border-gray-100 pt-4 dark:border-gray-800">
+      <button
+        type="button"
+        (click)="closeResolve()"
+        class="rounded-xl border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-100 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-white/[0.05]"
+      >
+        Cancelar
+      </button>
+      <button
+        type="submit"
+        class="inline-flex items-center gap-2 rounded-xl bg-brand-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-brand-700"
+      >
+        <dc-icon name="check" [size]="18" />
+        Confirmar resolución
+      </button>
+    </div>
+  </form>
+</app-modal>
+

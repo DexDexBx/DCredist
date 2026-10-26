@@ -1,0 +1,280 @@
+﻿<dc-page-header
+  title="Nuevo estudiante"
+  description="Registra un estudiante en el padrón o importa nuevos registros de forma incremental."
+  [breadcrumbs]="[
+    { label: 'Inicio', link: '/dashboard' },
+    { label: 'Estudiantes', link: '/students' },
+    { label: 'Nuevo' },
+  ]"
+/>
+
+@if (createdCode(); as code) {
+<div
+  class="mb-6 flex items-start gap-3 rounded-2xl border border-success-200 bg-success-50 px-4 py-3.5 dark:border-success-500/20 dark:bg-success-500/10"
+>
+  <dc-icon name="check" [size]="20" class="mt-0.5 text-success-600 dark:text-success-500" />
+  <div class="min-w-0">
+    <p class="text-sm font-medium text-success-700 dark:text-success-500">
+      Estudiante {{ code }} registrado en el padrón.
+    </p>
+    <p class="mt-0.5 text-sm text-success-700/80 dark:text-success-500/80">
+      Ya puede recibir participaciones en cualquier evento.
+    </p>
+  </div>
+</div>
+}
+
+@if (duplicateCode(); as code) {
+<div
+  class="mb-6 flex items-start gap-3 rounded-2xl border border-warning-200 bg-warning-50 px-4 py-3.5 dark:border-warning-500/20 dark:bg-warning-500/10"
+>
+  <dc-icon name="info" [size]="20" class="mt-0.5 text-warning-600 dark:text-warning-500" />
+  <div class="min-w-0">
+    <p class="text-sm font-medium text-warning-700 dark:text-warning-500">
+      El código {{ code }} ya existe en el padrón.
+    </p>
+    <p class="mt-0.5 text-sm text-warning-700/80 dark:text-warning-500/80">
+      El código universitario es único. No se puede volver a registrar.
+    </p>
+  </div>
+</div>
+}
+
+<form [formGroup]="form" (ngSubmit)="onSubmit()" class="grid gap-6 xl:grid-cols-3">
+  <dc-panel class="xl:col-span-2" title="Registro manual" subtitle="Datos permanentes del estudiante.">
+    <div class="grid gap-4 sm:grid-cols-2">
+      <dc-input
+        formControlName="universityCode"
+        label="Código universitario"
+        placeholder="2213271"
+        hint="Identificador único del estudiante."
+        [required]="true"
+        [invalid]="isInvalid('universityCode')"
+      />
+
+      <dc-input
+        formControlName="academicDegree"
+        label="Grado académico"
+        placeholder="Student"
+        hint="Puede quedar vacío si la institución no lo reporta."
+      />
+
+      <dc-input
+        formControlName="lastName"
+        label="Apellidos"
+        placeholder="AGUILAR PEREZ"
+        [required]="true"
+        [invalid]="isInvalid('lastName')"
+      />
+
+      <dc-input
+        formControlName="firstName"
+        label="Nombres"
+        placeholder="MARISOL SONIA"
+        [required]="true"
+        [invalid]="isInvalid('firstName')"
+      />
+
+      <dc-select
+        formControlName="professionalSchool"
+        label="Escuela profesional"
+        [options]="schoolOptions()"
+        [placeholder]="'Selecciona la escuela'"
+        [required]="true"
+        [invalid]="isInvalid('professionalSchool')"
+      />
+
+      <dc-select
+        formControlName="headquarters"
+        label="Sede"
+        [options]="siteOptions()"
+        [placeholder]="'Selecciona la sede'"
+        [required]="true"
+        [invalid]="isInvalid('headquarters')"
+      />
+
+      <dc-select
+        formControlName="status"
+        label="Estado"
+        [options]="statusOptions"
+        hint="Solo los estudiantes activos pueden recibir participaciones."
+      />
+    </div>
+
+    <div class="mt-6 flex flex-wrap items-center gap-2">
+      <button
+        type="submit"
+        class="inline-flex items-center gap-2 rounded-xl bg-brand-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-brand-700"
+      >
+        <dc-icon name="check" [size]="18" />
+        Guardar estudiante
+      </button>
+      <button
+        type="button"
+        (click)="onCancel()"
+        class="rounded-xl border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-white/[0.05]"
+      >
+        Cancelar
+      </button>
+    </div>
+  </dc-panel>
+
+  <dc-panel
+    title="Importación incremental"
+    subtitle="Agrega o completa estudiantes sin reemplazar el padrón."
+  >
+    <p class="text-sm text-gray-500 dark:text-gray-400">
+      Carga un archivo o pega una fila por estudiante. Las columnas van, en este orden:
+    </p>
+
+    <ol class="mt-3 flex flex-wrap gap-1.5 text-xs">
+      @for (column of importColumns; track column; let last = $last) {
+      <li
+        class="rounded-lg border border-gray-200 bg-gray-50 px-2 py-1 font-medium text-gray-700 dark:border-gray-800 dark:bg-white/[0.03] dark:text-gray-200"
+      >
+        {{ $index + 1 }}. {{ column }}
+      </li>
+      }
+    </ol>
+
+    <div
+      class="mt-4 rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3.5 dark:border-gray-800 dark:bg-white/[0.02]"
+    >
+      <p class="text-sm font-medium text-gray-900 dark:text-white/90">
+        ¿Qué debe tener el archivo?
+      </p>
+      <ul class="mt-2 space-y-1 text-xs leading-relaxed text-gray-600 dark:text-gray-300">
+        <li>1. Las cinco columnas obligatorias y, si existe, el grado académico en sexto lugar.</li>
+        <li>2. La fila de encabezado va en la primera fila: se ignora automáticamente.</li>
+        <li>3. En .xlsx se lee la primera hoja; en .csv o .txt una fila por línea.</li>
+        <li>4. El código debe ser numérico, los nombres solo letras; escuela y sede son obligatorias. Las filas que no cumplan se reportan y no se cargan.</li>
+      </ul>
+      <button
+        type="button"
+        (click)="downloadImportTemplate()"
+        class="mt-3 inline-flex items-center gap-2 rounded-xl border border-gray-300 bg-white px-3.5 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 dark:border-gray-700 dark:bg-white/[0.03] dark:text-gray-200 dark:hover:bg-white/[0.06]"
+      >
+        <dc-icon name="download" [size]="16" />
+        Descargar plantilla
+      </button>
+    </div>
+
+    <div class="mt-4 flex flex-col gap-2">
+      <span class="text-sm font-medium text-gray-700 dark:text-white/90">Archivo del padrón</span>
+      <label
+        class="flex cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed px-6 py-7 text-center transition-colors"
+        [class]="
+          isDragging()
+            ? 'border-brand-500 bg-brand-50 dark:bg-brand-500/10'
+            : 'border-gray-300 bg-gray-50 hover:border-brand-400 hover:bg-brand-50/50 dark:border-gray-700 dark:bg-white/[0.02] dark:hover:border-brand-500/50'
+        "
+        (dragover)="onDragOver($event)"
+        (dragleave)="onDragLeave($event)"
+        (drop)="onDrop($event)"
+      >
+        <input
+          type="file"
+          class="sr-only"
+          [accept]="fileAccept"
+          (change)="onFileSelected($event)"
+        />
+        <span
+          class="flex size-11 items-center justify-center rounded-full bg-white text-brand-600 shadow-theme-xs dark:bg-white/5 dark:text-brand-300"
+        >
+          <dc-icon name="download" [size]="22" />
+        </span>
+        <span class="mt-3 text-sm font-medium text-gray-900 dark:text-white/90">
+          Arrastra el archivo aquí o haz clic para seleccionarlo
+        </span>
+        <span class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+          Formatos .xlsx, .csv o .txt · una fila por estudiante
+        </span>
+      </label>
+
+      @if (importFileName(); as fileName) {
+      <div
+        class="flex items-center justify-between gap-3 rounded-xl border border-success-200 bg-success-50 px-3.5 py-2.5 dark:border-success-500/20 dark:bg-success-500/10"
+      >
+        <span class="flex min-w-0 items-center gap-2 text-sm font-medium text-success-700 dark:text-success-300">
+          <dc-icon name="document" [size]="16" />
+          <span class="truncate">{{ fileName }}</span>
+        </span>
+        <button
+          type="button"
+          (click)="clearImportFile()"
+          class="shrink-0 rounded-lg px-2 py-1 text-xs font-medium text-success-700 transition-colors hover:bg-success-100 dark:text-success-300 dark:hover:bg-success-500/20"
+        >
+          Quitar
+        </button>
+      </div>
+      }
+
+      @if (importFileError(); as message) {
+      <div
+        class="flex items-start gap-3 rounded-xl border border-error-200 bg-error-50 px-3.5 py-2.5 dark:border-error-500/20 dark:bg-error-500/10"
+      >
+        <dc-icon name="info" [size]="16" class="mt-0.5 text-error-600 dark:text-error-500" />
+        <p class="text-sm font-medium text-error-700 dark:text-error-500">{{ message }}</p>
+      </div>
+      }
+    </div>
+
+    <span class="mt-4 block text-sm font-medium text-gray-700 dark:text-white/90">
+      …o pega las filas
+    </span>
+    <textarea
+      rows="7"
+      [value]="importText()"
+      (input)="importText.set($any($event.target).value); clearImportFile()"
+      placeholder="2219001;RAMIREZ;CAMILA;INGENIERIA DE SISTEMAS;TRUJILLO"
+      class="mt-2 w-full rounded-xl border border-gray-300 bg-white px-3.5 py-2.5 font-mono text-xs text-gray-900 placeholder:text-gray-400 focus:border-brand-600 focus:ring-3 focus:ring-brand-500/15 focus:outline-none dark:border-gray-700 dark:bg-white/[0.03] dark:text-white/90"
+    ></textarea>
+
+    <div class="mt-4 flex flex-wrap items-center gap-2">
+      <button
+        type="button"
+        (click)="onImport()"
+        [disabled]="!importText().trim()"
+        class="inline-flex items-center gap-2 rounded-xl border border-brand-200 bg-brand-50 px-4 py-2.5 text-sm font-medium text-brand-700 transition-colors hover:bg-brand-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-brand-500/20 dark:bg-brand-500/10 dark:text-brand-200"
+      >
+        Importar
+      </button>
+      <button
+        type="button"
+        (click)="loadExample()"
+        class="rounded-xl border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-white/[0.05]"
+      >
+        Cargar ejemplo
+      </button>
+    </div>
+
+    @if (importSummary(); as summary) {
+    <div
+      class="mt-5 rounded-xl border border-gray-200 bg-gray-50 p-4 text-sm dark:border-gray-800 dark:bg-white/[0.03]"
+    >
+      <p class="font-medium text-gray-900 dark:text-white/90">Resultado de la importación</p>
+      <ul class="mt-2 space-y-1 text-gray-600 dark:text-gray-300">
+        <li>{{ summary.total }} fila(s) leída(s)</li>
+        <li>{{ summary.created }} estudiante(s) nuevo(s)</li>
+        <li>{{ summary.updated }} estudiante(s) completado(s)</li>
+        @if (summary.duplicates.length) {
+        <li>{{ summary.duplicates.length }} duplicado(s) ignorado(s)</li>
+        }
+        @if (summary.invalid.length) {
+        <li class="text-error-600 dark:text-error-500">
+          {{ summary.invalid.length }} fila(s) inválida(s): código no numérico, nombres con
+          símbolos o escuela/sede faltante → {{ summary.invalid.join(', ') }}
+        </li>
+        }
+      </ul>
+      <a
+        routerLink="/students"
+        class="mt-3 inline-flex items-center gap-1 text-sm font-medium text-brand-600 hover:text-brand-700 dark:text-brand-300"
+      >
+        Ver el padrón completo
+        <dc-icon name="chevron-right" [size]="16" />
+      </a>
+    </div>
+    }
+  </dc-panel>
+</form>

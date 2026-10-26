@@ -1,0 +1,33 @@
+<div class="flex flex-col gap-1.5">
+  @if (label()) {
+  <label
+    class="text-sm font-medium text-gray-700 dark:text-gray-200 dark:text-white/90"
+    [attr.for]="controlId"
+  >
+    {{ label() }}
+    @if (required()) {
+    <span class="text-error-500" aria-hidden="true">*</span>
+    }
+  </label>
+  }
+
+  <input
+    [id]="controlId"
+    [type]="type()"
+    [value]="value()"
+    [placeholder]="placeholder()"
+    [autocomplete]="autocomplete()"
+    [disabled]="disabled()"
+    [attr.min]="type() === 'number' ? (min() ?? null) : null"
+    [attr.required]="required() ? '' : null"
+    [attr.aria-invalid]="invalid() ? 'true' : null"
+    [class]="fieldClasses()"
+    (input)="onInput($event)"
+    (keydown)="onKeydown($event)"
+    (blur)="onBlur()"
+  />
+
+  @if (hint()) {
+  <p class="text-xs text-gray-500 dark:text-gray-400">{{ hint() }}</p>
+  }
+</div>

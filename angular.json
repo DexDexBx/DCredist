@@ -3,7 +3,7 @@
   "version": 1,
   "newProjectRoot": "projects",
   "projects": {
-    "ng-tailadmin": {
+    "dcredits": {
       "projectType": "application",
       "schematics": {},
       "root": "",
@@ -13,15 +13,11 @@
         "build": {
           "builder": "@angular/build:application",
           "options": {
-            "outputPath": "dist/ng-tailadmin",
+            "outputPath": "dist/dcredits",
             "index": "src/index.html",
             "browser": "src/main.ts",
             "polyfills": [
               "zone.js"
-            ],
-            "allowedCommonJsDependencies": [
-               "prismjs",
-               "polylabel"
             ],
             "tsConfig": "tsconfig.app.json",
             "assets": [
@@ -33,18 +29,19 @@
             "styles": [
               "src/styles.css"
             ],
-            "scripts": [
-              "node_modules/apexcharts/dist/apexcharts.min.js"
+            "scripts": [],
+            "allowedCommonJsDependencies": [
+              "exceljs"
             ]
           },
           "configurations": {
             "production": {
               "budgets": [
-                {
-                  "type": "initial",
-                  "maximumWarning": "8MB",
-                  "maximumError": "10MB"
-                },
+{
+                    "type": "initial",
+                    "maximumWarning": "1.1MB",
+                    "maximumError": "2MB"
+                  },
                 {
                   "type": "anyComponentStyle",
                   "maximumWarning": "4kB",
@@ -63,12 +60,15 @@
         },
         "serve": {
           "builder": "@angular/build:dev-server",
+          "options": {
+            "proxyConfig": "proxy.conf.json"
+          },
           "configurations": {
             "production": {
-              "buildTarget": "ng-tailadmin:build:production"
+              "buildTarget": "dcredits:build:production"
             },
             "development": {
-              "buildTarget": "ng-tailadmin:build:development"
+              "buildTarget": "dcredits:build:development"
             }
           },
           "defaultConfiguration": "development"

@@ -1,0 +1,29 @@
+<div
+  class="flex min-h-[70vh] flex-col items-center justify-center px-4 text-center"
+>
+  <p class="text-7xl font-semibold tracking-tight text-brand-700 dark:text-brand-400">404</p>
+
+  <h1 class="mt-4 text-xl font-semibold text-gray-900 dark:text-white/90">
+    Página no encontrada
+  </h1>
+  <p class="mt-2 max-w-md text-sm text-gray-500 dark:text-gray-400">
+    La dirección que buscas no existe o fue movida dentro de DCredits.
+  </p>
+
+  <div class="mt-6 flex flex-wrap items-center justify-center gap-2">
+    <a
+      routerLink="/"
+      class="inline-flex h-10 items-center gap-2 rounded-xl bg-brand-700 px-4 text-sm font-semibold text-white transition-colors hover:bg-brand-800"
+    >
+      <dc-icon name="arrow-left" [size]="16" />
+      Ir al inicio
+    </a>
+    <a
+      routerLink="/events"
+      class="inline-flex h-10 items-center gap-2 rounded-xl border border-gray-200 px-4 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-100 dark:border-gray-800 dark:text-gray-200 dark:hover:bg-white/5"
+    >
+      <dc-icon name="event" [size]="16" />
+      Ver eventos
+    </a>
+  </div>
+</div>

@@ -1,0 +1,37 @@
+@if (student(); as item) {
+<dc-page-header
+  [title]="'Constancia de créditos · ' + item.lastName + ', ' + item.firstName"
+  [description]="'Documento formal de acreditación · ' + item.universityCode"
+  [breadcrumbs]="[
+    { label: 'Inicio', link: '/dashboard' },
+    { label: 'Estudiantes', link: '/students' },
+    { label: item.universityCode, link: '/students/' + item.id },
+    { label: 'Constancia de créditos' },
+  ]"
+>
+  <div header-actions class="flex flex-wrap items-center gap-2">
+    <button
+      type="button"
+      (click)="print()"
+      class="inline-flex items-center gap-2 rounded-xl bg-brand-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-brand-700"
+    >
+      <dc-icon name="download" [size]="18" />
+      Imprimir
+    </button>
+    <a
+      [routerLink]="['/students', item.id]"
+      class="inline-flex items-center gap-2 rounded-xl border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-white/[0.05]"
+    >
+      <dc-icon name="arrow-left" [size]="18" />
+      Volver a la ficha
+    </a>
+  </div>
+</dc-page-header>
+
+<dc-certificate-document [studentId]="item.id" />
+} @else {
+<dc-empty-state
+  title="Estudiante no encontrado"
+  description="El código solicitado no existe en el padrón."
+/>
+}

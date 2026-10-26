@@ -1,0 +1,202 @@
+@if (user(); as user) {
+<dc-page-header
+  [title]="user.fullName"
+  [description]="user.email + ' · ' + roleLabels[user.role]"
+  [breadcrumbs]="[
+    { label: 'Inicio', link: '/dashboard' },
+    { label: 'Usuarios', link: '/users' },
+    { label: user.fullName },
+  ]"
+>
+  <div header-actions class="flex flex-wrap items-center gap-2">
+    @if (canManage()) {
+    <label
+      class="inline-flex cursor-pointer items-center gap-3 rounded-xl border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-white/[0.05]"
+    >
+      <span>{{ statusLabel[user.status] }}</span>
+      <span class="relative inline-flex h-6 w-11 shrink-0 items-center">
+        <input
+          type="checkbox"
+          class="peer sr-only"
+          [checked]="user.status === 'ACTIVE'"
+          (change)="toggleStatus()"
+        />
+        <span
+          class="h-6 w-11 rounded-full bg-gray-300 transition-colors peer-checked:bg-brand-600 dark:bg-gray-700"
+        ></span>
+        <span
+          class="absolute top-0.5 left-0.5 size-5 rounded-full bg-white shadow transition-transform peer-checked:translate-x-5"
+        ></span>
+      </span>
+    </label>
+    }
+    <a
+      routerLink="/users"
+      class="inline-flex items-center gap-2 rounded-xl border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-white/[0.05]"
+    >
+      <dc-icon name="arrow-left" [size]="18" />
+      Volver al directorio
+    </a>
+  </div>
+</dc-page-header>
+
+@if (saved()) {
+<div
+  class="mb-6 flex items-start gap-3 rounded-2xl border border-success-200 bg-success-50 px-4 py-3.5 dark:border-success-500/20 dark:bg-success-500/10"
+>
+  <dc-icon name="check" [size]="20" class="mt-0.5 text-success-600 dark:text-success-500" />
+  <p class="text-sm font-medium text-success-700 dark:text-success-500">
+    Cambios guardados en el perfil de {{ user.fullName }}.
+  </p>
+</div>
+}
+
+@if (formError(); as error) {
+<div
+  class="mb-6 flex items-start gap-3 rounded-2xl border border-error-200 bg-error-50 px-4 py-3.5 dark:border-error-500/20 dark:bg-error-500/10"
+>
+  <dc-icon name="info" [size]="20" class="mt-0.5 text-error-600 dark:text-error-500" />
+  <p class="text-sm font-medium text-error-700 dark:text-error-500">{{ error }}</p>
+</div>
+}
+
+@if (canManage()) {
+<form [formGroup]="form" (ngSubmit)="onSubmit()" class="grid gap-6 xl:grid-cols-3">
+  <dc-panel class="xl:col-span-2" title="Datos del usuario" subtitle="Nombre, correo, perfil y estado.">
+    <div class="grid gap-4 sm:grid-cols-2">
+      <dc-input
+        formControlName="fullName"
+        label="Nombre completo"
+        placeholder="Ana Torres"
+        [required]="true"
+        [invalid]="isInvalid('fullName')"
+      />
+
+      <dc-input
+        formControlName="email"
+        type="email"
+        label="Correo"
+        placeholder="ana.torres@dcredits.demo"
+        hint="Debe ser único en el directorio."
+        [required]="true"
+        [invalid]="isInvalid('email')"
+      />
+
+      <dc-select
+        formControlName="role"
+        label="Perfil"
+        [options]="roleOptions"
+        hint="Define qué módulos puede ver y gestionar."
+        [required]="true"
+        [invalid]="isInvalid('role')"
+      />
+
+      <dc-select
+        formControlName="status"
+        label="Estado"
+        [options]="statusOptions"
+        hint="Solo los usuarios activos pueden usar el sistema."
+      />
+    </div>
+
+    @if (isInvalid('fullName')) {
+    <p class="mt-2 text-xs font-medium text-error-600 dark:text-error-500">
+      El nombre completo es obligatorio (mínimo 3 caracteres).
+    </p>
+    }
+    @if (isInvalid('email')) {
+    <p class="mt-2 text-xs font-medium text-error-600 dark:text-error-500">
+      Escribe un correo válido.
+    </p>
+    }
+
+    <div class="mt-6 flex flex-wrap items-center gap-2">
+      <button
+        type="submit"
+        class="inline-flex items-center gap-2 rounded-xl bg-brand-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-brand-700"
+      >
+        <dc-icon name="check" [size]="18" />
+        Guardar cambios
+      </button>
+      <button
+        type="button"
+        (click)="goBack()"
+        class="rounded-xl border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-white/[0.05]"
+      >
+        Cancelar
+      </button>
+    </div>
+  </dc-panel>
+
+  <dc-panel title="Información" subtitle="Datos del registro en el directorio.">
+    <dl class="space-y-4 text-sm">
+      <div>
+        <dt class="text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500">
+          Identificador
+        </dt>
+        <dd class="mt-1 font-mono text-xs text-gray-700 dark:text-gray-300">{{ user.id }}</dd>
+      </div>
+      <div>
+        <dt class="text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500">
+          Perfil
+        </dt>
+        <dd class="mt-1">
+          <app-badge size="sm" [color]="badgeColor(user.role)">{{ roleLabels[user.role] }}</app-badge>
+        </dd>
+      </div>
+      <div>
+        <dt class="text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500">
+          Descripción del perfil
+        </dt>
+        <dd class="mt-1 leading-relaxed text-gray-600 dark:text-gray-300">{{ user.description }}</dd>
+      </div>
+      <div>
+        <dt class="text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500">
+          Acceso
+        </dt>
+        <dd class="mt-1 leading-relaxed text-gray-600 dark:text-gray-300">
+          La contraseña se definirá cuando exista la API. Mientras tanto, un administrador puede
+          entrar como este usuario desde el listado.
+        </dd>
+      </div>
+    </dl>
+  </dc-panel>
+</form>
+} @else {
+<dc-panel title="Datos del usuario" subtitle="Solo lectura: tu perfil no tiene gestión de usuarios.">
+  <dl class="grid gap-4 sm:grid-cols-2">
+    <div>
+      <dt class="text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500">
+        Nombre completo
+      </dt>
+      <dd class="mt-1 text-sm text-gray-900 dark:text-white/90">{{ user.fullName }}</dd>
+    </div>
+    <div>
+      <dt class="text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500">
+        Correo
+      </dt>
+      <dd class="mt-1 text-sm text-gray-900 dark:text-white/90">{{ user.email }}</dd>
+    </div>
+    <div>
+      <dt class="text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500">
+        Perfil
+      </dt>
+      <dd class="mt-1">
+        <app-badge size="sm" [color]="badgeColor(user.role)">{{ roleLabels[user.role] }}</app-badge>
+      </dd>
+    </div>
+    <div>
+      <dt class="text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500">
+        Estado
+      </dt>
+      <dd class="mt-1 text-sm text-gray-900 dark:text-white/90">{{ statusLabel[user.status] }}</dd>
+    </div>
+  </dl>
+</dc-panel>
+}
+} @else {
+<dc-empty-state
+  title="Usuario no encontrado"
+  description="El identificador solicitado no existe en el directorio."
+/>
+}

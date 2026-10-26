@@ -1,0 +1,290 @@
+<dc-page-header
+  title="Participaciones"
+  description="Relación entre estudiantes y eventos. Cada participación tiene su propio código de verificación."
+  [breadcrumbs]="[
+    { label: 'Inicio', link: '/dashboard' },
+    { label: 'Participaciones' },
+  ]"
+>
+  <div header-actions class="flex flex-wrap items-center gap-2">
+    @if (auth.can('certificates', 'VIEW')) {
+    <a
+      routerLink="/certificates/codes"
+      class="inline-flex items-center gap-2 rounded-xl border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-white/[0.05]"
+    >
+      <dc-icon name="key" [size]="18" />
+      Códigos de certificado
+    </a>
+    }
+    @if (auth.can('participations', 'MANAGE')) {
+    <a
+      routerLink="/participations/register"
+      class="inline-flex items-center gap-2 rounded-xl bg-brand-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-brand-700"
+    >
+      <dc-icon name="plus" [size]="18" />
+      Registrar participación
+    </a>
+    }
+  </div>
+</dc-page-header>
+
+<div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+  <dc-stat-card
+    label="Participaciones"
+    [value]="summary().total"
+    hint="Según los filtros aplicados"
+    tone="primary"
+  />
+  <dc-stat-card
+    label="Vigentes"
+    [value]="summary().valid"
+    hint="Las únicas que suman créditos"
+    tone="success"
+  />
+  <dc-stat-card
+    label="Créditos de la vista"
+    [value]="summary().totalCredits"
+    hint="Solo participaciones vigentes"
+    tone="accent"
+  />
+  <dc-stat-card
+    label="Notas pendientes"
+    [value]="summary().pendingGrades"
+    [hint]="formatCount(summary().withCertificate) + ' con código de certificado'"
+    tone="warning"
+  />
+</div>
+
+@if (summary().pendingMigration > 0) {
+<div
+  class="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-warning-300 bg-warning-50 px-4 py-3 dark:border-warning-500/25 dark:bg-warning-500/10"
+>
+  <p class="text-sm text-warning-800 dark:text-warning-200">
+    <strong>{{ formatCount(summary().pendingMigration) }}</strong>
+    participaciones conservan el código del sistema anterior pero todavía no tienen
+    código DC. Se pueden emitir desde el módulo de códigos.
+  </p>
+  @if (auth.can('certificates', 'MANAGE')) {
+  <a
+    routerLink="/certificates/codes"
+    class="rounded-xl bg-warning-500 px-3.5 py-2 text-sm font-medium text-white transition-colors hover:bg-warning-600"
+  >
+    Generar códigos
+  </a>
+  }
+</div>
+}
+
+<dc-panel
+  class="mt-6"
+  title="Filtros y búsqueda"
+  subtitle="Busca por código de verificación, código anterior, estudiante o evento."
+>
+  <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+    <label class="block">
+      <span class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300"
+        >Búsqueda</span
+      >
+      <input
+        type="search"
+        [ngModel]="searchInput()"
+        (ngModelChange)="searchInput.set($event)"
+        placeholder="DC-2026-XXXXXX, estudiante o evento"
+        class="h-11 w-full rounded-xl border border-gray-300 bg-white px-3.5 text-sm text-gray-900 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-600 focus:ring-3 focus:ring-brand-500/15 focus:outline-none dark:border-gray-700 dark:bg-white/[0.03] dark:text-white/90"
+      />
+    </label>
+
+    <dc-combobox
+      label="Evento"
+      [ngModel]="eventId()"
+      (ngModelChange)="eventId.set($event)"
+      [options]="eventOptions()"
+      placeholder="Todos los eventos"
+      hint="Escribe para buscar por código, nombre u organizador."
+      emptyText="No se encontraron eventos."
+    />
+
+    <label class="block">
+      <span class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300"
+        >Tipo de participación</span
+      >
+      <select
+        [ngModel]="type()"
+        (ngModelChange)="type.set($event)"
+        class="h-11 w-full rounded-xl border border-gray-300 bg-white px-3.5 text-sm text-gray-900 shadow-theme-xs focus:border-brand-600 focus:ring-3 focus:ring-brand-500/15 focus:outline-none dark:border-gray-700 dark:bg-white/[0.03] dark:text-white/90"
+      >
+        <option value="">Todos los tipos</option>
+        @for (item of types; track item) {
+        <option [value]="item">{{ typeLabel[item] }}</option>
+        }
+      </select>
+    </label>
+
+    <label class="block">
+      <span class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300"
+        >Estado</span
+      >
+      <select
+        [ngModel]="status()"
+        (ngModelChange)="status.set($event)"
+        class="h-11 w-full rounded-xl border border-gray-300 bg-white px-3.5 text-sm text-gray-900 shadow-theme-xs focus:border-brand-600 focus:ring-3 focus:ring-brand-500/15 focus:outline-none dark:border-gray-700 dark:bg-white/[0.03] dark:text-white/90"
+      >
+        <option value="Todos">Todos</option>
+        <option value="VALID">Vigente</option>
+        <option value="PENDING">Pendiente</option>
+        <option value="CANCELLED">Anulada</option>
+      </select>
+    </label>
+  </div>
+
+  <div class="mt-4 flex flex-wrap items-center gap-2">
+    <div
+      class="inline-flex rounded-xl border border-gray-300 p-0.5 dark:border-gray-700"
+      role="group"
+      aria-label="Ordenar por"
+    >
+      @for (option of sortOptions; track option.value) {
+      <button
+        type="button"
+        (click)="onSortChange(option.value)"
+        [attr.aria-pressed]="sort() === option.value"
+        class="rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors"
+        [class.bg-brand-600]="sort() === option.value"
+        [class.text-white]="sort() === option.value"
+        [class.text-gray-600]="sort() !== option.value"
+        [class.hover:bg-gray-50]="sort() !== option.value"
+        [class.dark:text-gray-300]="sort() !== option.value"
+        [class.dark:hover:bg-white/5]="sort() !== option.value"
+      >
+        {{ option.label }}
+      </button>
+      }
+    </div>
+
+    @if (hasFilters()) {
+    <button
+      type="button"
+      (click)="clearFilters()"
+      class="rounded-lg border border-gray-300 px-2.5 py-1 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-white/[0.05]"
+    >
+      Limpiar filtros
+    </button>
+    }
+  </div>
+</dc-panel>
+
+<dc-panel class="mt-6" [bodyClass]="'px-0 py-0'">
+  <div
+    class="flex flex-wrap items-center justify-between gap-3 border-b border-gray-200 px-5 py-3 dark:border-gray-800"
+  >
+    <p class="text-sm text-gray-600 dark:text-gray-400">{{ exportNote() }}</p>
+    <div class="flex flex-wrap items-center gap-2">
+      <button
+        type="button"
+        (click)="exportInstitutional()"
+        [disabled]="!hasResults()"
+        class="inline-flex items-center gap-2 rounded-xl bg-brand-600 px-3.5 py-2 text-sm font-medium text-white transition-colors hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-50"
+      >
+        <dc-icon name="download" [size]="16" />
+        Exportar a Excel
+      </button>
+    </div>
+  </div>
+
+  @if (rows().length) {
+  <div class="overflow-x-auto">
+    <table class="w-full min-w-[1000px] border-collapse text-left text-sm">
+      <thead>
+        <tr
+          class="border-b border-gray-200 bg-gray-50 text-xs font-semibold tracking-wide text-gray-500 uppercase dark:border-gray-800 dark:bg-white/[0.02] dark:text-gray-400"
+        >
+          <th scope="col" class="px-5 py-3">Fecha</th>
+          <th scope="col" class="px-5 py-3">Estudiante</th>
+          <th scope="col" class="px-5 py-3">Evento</th>
+          <th scope="col" class="px-5 py-3">Tipo</th>
+          <th scope="col" class="px-5 py-3 text-right">Créditos</th>
+          <th scope="col" class="px-5 py-3 text-right">Nota</th>
+          <th scope="col" class="px-5 py-3">C&#243;digo del certificado</th>
+          <th scope="col" class="px-5 py-3">Estado</th>
+        </tr>
+      </thead>
+
+      <tbody class="divide-y divide-gray-200 dark:divide-gray-800">
+        @for (row of rows(); track row.participation.id) {
+        <tr class="transition-colors hover:bg-gray-50 dark:hover:bg-white/[0.02]">
+          <td class="px-5 py-3 text-gray-600 dark:text-gray-300">
+            {{ date(row.participation.participationDate) }}
+          </td>
+          <td class="px-5 py-3">
+            <a
+              [routerLink]="studentHref(row)"
+              class="font-medium text-gray-900 hover:text-brand-600 dark:text-white/90 dark:hover:text-brand-300"
+              >{{ studentName(row) }}</a
+            >
+            <p class="font-mono text-xs text-gray-500 dark:text-gray-400">
+              {{ studentCode(row) }}
+            </p>
+          </td>
+          <td class="px-5 py-3">
+            <a
+              [routerLink]="eventHref(row)"
+              class="text-gray-700 hover:text-brand-600 dark:text-gray-200 dark:hover:text-brand-300"
+              >{{ eventName(row) }}</a
+            >
+          </td>
+          <td class="px-5 py-3 text-gray-600 dark:text-gray-300">
+            {{ typeLabel[row.participation.participationType] }}
+          </td>
+          <td class="px-5 py-3 text-right font-medium text-gray-900 dark:text-white/90">
+            {{ row.participation.credits }}
+          </td>
+          <td class="px-5 py-3 text-right text-gray-600 dark:text-gray-300">
+            @if (row.participation.grade !== null && row.participation.grade !== undefined) {
+            {{ row.participation.grade }}
+            } @else {
+            <span class="text-gray-400">Sin nota</span>
+            }
+          </td>
+          <td class="px-5 py-3">
+            @if (hasCertificate(row)) {
+            <dc-certificate-code [codes]="row.participation" />
+            } @else {
+            <span class="text-sm text-gray-400">Sin código</span>
+            }
+          </td>
+          <td class="px-5 py-3">
+            <div class="flex flex-wrap items-center gap-1.5">
+              <app-badge size="sm" [color]="statusColor(row.participation.status)">{{
+                statusLabel[row.participation.status]
+              }}</app-badge>
+              @if (isLate(row)) {
+              <app-badge size="sm" color="warning">Extemporáneo</app-badge>
+              }
+            </div>
+          </td>
+        </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+
+  <div class="border-t border-gray-200 px-5 py-3 dark:border-gray-800">
+    <dc-pagination
+      [page]="pageData().page"
+      [pageCount]="pageData().pageCount"
+      [total]="pageData().total"
+      [from]="pageData().from"
+      [to]="pageData().to"
+      [pageSize]="pageData().pageSize"
+      [pageSizes]="pageSizes"
+      (pageChange)="goToPage($event)"
+      (pageSizeChange)="onPageSizeChange($event)"
+    />
+  </div>
+  } @else {
+  <dc-empty-state
+    title="Sin participaciones"
+    description="No hay participaciones que coincidan con los filtros aplicados."
+  />
+  }
+</dc-panel>

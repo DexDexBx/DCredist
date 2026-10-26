@@ -1,0 +1,414 @@
+<dc-page-header
+  title="Verificar código"
+  description="Comprueba la validez y la emisión de certificados y constancias de DCredits."
+  [breadcrumbs]="[
+    { label: 'Inicio', link: '/dashboard' },
+    { label: 'Verificación' },
+  ]"
+/>
+
+<!-- Submenú: certificados (por participación) / constancias (por estudiante) -->
+<div
+  class="mb-5 inline-flex rounded-xl border border-gray-200 bg-gray-50 p-1 dark:border-gray-800 dark:bg-white/[0.03]"
+  role="tablist"
+  aria-label="Tipo de documento"
+>
+  <button
+    type="button"
+    role="tab"
+    [attr.aria-selected]="kind() === 'CERTIFICATE'"
+    (click)="selectKind('CERTIFICATE')"
+    class="inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors"
+    [class]="
+      kind() === 'CERTIFICATE'
+        ? 'bg-white text-brand-700 shadow-theme-xs dark:bg-gray-800 dark:text-brand-300'
+        : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
+    "
+  >
+    <dc-icon name="document" [size]="16" />
+    Certificados
+  </button>
+  <button
+    type="button"
+    role="tab"
+    [attr.aria-selected]="kind() === 'CONSTANCY'"
+    (click)="selectKind('CONSTANCY')"
+    class="inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors"
+    [class]="
+      kind() === 'CONSTANCY'
+        ? 'bg-white text-brand-700 shadow-theme-xs dark:bg-gray-800 dark:text-brand-300'
+        : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
+    "
+  >
+    <dc-icon name="shield-check" [size]="16" />
+    Constancias
+  </button>
+</div>
+
+@if (kind() === 'CERTIFICATE') {
+<!-- CERTIFICADOS: código por participación -->
+<dc-panel
+  title="Código de certificado"
+  subtitle="Formato del código de DCredits: DC-AAAA-XXXXXX."
+>
+  <form (ngSubmit)="onVerify()" class="flex flex-col gap-3 sm:flex-row">
+    <div class="relative flex-1">
+      <input
+        type="text"
+        name="codigo"
+        [ngModel]="code()"
+        (ngModelChange)="code.set($event)"
+        placeholder="DC-2026-8F4K2P"
+        autocomplete="off"
+        spellcheck="false"
+        class="h-12 w-full rounded-xl border border-gray-300 bg-white px-4 pl-11 font-mono text-sm tracking-wider text-gray-900 shadow-theme-xs placeholder:font-sans placeholder:tracking-normal placeholder:text-gray-400 focus:border-brand-600 focus:ring-3 focus:ring-brand-500/15 focus:outline-none dark:border-gray-700 dark:bg-white/[0.03] dark:text-white/90"
+      />
+      <dc-icon
+        name="shield-check"
+        [size]="20"
+        class="pointer-events-none absolute top-1/2 left-4 -translate-y-1/2 text-gray-400"
+      />
+    </div>
+
+    <div class="flex gap-2">
+      <button
+        type="submit"
+        class="inline-flex items-center gap-2 rounded-xl bg-brand-600 px-5 py-3 text-sm font-medium text-white transition-colors hover:bg-brand-700"
+      >
+        Verificar
+      </button>
+      @if (hasSearched()) {
+      <button
+        type="button"
+        (click)="onClear()"
+        class="rounded-xl border border-gray-300 px-4 py-3 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-white/[0.05]"
+      >
+        Limpiar
+      </button>
+      }
+    </div>
+  </form>
+
+  @if (suggestions().length) {
+  <div class="mt-4">
+    <p class="text-xs font-medium tracking-wide text-gray-500 uppercase dark:text-gray-400">
+      Coincidencias
+    </p>
+    <ul class="mt-2 flex flex-wrap gap-2">
+      @for (item of suggestions(); track item.participation.id) {
+      <li>
+        <button
+          type="button"
+          (click)="pick(codeOf(item.participation))"
+          class="rounded-xl border border-gray-200 px-3 py-2 text-left transition-colors hover:border-brand-300 hover:bg-brand-50 dark:border-gray-800 dark:hover:bg-white/[0.05]"
+        >
+          <dc-certificate-code [codes]="item.participation" [showOrigin]="false" />
+          <span class="mt-0.5 block text-xs text-gray-500 dark:text-gray-400">
+            {{ item.event?.name ?? 'Evento no disponible' }}
+          </span>
+        </button>
+      </li>
+      }
+    </ul>
+  </div>
+  }
+</dc-panel>
+} @else {
+<!-- CONSTANCIAS: código del documento de créditos por estudiante -->
+<dc-panel
+  title="Código de constancia"
+  subtitle="Formato del código de la constancia: CONST-<código>-XXXXXX."
+>
+  <form (ngSubmit)="onVerify()" class="flex flex-col gap-3 sm:flex-row">
+    <div class="relative flex-1">
+      <input
+        type="text"
+        name="codigoConstancia"
+        [ngModel]="code()"
+        (ngModelChange)="code.set($event)"
+        placeholder="CONST-20260001-8F4K2P"
+        autocomplete="off"
+        spellcheck="false"
+        class="h-12 w-full rounded-xl border border-gray-300 bg-white px-4 pl-11 font-mono text-sm tracking-wider text-gray-900 shadow-theme-xs placeholder:font-sans placeholder:tracking-normal placeholder:text-gray-400 focus:border-brand-600 focus:ring-3 focus:ring-brand-500/15 focus:outline-none dark:border-gray-700 dark:bg-white/[0.03] dark:text-white/90"
+      />
+      <dc-icon
+        name="document"
+        [size]="20"
+        class="pointer-events-none absolute top-1/2 left-4 -translate-y-1/2 text-gray-400"
+      />
+    </div>
+
+    <div class="flex gap-2">
+      <button
+        type="submit"
+        class="inline-flex items-center gap-2 rounded-xl bg-brand-600 px-5 py-3 text-sm font-medium text-white transition-colors hover:bg-brand-700"
+      >
+        Verificar
+      </button>
+      @if (hasSearched()) {
+      <button
+        type="button"
+        (click)="onClear()"
+        class="rounded-xl border border-gray-300 px-4 py-3 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-white/[0.05]"
+      >
+        Limpiar
+      </button>
+      }
+    </div>
+  </form>
+</dc-panel>
+
+@if (constancy(); as result) {
+<div class="mt-6 rounded-2xl border p-5" [class]="panelClass()">
+  <div class="flex items-start gap-3">
+    <dc-icon [name]="iconName()" [size]="22" class="mt-0.5 text-gray-700 dark:text-white/80" />
+    <div class="min-w-0">
+      <h2 class="text-base font-semibold text-gray-900 dark:text-white/90">
+        @switch (result.outcome) {
+        @case ('VALID') {
+        Constancia verificada
+        }
+        @case ('NOT_ISSUED') {
+        Constancia no vigente
+        }
+        @case ('NOT_FOUND') {
+        Código no encontrado
+        }
+        @default {
+        Código con formato inválido
+        }
+        }
+      </h2>
+      <p class="mt-1 text-sm text-gray-600 dark:text-gray-300">{{ result.message }}</p>
+    </div>
+  </div>
+
+  @if (result.result; as found) {
+  <div class="mt-5 grid gap-4 lg:grid-cols-2">
+    <div
+      class="rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-white/[0.03]"
+    >
+      <p class="text-xs font-medium tracking-wide text-gray-500 uppercase dark:text-gray-400">
+        Estudiante
+      </p>
+      <a
+        [routerLink]="['/students', found.student.id]"
+        class="mt-2 block text-sm font-medium text-gray-900 hover:text-brand-600 dark:text-white/90 dark:hover:text-brand-300"
+      >
+        {{ found.student.lastName }}, {{ found.student.firstName }}
+      </a>
+      <p class="mt-1 font-mono text-xs text-gray-500 dark:text-gray-400">
+        {{ found.student.universityCode }} · {{ found.student.professionalSchool }} ·
+        {{ found.student.headquarters }}
+      </p>
+
+      <dl class="mt-4 space-y-2.5 text-sm">
+        <div class="flex items-start justify-between gap-4">
+          <dt class="text-gray-500 dark:text-gray-400">Créditos acumulados</dt>
+          <dd class="font-medium text-gray-900 dark:text-white/90">
+            {{ found.summary.totalCredits }} / {{ requiredCredits }}
+          </dd>
+        </div>
+        <div class="flex items-start justify-between gap-4">
+          <dt class="text-gray-500 dark:text-gray-400">Eventos</dt>
+          <dd class="text-gray-900 dark:text-white/90">{{ found.summary.eventsParticipated }}</dd>
+        </div>
+        <div class="flex items-start justify-between gap-4">
+          <dt class="text-gray-500 dark:text-gray-400">Fecha de emisión</dt>
+          <dd class="text-gray-900 dark:text-white/90">{{ constancyIssuedOn(found.issuedOn) }}</dd>
+        </div>
+        <div class="flex items-start justify-between gap-4">
+          <dt class="text-gray-500 dark:text-gray-400">Estado</dt>
+          <dd>
+            @if (found.meetsRequirement) {
+            <app-badge size="sm" color="success">Vigente</app-badge>
+            } @else {
+            <app-badge size="sm" color="warning">No vigente</app-badge>
+            }
+          </dd>
+        </div>
+      </dl>
+    </div>
+
+    <div
+      class="flex flex-col justify-between rounded-xl border border-brand-200 bg-brand-50 p-4 dark:border-brand-500/20 dark:bg-brand-500/10"
+    >
+      <div>
+        <p class="text-sm font-medium text-brand-800 dark:text-brand-200">
+          Constancia de créditos
+        </p>
+        <p class="mt-1 text-sm text-brand-700/80 dark:text-brand-300/80">
+          Documento a nivel estudiante. Se emite al alcanzar los
+          {{ requiredCredits }} créditos y puede comprobarse con este código.
+        </p>
+      </div>
+      <a
+        [routerLink]="['/students', found.student.id, 'certificate']"
+        class="mt-4 inline-flex items-center gap-2 self-start rounded-xl bg-brand-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-brand-700"
+      >
+        <dc-icon name="document" [size]="16" />
+        Ver constancia
+      </a>
+    </div>
+  </div>
+  }
+</div>
+}
+}
+
+@if (kind() === 'CERTIFICATE' && response(); as result) {
+<div class="mt-6 rounded-2xl border p-5" [class]="panelClass()">
+  <div class="flex items-start gap-3">
+    <dc-icon [name]="iconName()" [size]="22" class="mt-0.5 text-gray-700 dark:text-white/80" />
+    <div class="min-w-0">
+      <h2 class="text-base font-semibold text-gray-900 dark:text-white/90">
+        @switch (result.outcome) {
+        @case ('VALID') {
+        Participación verificada
+        }
+        @case ('CANCELLED') {
+        Participación anulada
+        }
+        @case ('NOT_FOUND') {
+        Código no encontrado
+        }
+        @default {
+        Código con formato inválido
+        }
+        }
+      </h2>
+      <p class="mt-1 text-sm text-gray-600 dark:text-gray-300">{{ result.message }}</p>
+    </div>
+  </div>
+
+  @if (result.result; as found) {
+  <div class="mt-5 grid gap-4 lg:grid-cols-2">
+    <div
+      class="rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-white/[0.03]"
+    >
+      <p class="text-xs font-medium tracking-wide text-gray-500 uppercase dark:text-gray-400">
+        Participación
+      </p>
+      <div class="mt-2">
+        <dc-certificate-code [codes]="found.participation" />
+      </div>
+      <dl class="mt-4 space-y-2.5 text-sm">
+        <div class="flex items-start justify-between gap-4">
+          <dt class="text-gray-500 dark:text-gray-400">Tipo</dt>
+          <dd class="text-right text-gray-900 dark:text-white/90">
+            {{ typeLabel[found.participation.participationType] }}
+          </dd>
+        </div>
+        <div class="flex items-start justify-between gap-4">
+          <dt class="text-gray-500 dark:text-gray-400">Créditos</dt>
+          <dd class="font-medium text-gray-900 dark:text-white/90">
+            {{ found.participation.credits }}
+          </dd>
+        </div>
+        <div class="flex items-start justify-between gap-4">
+          <dt class="text-gray-500 dark:text-gray-400">Nota</dt>
+          <dd class="text-gray-900 dark:text-white/90">
+            @if (
+              found.participation.grade !== null && found.participation.grade !== undefined
+            ) {
+              {{ found.participation.grade }}
+            } @else {
+              Sin nota registrada
+            }
+          </dd>
+        </div>
+        <div class="flex items-start justify-between gap-4">
+          <dt class="text-gray-500 dark:text-gray-400">Código DC</dt>
+          <dd class="font-mono text-gray-900 dark:text-white/90">
+            {{ found.participation.verificationCode ?? '—' }}
+          </dd>
+        </div>
+        @if (found.participation.legacyCode) {
+        <div class="flex items-start justify-between gap-4">
+          <dt class="text-gray-500 dark:text-gray-400">Código anterior</dt>
+          <dd class="font-mono break-all text-gray-900 dark:text-white/90">
+            {{ found.participation.legacyCode }}
+          </dd>
+        </div>
+        }
+        <div class="flex items-start justify-between gap-4">
+          <dt class="text-gray-500 dark:text-gray-400">Estado</dt>
+          <dd>
+            <app-badge
+              size="sm"
+              [color]="participationStatusColor(found.participation.status)"
+              >{{ statusLabel[found.participation.status] }}</app-badge
+            >
+          </dd>
+        </div>
+      </dl>
+    </div>
+
+    <div class="flex flex-col gap-4">
+      @if (found.student; as student) {
+      <div
+        class="rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-white/[0.03]"
+      >
+        <p class="text-xs font-medium tracking-wide text-gray-500 uppercase dark:text-gray-400">
+          Estudiante
+        </p>
+        <a
+          [routerLink]="['/students', student.id]"
+          class="mt-2 block text-sm font-medium text-gray-900 hover:text-brand-600 dark:text-white/90 dark:hover:text-brand-300"
+        >
+          {{ student.lastName }}, {{ student.firstName }}
+        </a>
+        <p class="mt-1 font-mono text-xs text-gray-500 dark:text-gray-400">
+          {{ student.universityCode }} · {{ student.professionalSchool }} · {{ student.headquarters }}
+        </p>
+      </div>
+      }
+
+      @if (found.event; as event) {
+      <div
+        class="rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-white/[0.03]"
+      >
+        <p class="text-xs font-medium tracking-wide text-gray-500 uppercase dark:text-gray-400">
+          Evento
+        </p>
+        <a
+          [routerLink]="['/events', event.id]"
+          class="mt-2 block text-sm font-medium text-gray-900 hover:text-brand-600 dark:text-white/90 dark:hover:text-brand-300"
+        >
+          {{ event.name }}
+        </a>
+        <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+          {{ event.code }} · {{ event.eventType }} · {{ eventDates(event) }}
+        </p>
+        <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+          {{ dateRange(event.startDate, event.endDate) }}
+        </p>
+        <div class="mt-2">
+          <app-badge size="sm" [color]="eventStatusColor(event.status)">{{ event.status }}</app-badge>
+        </div>
+      </div>
+      }
+
+      @if (result.credits; as credits) {
+      <div
+        class="rounded-xl border border-brand-200 bg-brand-50 px-4 py-3.5 dark:border-brand-500/20 dark:bg-brand-500/10"
+      >
+        <p class="text-sm font-medium text-brand-800 dark:text-brand-200">
+          {{ credits.totalCredits }} créditos acumulados
+        </p>
+        <p class="mt-0.5 text-sm text-brand-700/80 dark:text-brand-300/80">
+          {{ credits.validParticipations }} participación(es) vigente(s) en
+          {{ credits.eventsParticipated }} evento(s).
+        </p>
+      </div>
+      }
+    </div>
+  </div>
+  } @else {
+  <dc-empty-state
+    title="Sin resultado"
+    description="Revisa el código e inténtalo nuevamente."
+  />
+  }
+</div>
+}

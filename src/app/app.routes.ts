@@ -1,124 +1,160 @@
 import { Routes } from '@angular/router';
-import { EcommerceComponent } from './pages/dashboard/ecommerce/ecommerce.component';
-import { ProfileComponent } from './pages/profile/profile.component';
-import { FormElementsComponent } from './pages/forms/form-elements/form-elements.component';
-import { BasicTablesComponent } from './pages/tables/basic-tables/basic-tables.component';
-import { BlankComponent } from './pages/blank/blank.component';
-import { NotFoundComponent } from './pages/other-page/not-found/not-found.component';
-import { AppLayoutComponent } from './shared/layout/app-layout/app-layout.component';
-import { InvoicesComponent } from './pages/invoices/invoices.component';
-import { LineChartComponent } from './pages/charts/line-chart/line-chart.component';
-import { BarChartComponent } from './pages/charts/bar-chart/bar-chart.component';
-import { AlertsComponent } from './pages/ui-elements/alerts/alerts.component';
-import { AvatarElementComponent } from './pages/ui-elements/avatar-element/avatar-element.component';
-import { BadgesComponent } from './pages/ui-elements/badges/badges.component';
-import { ButtonsComponent } from './pages/ui-elements/buttons/buttons.component';
-import { ImagesComponent } from './pages/ui-elements/images/images.component';
-import { VideosComponent } from './pages/ui-elements/videos/videos.component';
-import { SignInComponent } from './pages/auth-pages/sign-in/sign-in.component';
-import { SignUpComponent } from './pages/auth-pages/sign-up/sign-up.component';
-import { CalenderComponent } from './pages/calender/calender.component';
+
+import { AppLayoutComponent } from './layout/app-layout/app-layout.component';
+import { DashboardComponent } from './features/dashboard/pages/dashboard/dashboard.component';
+import { NotFoundComponent } from './features/errors/pages/not-found/not-found.component';
+import { EventCalendarComponent } from './features/events/pages/event-calendar/event-calendar.component';
+import { EventDetailComponent } from './features/events/pages/event-detail/event-detail.component';
+import { EventListComponent } from './features/events/pages/event-list/event-list.component';
+import { EventNewComponent } from './features/events/pages/event-new/event-new.component';
+import { ParticipationListComponent } from './features/participations/pages/participation-list/participation-list.component';
+import { ParticipationRegisterComponent } from './features/participations/pages/participation-register/participation-register.component';
+import { CertificateCodesComponent } from './features/participations/pages/certificate-codes/certificate-codes.component';
+import { StudentCertificateComponent } from './features/students/pages/student-certificate/student-certificate.component';
+import { StudentConstancyComponent } from './features/students/pages/student-constancy/student-constancy.component';
+import { StudentDetailComponent } from './features/students/pages/student-detail/student-detail.component';
+import { StudentListComponent } from './features/students/pages/student-list/student-list.component';
+import { StudentNewComponent } from './features/students/pages/student-new/student-new.component';
+import { UserListComponent } from './features/users/pages/user-list/user-list.component';
+import { UserNewComponent } from './features/users/pages/user-new/user-new.component';
+import { UserDetailComponent } from './features/users/pages/user-detail/user-detail.component';
+import { CatalogAdminComponent } from './features/catalogs/pages/catalog-admin/catalog-admin.component';
+import { VerificationComponent } from './features/verification/pages/verification/verification.component';
+import { SignInComponent } from './features/auth/pages/sign-in/sign-in.component';
+import { SignUpComponent } from './features/auth/pages/sign-up/sign-up.component';
+import { authGuard } from './core/guards/auth.guard';
+import { guestGuard } from './core/guards/guest.guard';
+import { permissionGuard } from './core/guards/permission.guard';
 
 export const routes: Routes = [
   {
-    path:'',
-    component:AppLayoutComponent,
-    children:[
+    path: '',
+    component: AppLayoutComponent,
+    canActivate: [authGuard],
+    children: [
       {
         path: '',
-        component: EcommerceComponent,
         pathMatch: 'full',
-        title:
-          'Angular Ecommerce Dashboard | TailAdmin - Angular Admin Dashboard Template',
+        component: DashboardComponent,
+        title: 'Dashboard | DCredits',
       },
       {
-        path:'calendar',
-        component:CalenderComponent,
-        title:'Angular Calender | TailAdmin - Angular Admin Dashboard Template'
+        path: 'events',
+        component: EventListComponent,
+        title: 'Eventos | DCredits',
       },
       {
-        path:'profile',
-        component:ProfileComponent,
-        title:'Angular Profile Dashboard | TailAdmin - Angular Admin Dashboard Template'
+        // events/new antes de events/:id para que "new" no se tome como id.
+        path: 'events/new',
+        component: EventNewComponent,
+        title: 'Nuevo evento | DCredits',
+        canActivate: [permissionGuard('events', 'MANAGE')],
       },
       {
-        path:'form-elements',
-        component:FormElementsComponent,
-        title:'Angular Form Elements Dashboard | TailAdmin - Angular Admin Dashboard Template'
+        path: 'events/calendar',
+        component: EventCalendarComponent,
+        title: 'Calendario | DCredits',
       },
       {
-        path:'basic-tables',
-        component:BasicTablesComponent,
-        title:'Angular Basic Tables Dashboard | TailAdmin - Angular Admin Dashboard Template'
+        path: 'events/:id',
+        component: EventDetailComponent,
+        title: 'Detalle del evento | DCredits',
       },
       {
-        path:'blank',
-        component:BlankComponent,
-        title:'Angular Blank Dashboard | TailAdmin - Angular Admin Dashboard Template'
-      },
-      // support tickets
-      {
-        path:'invoice',
-        component:InvoicesComponent,
-        title:'Angular Invoice Details Dashboard | TailAdmin - Angular Admin Dashboard Template'
+        path: 'students',
+        component: StudentListComponent,
+        title: 'Padrón de estudiantes | DCredits',
       },
       {
-        path:'line-chart',
-        component:LineChartComponent,
-        title:'Angular Line Chart Dashboard | TailAdmin - Angular Admin Dashboard Template'
+        path: 'students/new',
+        component: StudentNewComponent,
+        title: 'Nuevo estudiante | DCredits',
+        canActivate: [permissionGuard('students', 'MANAGE')],
       },
       {
-        path:'bar-chart',
-        component:BarChartComponent,
-        title:'Angular Bar Chart Dashboard | TailAdmin - Angular Admin Dashboard Template'
+        path: 'students/:id',
+        component: StudentDetailComponent,
+        title: 'Ficha del estudiante | DCredits',
       },
       {
-        path:'alerts',
-        component:AlertsComponent,
-        title:'Angular Alerts Dashboard | TailAdmin - Angular Admin Dashboard Template'
+        path: 'students/:id/constancy',
+        component: StudentConstancyComponent,
+        title: 'Constancia de avance | DCredits',
       },
       {
-        path:'avatars',
-        component:AvatarElementComponent,
-        title:'Angular Avatars Dashboard | TailAdmin - Angular Admin Dashboard Template'
+        path: 'students/:id/certificate',
+        component: StudentCertificateComponent,
+        title: 'Constancia de créditos | DCredits',
       },
       {
-        path:'badge',
-        component:BadgesComponent,
-        title:'Angular Badges Dashboard | TailAdmin - Angular Admin Dashboard Template'
+        path: 'participations',
+        component: ParticipationListComponent,
+        title: 'Participaciones | DCredits',
       },
       {
-        path:'buttons',
-        component:ButtonsComponent,
-        title:'Angular Buttons Dashboard | TailAdmin - Angular Admin Dashboard Template'
+        path: 'certificates/codes',
+        component: CertificateCodesComponent,
+        title: 'Códigos de certificado | DCredits',
+        canActivate: [permissionGuard('certificates', 'MANAGE')],
       },
       {
-        path:'images',
-        component:ImagesComponent,
-        title:'Angular Images Dashboard | TailAdmin - Angular Admin Dashboard Template'
+        path: 'participations/register',
+        component: ParticipationRegisterComponent,
+        title: 'Registrar participación | DCredits',
+        canActivate: [permissionGuard('participations', 'MANAGE')],
       },
       {
-        path:'videos',
-        component:VideosComponent,
-        title:'Angular Videos Dashboard | TailAdmin - Angular Admin Dashboard Template'
+        path: 'verify',
+        component: VerificationComponent,
+        title: 'Verificar código | DCredits',
       },
-    ]
+      {
+        path: 'users',
+        component: UserListComponent,
+        title: 'Usuarios y perfiles | DCredits',
+        canActivate: [permissionGuard('users', 'VIEW')],
+      },
+      {
+        // users/new antes de users/:id para que "new" no se tome como id.
+        path: 'users/new',
+        component: UserNewComponent,
+        title: 'Nuevo usuario | DCredits',
+        canActivate: [permissionGuard('users', 'MANAGE')],
+      },
+      {
+        path: 'users/:id',
+        component: UserDetailComponent,
+        title: 'Ficha del usuario | DCredits',
+        canActivate: [permissionGuard('users', 'VIEW')],
+      },
+      {
+        path: 'catalogs',
+        pathMatch: 'full',
+        redirectTo: 'catalogs/organizers',
+      },
+      {
+        path: 'catalogs/:kind',
+        component: CatalogAdminComponent,
+        title: 'Catálogos | DCredits',
+        canActivate: [permissionGuard('catalogs', 'VIEW')],
+      },
+    ],
   },
-  // auth pages
   {
-    path:'signin',
-    component:SignInComponent,
-    title:'Angular Sign In Dashboard | TailAdmin - Angular Admin Dashboard Template'
+    path: 'signin',
+    component: SignInComponent,
+    title: 'Iniciar sesión | DCredits',
+    canActivate: [guestGuard],
   },
   {
-    path:'signup',
-    component:SignUpComponent,
-    title:'Angular Sign Up Dashboard | TailAdmin - Angular Admin Dashboard Template'
+    path: 'signup',
+    component: SignUpComponent,
+    title: 'Crear cuenta | DCredits',
+    canActivate: [guestGuard],
   },
-  // error pages
   {
-    path:'**',
-    component:NotFoundComponent,
-    title:'Angular NotFound Dashboard | TailAdmin - Angular Admin Dashboard Template'
+    path: '**',
+    component: NotFoundComponent,
+    title: 'Página no encontrada | DCredits',
   },
 ];

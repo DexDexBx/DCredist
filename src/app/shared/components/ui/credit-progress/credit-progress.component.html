@@ -1,0 +1,35 @@
+<div class="flex flex-col gap-1.5">
+  <div class="flex items-baseline justify-between gap-3">
+    <span class="text-xs font-medium text-gray-500 dark:text-gray-400">{{ label() }}</span>
+    <span class="text-xs font-semibold text-gray-700 dark:text-gray-200">
+      {{ credits() }} / {{ target() }}
+      @if (showPercent()) {
+      <span class="font-normal text-gray-400 dark:text-gray-500">· {{ percent() }}%</span>
+      }
+    </span>
+  </div>
+
+  <div
+    class="h-2 w-full overflow-hidden rounded-full bg-gray-200 dark:bg-gray-800"
+    role="progressbar"
+    [attr.aria-valuenow]="percent()"
+    aria-valuemin="0"
+    aria-valuemax="100"
+    [attr.aria-label]="label()"
+  >
+    <!-- `dc-grow` reinicia la escala en cada carga: la barra se dibuja, no aparece. -->
+    <div
+      class="dc-grow h-full rounded-full"
+      [class]="barClass()"
+      [style.width.%]="width()"
+    ></div>
+  </div>
+
+  <p class="text-xs text-gray-400 dark:text-gray-500">
+    @if (completed()) {
+    Meta alcanzada
+    } @else {
+    Faltan {{ remaining() }} {{ remaining() === 1 ? 'crédito' : 'créditos' }}
+    }
+  </p>
+</div>

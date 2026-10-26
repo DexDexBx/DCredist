@@ -1,0 +1,37 @@
+<header class="mb-6 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+  <div class="min-w-0">
+    @if (breadcrumbs().length) {
+    <nav class="mb-2 flex flex-wrap items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400">
+      @for (crumb of breadcrumbs(); track crumb.label; let last = $last) {
+        @if (crumb.link && !last) {
+        <a
+          [routerLink]="crumb.link"
+          class="transition-colors hover:text-brand-600 dark:hover:text-brand-300"
+          >{{ crumb.label }}</a
+        >
+        <span aria-hidden="true" class="text-gray-300 dark:text-gray-600">/</span>
+        } @else {
+        <span class="font-medium text-gray-700 dark:text-gray-200">{{ crumb.label }}</span>
+        }
+      }
+    </nav>
+    }
+
+    <div class="flex flex-wrap items-center gap-3">
+      <h1 class="text-2xl font-semibold tracking-tight text-gray-900 dark:text-white/90">
+        {{ title() }}
+      </h1>
+      <ng-content select="[header-badge]" />
+    </div>
+
+    @if (description()) {
+    <p class="mt-1.5 max-w-3xl text-sm text-gray-500 dark:text-gray-400">
+      {{ description() }}
+    </p>
+    }
+  </div>
+
+  <div class="flex flex-wrap items-center gap-2">
+    <ng-content select="[header-actions]" />
+  </div>
+</header>

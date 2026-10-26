@@ -1,0 +1,232 @@
+// ESQUEMA DE DATOS DE DCREDITS
+//
+// Cadena: PostgreSQL -> Prisma -> NestJS API
+//
+// Reglas del dominio:
+//  - Student solo guarda datos permanentes del estudiante.
+//  - Todo lo que depende de un evento (creditos, nota, tipo de participacion,
+//    codigo de certificado y codigo DCredits) vive en Participation.
+//  - Los creditos acumulados NO se almacenan: se derivan de las participaciones
+//    vigentes (status = VALID).
+//  - verificationCode es unico y estable: se genera una vez y nunca cambia.
+//
+// Documentacion del schema: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ---------------------------------------------------------------------------
+// ENUMERACIONES
+// ---------------------------------------------------------------------------
+
+enum StudentStatus {
+  ACTIVE
+  INACTIVE
+}
+
+/// SINGLE_DAY: un solo dia. MULTI_DAY: spanning de varios dias.
+enum EventType {
+  SINGLE_DAY
+  MULTI_DAY
+}
+
+enum EventModality {
+  PRESENTIAL
+  VIRTUAL
+  HYBRID
+}
+
+enum EventStatus {
+  DRAFT
+  SCHEDULED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum ParticipationType {
+  ASISTENTE
+  PONENTE
+  PANELISTA
+  INVITADO
+  ORGANIZADOR
+}
+
+/// VALID es la unica que suma creditos al historial del estudiante.
+enum ParticipationStatus {
+  VALID
+  CANCELLED
+  PENDING
+}
+
+/// Perfil funcional de quien opera DCredits.
+/// ORGANIZER = organizador de la escuela, OPERATOR = operador de registro.
+enum UserRole {
+  ADMIN
+  COORDINATOR
+  ORGANIZER
+  OPERATOR
+  VIEWER
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+}
+
+// ---------------------------------------------------------------------------
+// ENTIDADES
+// ---------------------------------------------------------------------------
+
+/// Padron maestro de estudiantes.
+/// No contiene creditos, notas, participaciones ni codigos: eso es de Participation.
+model Student {
+  id String @id @default(uuid())
+
+  /// Codigo universitario. Identificador funcional y unico.
+  universityCode String @unique
+
+  /// Grado academico. Vacio si la institucion no lo reporta.
+  academicDegree String @default("")
+
+  lastName           String
+  firstName          String
+  professionalSchool String
+  headquarters       String
+
+  status StudentStatus @default(ACTIVE)
+
+  participations Participation[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([professionalSchool])
+  @@index([headquarters])
+  @@index([status])
+  @@map("students")
+}
+
+/// Evento academico. Los creditos son los que otorga a cada participante.
+model Event {
+  id String @id @default(uuid())
+
+  /// Codigo institucional del evento, por ejemplo "EVT-2026-001".
+  code String @unique
+
+  name        String
+  description String @default("")
+
+  /// SINGLE_DAY / MULTI_DAY: se deriva de startDate y endDate, no se elige a mano.
+  eventType EventType @default(SINGLE_DAY)
+
+  /// Categoria academica del evento: "Congreso", "Seminario", "Taller", "Curso",
+  /// "Foro", "Conferencia", "Webinar", "Muestra". Es el dato que usa elDominio.
+  category String @default("Congreso")
+
+  /// Fechas calendario del evento. No se impone limite artificial de dias:
+  /// la unica regla es endDate >= startDate.
+  startDate DateTime
+  endDate   DateTime
+
+  /// Horario de la jornada en formato "HH:mm". Nulo si el evento no lo define.
+  startTime String?
+  endTime   String?
+
+  modality EventModality @default(PRESENTIAL)
+
+  location String @default("")
+  capacity Int?
+  organizer String @default("")
+
+  /// Creditos que otorga el evento. Nunca negativo.
+  credits Float @default(0)
+
+  status EventStatus @default(DRAFT)
+
+  participations Participation[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([startDate])
+  @@index([status])
+  @@map("events")
+}
+
+/// Relacion Evento <-> Estudiante.
+///
+/// Unico por evento: eventId + studentId impide registrar dos veces al mismo
+/// estudiante en el mismo evento.
+model Participation {
+  id String @id @default(uuid())
+
+  event   Event   @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  eventId String
+
+  student   Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  studentId String
+
+  participationType ParticipationType @default(ASISTENTE)
+  participationDate DateTime
+
+  /// Creditos otorgados por ESTA participacion. Nunca negativo.
+  credits Float @default(0)
+
+  /// Codigo unico de DCredits, por ejemplo "DC-2026-8F4K2P".
+  /// Se genera una vez y se conserva para siempre.
+  verificationCode String @unique
+
+  /// Nota. NULL significa "sin nota registrada", jamas 0.
+  grade Float?
+
+  status ParticipationStatus @default(VALID)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([eventId, studentId])
+  @@index([studentId])
+  @@index([status])
+  @@map("participations")
+}
+
+/// Usuarios que operan DCredits: administracion, organizadores y operadores de
+/// registro. Cada escuela profesional tiene al menos un organizador y un
+/// operador.
+///
+/// La contraseña NUNCA se guarda en claro: `passwordHash` es un hash scrypt con
+/// sal por usuario. `mustChangePassword` queda en true para las cuentas
+/// sembradas con contraseña temporal, hasta que exista el cambio de contraseña.
+model User {
+  id String @id @default(uuid())
+
+  fullName String
+  email    String @unique
+
+  /// Hash scrypt en formato "scrypt$<salHex>$<hashHex>". Nunca la contraseña.
+  passwordHash String
+
+  /// true mientras la cuenta siga con la contraseña temporal.
+  mustChangePassword Boolean @default(true)
+
+  role   UserRole   @default(VIEWER)
+  status UserStatus @default(ACTIVE)
+
+  /// Escuela profesional de la que depende el usuario. Vacio para cuentas
+  /// globales (por ejemplo la administracion).
+  professionalSchool String @default("")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([role])
+  @@index([professionalSchool])
+  @@map("users")
+}

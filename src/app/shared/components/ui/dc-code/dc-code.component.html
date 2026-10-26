@@ -1,0 +1,45 @@
+@if (hasCode()) {
+<div class="flex flex-col gap-2">
+  <span
+    class="text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400"
+    >{{ label() }}</span
+  >
+
+  <div
+    class="flex flex-wrap items-center gap-2 rounded-xl border border-brand-100 bg-brand-50 px-3 py-2 dark:border-brand-500/20 dark:bg-brand-500/10"
+  >
+    <code
+      class="font-mono font-semibold tracking-wider text-brand-800 dark:text-brand-200"
+      [class.text-sm]="size() === 'sm'"
+      [class.text-base]="size() === 'md'"
+      [class.text-xl]="size() === 'lg'"
+      >{{ normalized() }}</code
+    >
+
+    <button
+      type="button"
+      class="ms-auto inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-medium text-brand-700 transition-colors hover:bg-brand-100 dark:text-brand-200 dark:hover:bg-brand-500/20"
+      (click)="copy()"
+    >
+      @if (copied()) {
+      <dc-icon name="check" [size]="16" />
+      Copiado
+      } @else {
+      <dc-icon name="copy" [size]="16" />
+      Copiar
+      }
+    </button>
+  </div>
+</div>
+} @else {
+<div class="flex flex-col gap-2">
+  <span
+    class="text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400"
+    >{{ label() }}</span
+  >
+  <span
+    class="rounded-xl border border-dashed border-gray-300 px-3 py-2 text-sm text-gray-400 dark:border-gray-700 dark:text-gray-500"
+    >Sin código asignado</span
+  >
+</div>
+}

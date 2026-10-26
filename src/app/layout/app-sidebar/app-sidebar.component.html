@@ -1,0 +1,75 @@
+﻿<aside
+  class="fixed inset-y-0 start-0 z-50 flex flex-col border-e border-gray-200 bg-white transition-[width,transform] duration-300 ease-in-out dark:border-gray-800 dark:bg-white/[0.03] max-xl:translate-x-full"
+  [class]="sidebarService.asideWidth()"
+  [class.translate-x-0]="sidebarService.isMobileOpen()"
+  (mouseenter)="onMouseEnter()"
+  (mouseleave)="onMouseLeave()"
+>
+  <div
+    class="flex h-16 items-center gap-3 border-b border-gray-200 px-5 dark:border-gray-800"
+    [class.justify-center]="!sidebarService.showLabels()"
+  >
+    <a routerLink="/" (click)="onNavigate()" class="flex items-center gap-2.5 overflow-hidden">
+      <span
+        class="flex size-9 shrink-0 items-center justify-center rounded-xl bg-brand-700 text-sm font-bold text-white"
+        >DC</span
+      >
+      @if (sidebarService.showLabels()) {
+      <span class="truncate text-base font-semibold tracking-tight text-gray-900 dark:text-white/90"
+        >DCredits</span
+      >
+      }
+    </a>
+  </div>
+
+  <nav class="flex-1 overflow-y-auto px-3 py-5 no-scrollbar">
+    @for (section of sections(); track section.title) {
+    <div class="mb-6 last:mb-0">
+      @if (sidebarService.showLabels()) {
+      <h2
+        class="mb-2 px-3 text-[11px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500"
+      >
+        {{ section.title }}
+      </h2>
+      } @else {
+      <div class="mx-3 mb-3 h-px bg-gray-200 dark:bg-gray-800" aria-hidden="true"></div>
+      }
+
+      <ul class="flex flex-col gap-1">
+        @for (item of section.items; track item.path) {
+        <li>
+          <a
+            [routerLink]="item.path"
+            routerLinkActive="dc-nav-active"
+            [routerLinkActiveOptions]="{ exact: item.exact }"
+            (click)="onNavigate()"
+            class="dc-nav-link"
+            [class.dc-nav-link-collapsed]="!sidebarService.showLabels()"
+            [attr.title]="sidebarService.showLabels() ? null : item.label"
+          >
+            <dc-icon [name]="item.icon" [size]="19" />
+            @if (sidebarService.showLabels()) {
+            <span class="truncate">{{ item.label }}</span>
+            }
+          </a>
+        </li>
+        }
+      </ul>
+    </div>
+    }
+  </nav>
+
+  <div
+    class="border-t border-gray-200 px-5 py-4 dark:border-gray-800"
+    [class.text-center]="!sidebarService.showLabels()"
+  >
+    @if (sidebarService.showLabels()) {
+    <p class="text-xs font-medium text-gray-600 dark:text-gray-300">DCredits V1</p>
+    <p class="mt-0.5 text-[11px] text-gray-400 dark:text-gray-500">
+      Gestión de participación en eventos
+    </p>
+    } @else {
+    <p class="text-[11px] text-gray-400 dark:text-gray-500">V1</p>
+    }
+  </div>
+</aside>

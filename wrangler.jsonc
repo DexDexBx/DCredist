@@ -1,12 +1,12 @@
 {
   "$schema": "https://unpkg.com/wrangler/config-schema.json",
-  "name": "tailadmin-angular-free",
+  "name": "dcredits",
   "compatibility_date": "2026-09-11",
   "observability": {
     "enabled": true
   },
   "assets": {
-    "directory": "dist/ng-tailadmin/browser",
+    "directory": "dist/dcredits/browser",
     "not_found_handling": "single-page-application"
   }
 }

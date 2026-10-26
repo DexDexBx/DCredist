@@ -1,0 +1,62 @@
+<div
+  class="flex flex-col gap-3 border-t border-gray-200 px-5 py-4 sm:flex-row sm:items-center sm:justify-between dark:border-gray-800"
+>
+  <div class="flex flex-wrap items-center gap-3">
+    <p class="text-sm text-gray-500 dark:text-gray-400">{{ summary() }}</p>
+
+    <label class="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
+      <span>Filas</span>
+      <select
+        class="h-9 rounded-lg border border-gray-300 bg-white px-2 text-sm text-gray-900 focus:border-brand-600 focus:ring-3 focus:ring-brand-500/15 focus:outline-none dark:border-gray-700 dark:bg-white/[0.03] dark:text-white/90"
+        [value]="pageSize()"
+        (change)="onPageSizeChange($event)"
+      >
+        @for (size of pageSizes(); track size) {
+        <option [value]="size">{{ size }}</option>
+        }
+      </select>
+    </label>
+  </div>
+
+  @if (!isEmpty()) {
+  <nav class="flex items-center gap-1" aria-label="Paginación">
+    <button
+      type="button"
+      class="dc-page-button"
+      [disabled]="!canGoBack()"
+      (click)="goTo(page() - 1)"
+      aria-label="Página anterior"
+    >
+      <dc-icon name="arrow-left" [size]="16" />
+    </button>
+
+    @for (number of pageNumbers(); track $index) {
+      @if (number === null) {
+      <span class="px-1 text-sm text-gray-400 dark:text-gray-500">…</span>
+      } @else {
+      <button
+        type="button"
+        class="dc-page-button"
+        [class.bg-brand-600]="number === page()"
+        [class.text-white]="number === page()"
+        [class.border-brand-600]="number === page()"
+        [attr.aria-current]="number === page() ? 'page' : null"
+        (click)="goTo(number)"
+      >
+        {{ number }}
+      </button>
+      }
+    }
+
+    <button
+      type="button"
+      class="dc-page-button"
+      [disabled]="!canGoForward()"
+      (click)="goTo(page() + 1)"
+      aria-label="Página siguiente"
+    >
+      <dc-icon name="chevron-right" [size]="16" />
+    </button>
+  </nav>
+  }
+</div>

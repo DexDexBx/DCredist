@@ -1,0 +1,50 @@
+<div class="flex flex-col gap-1.5">
+  @if (label()) {
+  <label
+    class="text-sm font-medium text-gray-700 dark:text-gray-200 dark:text-white/90"
+    [attr.for]="controlId"
+  >
+    {{ label() }}
+    @if (required()) {
+    <span class="text-error-500" aria-hidden="true">*</span>
+    }
+  </label>
+  }
+
+  <div class="relative">
+    <select
+      [id]="controlId"
+      [value]="value()"
+      [disabled]="disabled()"
+      [attr.required]="required() ? '' : null"
+      [attr.aria-invalid]="invalid() ? 'true' : null"
+      [class]="fieldClasses()"
+      (change)="onSelect($event)"
+      (blur)="onBlur()"
+    >
+      <option value="" disabled>{{ placeholder() }}</option>
+      @for (option of options(); track option.value) {
+      <option [value]="option.value">{{ option.label }}</option>
+      }
+    </select>
+
+    <span
+      class="pointer-events-none absolute end-3.5 top-1/2 -translate-y-1/2 text-gray-400"
+      aria-hidden="true"
+    >
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+        <path
+          d="m6 9 6 6 6-6"
+          stroke="currentColor"
+          stroke-width="1.8"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        />
+      </svg>
+    </span>
+  </div>
+
+  @if (hint()) {
+  <p class="text-xs text-gray-500 dark:text-gray-400">{{ hint() }}</p>
+  }
+</div>

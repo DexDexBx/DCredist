@@ -1,0 +1,440 @@
+@if (event(); as currentEvent) {
+<dc-page-header
+  [title]="currentEvent.name"
+  [description]="currentEvent.organizer ?? ''"
+  [breadcrumbs]="[
+    { label: 'Eventos', link: '/events' },
+    { label: currentEvent.code }
+  ]"
+>
+  <div
+    header-badge
+    class="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-gray-50 py-1 pl-2.5 pr-1 dark:border-gray-800 dark:bg-white/[0.03]"
+  >
+    <span class="font-mono text-sm font-medium text-gray-700 dark:text-gray-200">{{
+      currentEvent.code
+    }}</span>
+    <button
+      type="button"
+      (click)="copyCode()"
+      [attr.aria-label]="copied() ? 'Código copiado' : 'Copiar código'"
+      class="flex size-6 items-center justify-center rounded-md text-gray-400 transition-colors hover:bg-gray-200 hover:text-gray-700 dark:hover:bg-gray-700 dark:hover:text-white"
+    >
+      <dc-icon [name]="copied() ? 'check' : 'copy'" [size]="14" />
+    </button>
+  </div>
+
+  @if (auth.can('participations', 'MANAGE')) {
+    @if (acceptsRegistrations()) {
+    <a
+      header-actions
+      routerLink="/participations/register"
+      [queryParams]="{ evento: currentEvent.id }"
+      class="inline-flex h-10 items-center gap-2 rounded-xl bg-brand-700 px-4 text-sm font-semibold text-white transition-colors hover:bg-brand-800"
+    >
+      <dc-icon name="user-plus" [size]="17" />
+      {{ lateImportsEnabled() ? 'Subir lista extemporánea' : 'Registrar participación' }}
+    </a>
+    } @else if (registrationClosed()) {
+    <a
+      header-actions
+      routerLink="/participations/register"
+      [queryParams]="{ evento: currentEvent.id }"
+      class="inline-flex h-10 items-center gap-2 rounded-xl border border-amber-300 bg-amber-50 px-4 text-sm font-medium text-amber-800 transition-colors hover:bg-amber-100 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200"
+    >
+      <dc-icon name="info" [size]="17" />
+      Registro cerrado · Registrar extemporáneos
+    </a>
+    } @else {
+    <span
+      header-actions
+      class="inline-flex h-10 items-center rounded-xl border border-gray-200 px-4 text-sm font-medium text-gray-500 dark:border-gray-800 dark:text-gray-400"
+    >
+      Evento cancelado: no admite participaciones
+    </span>
+    }
+  }
+
+  <button
+    header-actions
+    type="button"
+    (click)="openExport()"
+    [disabled]="rows().length === 0"
+    class="inline-flex h-10 items-center gap-2 rounded-xl border border-gray-200 px-4 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-800 dark:text-gray-200 dark:hover:bg-white/5"
+  >
+    <dc-icon name="download" [size]="17" />
+    Exportar
+  </button>
+
+  <a
+    header-actions
+    routerLink="/events/calendar"
+    class="inline-flex h-10 items-center gap-2 rounded-xl border border-gray-200 px-4 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-100 dark:border-gray-800 dark:text-gray-200 dark:hover:bg-white/5"
+  >
+    <dc-icon name="calendar" [size]="17" />
+    Ver calendario
+  </a>
+</dc-page-header>
+
+<div class="flex flex-col gap-6">
+  <div class="grid gap-6 xl:grid-cols-3">
+    <dc-panel title="Información del evento" class="xl:col-span-2">
+      <div class="flex flex-col gap-5">
+        <div class="flex flex-wrap items-center gap-2">
+          <app-event-status-badge [status]="currentEvent.status" />
+          <app-badge size="sm" color="light">{{ currentEvent.eventType }}</app-badge>
+          <app-badge size="sm" color="primary">{{ currentEvent.credits }} créditos</app-badge>
+          @if (currentEvent.tags?.length) {
+          @for (tag of currentEvent.tags; track tag) {
+          <app-badge size="sm" color="light">{{ tag }}</app-badge>
+          }
+          }
+        </div>
+
+        <p class="text-sm leading-relaxed text-gray-600 dark:text-gray-300">
+          {{ currentEvent.description }}
+        </p>
+
+        <dl class="grid gap-4 sm:grid-cols-2">
+          <div class="flex items-start gap-3">
+            <dc-icon name="clock" [size]="18" class="mt-0.5 text-gray-400" />
+            <div>
+              <dt class="text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                Fecha y horario
+              </dt>
+              <dd class="mt-0.5 text-sm text-gray-900 dark:text-white/90">
+                {{ formatRange(currentEvent) }}
+              </dd>
+              <dd class="text-xs text-gray-500 dark:text-gray-400">
+                {{ formatLongDate(currentEvent.startDate) }}
+              </dd>
+            </div>
+          </div>
+
+          <div class="flex items-start gap-3">
+            <dc-icon name="map-pin" [size]="18" class="mt-0.5 text-gray-400" />
+            <div>
+              <dt class="text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                Ubicación
+              </dt>
+              <dd class="mt-0.5 text-sm text-gray-900 dark:text-white/90">
+                {{ currentEvent.location }}
+              </dd>
+              <dd class="text-xs text-gray-500 dark:text-gray-400">{{
+                currentEvent.modality
+              }}</dd>
+            </div>
+          </div>
+
+          <div class="flex items-start gap-3">
+            <dc-icon name="building" [size]="18" class="mt-0.5 text-gray-400" />
+            <div>
+              <dt class="text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                Organizador
+              </dt>
+              <dd class="mt-0.5 text-sm text-gray-900 dark:text-white/90">
+                {{ currentEvent.organizer }}
+              </dd>
+              <dd class="text-xs text-gray-500 dark:text-gray-400">Código {{ currentEvent.code }}</dd>
+            </div>
+          </div>
+
+          <div class="flex items-start gap-3">
+            <dc-icon name="users" [size]="18" class="mt-0.5 text-gray-400" />
+            <div>
+              <dt class="text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                Cupo
+              </dt>
+              <dd class="mt-0.5 text-sm text-gray-900 dark:text-white/90">
+                @if (currentEvent.capacity) {
+                {{ registeredCount() }} de {{ currentEvent.capacity }} participantes
+                <div class="mt-1.5 h-1.5 w-40 overflow-hidden rounded-full bg-gray-100 dark:bg-white/10">
+                  <div
+                    class="h-full rounded-full bg-brand-600"
+                    [style.width.%]="fillRate(currentEvent)"
+                  ></div>
+                </div>
+                } @else {
+                Sin límite de participantes
+                }
+              </dd>
+            </div>
+          </div>
+        </dl>
+      </div>
+    </dc-panel>
+
+    <div class="flex flex-col gap-6">
+      <dc-panel title="Estado del evento">
+        <dl class="flex flex-col gap-4 text-sm">
+          <div class="flex items-center justify-between gap-3">
+            <dt class="text-gray-500 dark:text-gray-400">Estado</dt>
+            <dd><app-event-status-badge [status]="currentEvent.status" /></dd>
+          </div>
+          <div class="flex items-center justify-between gap-3">
+            <dt class="text-gray-500 dark:text-gray-400">Tipo</dt>
+            <dd class="font-medium text-gray-900 dark:text-white/90">{{
+              currentEvent.eventType
+            }}</dd>
+          </div>
+          <div class="flex items-center justify-between gap-3">
+            <dt class="text-gray-500 dark:text-gray-400">Modalidad</dt>
+            <dd class="font-medium text-gray-900 dark:text-white/90">{{
+              currentEvent.modality
+            }}</dd>
+          </div>
+          <div class="flex items-center justify-between gap-3">
+            <dt class="text-gray-500 dark:text-gray-400">Horario</dt>
+            <dd class="font-medium text-gray-900 dark:text-white/90">{{
+              formatSchedule(currentEvent)
+            }}</dd>
+          </div>
+          <div class="flex items-center justify-between gap-3">
+            <dt class="text-gray-500 dark:text-gray-400">Participantes vigentes</dt>
+            <dd class="font-medium text-gray-900 dark:text-white/90">{{ registeredCount() }}</dd>
+          </div>
+          <div class="flex items-center justify-between gap-3">
+            <dt class="text-gray-500 dark:text-gray-400">Créditos entregados</dt>
+            <dd class="font-medium text-gray-900 dark:text-white/90">{{ validCredits() }}</dd>
+          </div>
+          <div class="flex items-center justify-between gap-3">
+            <dt class="text-gray-500 dark:text-gray-400">Notas pendientes</dt>
+            <dd class="font-medium text-gray-900 dark:text-white/90">{{ pendingGrades() }}</dd>
+          </div>
+        </dl>
+      </dc-panel>
+    </div>
+  </div>
+
+  <dc-panel
+    title="Participantes del evento"
+    [subtitle]="registeredCount() + ' vigente(s) · ' + validCredits() + ' créditos'"
+    bodyClass="px-0 py-0"
+  >
+    @if (rows().length === 0) {
+    <div class="px-5 py-5">
+      <dc-empty-state
+        title="Sin participaciones registradas"
+        [description]="
+          acceptsRegistrations()
+            ? 'Registra participantes para generar sus códigos únicos.'
+            : 'El registro de este evento está cerrado.'
+        "
+      >
+        @if (acceptsRegistrations() && auth.can('participations', 'MANAGE')) {
+        <a
+          routerLink="/participations/register"
+          [queryParams]="{ evento: currentEvent.id }"
+          class="inline-flex h-9 items-center gap-2 rounded-lg bg-brand-700 px-3.5 text-xs font-semibold text-white transition-colors hover:bg-brand-800"
+        >
+          <dc-icon name="user-plus" [size]="15" />
+          Registrar participación
+        </a>
+        }
+      </dc-empty-state>
+    </div>
+    } @else {
+    <div class="overflow-x-auto">
+      <table class="w-full min-w-[900px] text-start text-sm">
+        <thead>
+          <tr
+            class="border-b border-gray-200 text-start text-xs uppercase tracking-wide text-gray-500 dark:border-gray-800 dark:text-gray-400"
+          >
+            <th class="px-5 py-3 text-start font-medium">N°</th>
+            <th class="px-5 py-3 text-start font-medium">Código universitario</th>
+            <th class="px-5 py-3 text-start font-medium">Estudiante</th>
+            <th class="px-5 py-3 text-start font-medium">Tipo</th>
+            <th class="px-5 py-3 text-start font-medium">C&#243;digo del certificado</th>
+            <th class="px-5 py-3 text-end font-medium">Créditos</th>
+            <th class="px-5 py-3 text-end font-medium">Nota</th>
+            <th class="px-5 py-3 text-start font-medium">Estado</th>
+            <th class="px-5 py-3 text-end font-medium">
+              <span class="sr-only">Acciones</span>
+            </th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-200 dark:divide-gray-800">
+          @for (row of pageData().items; track row.participation.id; let index = $index) {
+          <tr [class.opacity-60]="row.participation.status === 'CANCELLED'">
+            <td class="px-5 py-3.5 text-gray-400 dark:text-gray-500">
+              {{ pageData().offset + index + 1 }}
+            </td>
+            <td class="px-5 py-3.5 font-mono text-gray-700 dark:text-gray-200">
+              {{ row.student?.universityCode }}
+            </td>
+            <td class="px-5 py-3.5">
+              @if (row.student) {
+              <a
+                [routerLink]="['/students', row.student.id]"
+                class="font-medium text-gray-900 hover:text-brand-700 dark:text-white/90 dark:hover:text-brand-300"
+                >{{ studentName(row) }}</a
+              >
+              <p class="text-xs text-gray-500 dark:text-gray-400">
+                {{ row.student.professionalSchool }} · {{ row.student.headquarters }}
+              </p>
+              } @else {
+              <span class="text-gray-400">Estudiante no encontrado</span>
+              }
+            </td>
+            <td class="px-5 py-3.5 text-gray-600 dark:text-gray-300">
+              {{ typeLabel[row.participation.participationType] }}
+            </td>
+            <td class="px-5 py-3.5">
+              <dc-certificate-code [codes]="row.participation" />
+            </td>
+            <td class="px-5 py-3.5 text-end font-medium text-gray-900 dark:text-white/90">
+              {{ row.participation.credits }}
+            </td>
+            <td class="px-5 py-3.5 text-end text-gray-600 dark:text-gray-300">
+              @if (
+                row.participation.grade !== null && row.participation.grade !== undefined
+              ) {
+                {{ row.participation.grade }}
+              } @else {
+                <span class="text-gray-400 dark:text-gray-500">Sin nota</span>
+              }
+            </td>
+            <td class="px-5 py-3.5">
+              <app-badge
+                size="sm"
+                [color]="participationStatusColor(row.participation.status)"
+                >{{ statusLabel[row.participation.status] }}</app-badge
+              >
+            </td>
+            <td class="px-5 py-3.5 text-end">
+              @if (auth.can('participations', 'MANAGE')) {
+                @if (row.participation.status === 'VALID') {
+                <button
+                  type="button"
+                  (click)="cancelParticipation(row.participation.id)"
+                  class="rounded-lg border border-gray-200 px-2.5 py-1.5 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-100 dark:border-gray-800 dark:text-gray-200 dark:hover:bg-white/5"
+                >
+                  Anular
+                </button>
+                } @else if (row.participation.status === 'CANCELLED') {
+                <button
+                  type="button"
+                  (click)="reactivateParticipation(row.participation.id)"
+                  class="rounded-lg border border-gray-200 px-2.5 py-1.5 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-100 dark:border-gray-800 dark:text-gray-200 dark:hover:bg-white/5"
+                >
+                  Reactivar
+                </button>
+                } @else {
+                <span class="text-xs text-gray-400 dark:text-gray-500">—</span>
+                }
+              } @else {
+              <span class="text-xs text-gray-400 dark:text-gray-500">—</span>
+              }
+            </td>
+          </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+
+    <div class="border-t border-gray-200 px-5 py-3 dark:border-gray-800">
+      <dc-pagination
+        [page]="pageData().page"
+        [pageCount]="pageData().pageCount"
+        [total]="pageData().total"
+        [from]="pageData().from"
+        [to]="pageData().to"
+        [pageSize]="pageData().pageSize"
+        [pageSizes]="pageSizes"
+        (pageChange)="goToPage($event)"
+        (pageSizeChange)="onPageSizeChange($event)"
+      />
+    </div>
+    }
+  </dc-panel>
+</div>
+
+<app-modal
+  [isOpen]="exportOpen()"
+  (close)="closeExport()"
+  [showCloseButton]="false"
+  className="flex w-full max-w-xl flex-col overflow-hidden rounded-3xl p-0"
+>
+  <div
+    class="flex items-start justify-between gap-4 border-b border-gray-200 px-5 py-4 dark:border-gray-800 sm:px-6"
+  >
+    <div class="flex items-start gap-3">
+      <span
+        class="flex size-10 shrink-0 items-center justify-center rounded-xl bg-brand-50 text-brand-600 dark:bg-brand-500/10 dark:text-brand-300"
+      >
+        <dc-icon name="download" [size]="20" />
+      </span>
+      <div>
+        <h2 class="text-base font-semibold text-gray-900 dark:text-white/90">
+          Exportar participantes
+        </h2>
+        <p class="mt-0.5 text-sm text-gray-500 dark:text-gray-400">
+          {{ currentEvent.name }}
+        </p>
+      </div>
+    </div>
+    <button
+      type="button"
+      (click)="closeExport()"
+      aria-label="Cerrar"
+      class="flex size-9 shrink-0 items-center justify-center rounded-full bg-gray-100 text-gray-400 transition-colors hover:bg-gray-200 hover:text-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-white"
+    >
+      <dc-icon name="close" [size]="18" />
+    </button>
+  </div>
+
+  <div class="px-5 py-5 sm:px-6">
+    <div class="flex flex-col gap-2">
+      <button
+        type="button"
+        (click)="export()"
+        [disabled]="rows().length === 0"
+        class="inline-flex items-center justify-center gap-2 rounded-xl bg-brand-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-50"
+      >
+        <dc-icon name="document" [size]="18" />
+        Descargar Excel institucional
+      </button>
+    </div>
+
+    @if (lastExport(); as result) {
+    <div
+      class="mt-4 rounded-xl border border-success-200 bg-success-50 px-3.5 py-3 text-sm dark:border-success-500/20 dark:bg-success-500/10"
+    >
+      <p class="font-medium text-success-700 dark:text-success-500">
+        {{ result.fileName }}
+      </p>
+      <p class="mt-0.5 text-success-700/80 dark:text-success-500/80">
+        {{ result.rowCount }} fila(s) exportada(s).
+      </p>
+    </div>
+    }
+
+    <div class="mt-5">
+      <p class="text-xs font-medium tracking-wide text-gray-500 uppercase dark:text-gray-400">
+        Columnas del archivo institucional
+      </p>
+      <ul class="mt-2 flex flex-wrap gap-1.5">
+        @for (column of institutionalColumns; track column) {
+        <li
+          class="rounded-lg border border-gray-200 bg-gray-50 px-2 py-1 text-[11px] text-gray-600 dark:border-gray-800 dark:bg-white/[0.03] dark:text-gray-300"
+        >
+          {{ column }}
+        </li>
+        }
+      </ul>
+    </div>
+  </div>
+</app-modal>
+} @else {
+<dc-empty-state
+  title="Evento no encontrado"
+  description="El evento solicitado no existe o fue eliminado."
+>
+  <a
+    routerLink="/events"
+    class="inline-flex h-9 items-center gap-2 rounded-lg bg-brand-700 px-3.5 text-xs font-semibold text-white transition-colors hover:bg-brand-800"
+  >
+    Volver al listado
+  </a>
+</dc-empty-state>
+}

@@ -1,0 +1,236 @@
+@if (student(); as item) {
+@if (meetsRequirement()) {
+<article class="dc-certificate-print mx-auto w-full max-w-[820px] bg-white text-gray-900">
+  <div class="dc-frame-pad p-2">
+    <div class="dc-frame-outer border border-brand-700 p-[3px]">
+      <div class="dc-frame-inner relative isolate border border-brand-200 px-8 py-9 sm:px-12 sm:py-10">
+        <!-- Marca de agua -->
+        <div
+          class="pointer-events-none absolute inset-0 flex items-center justify-center overflow-hidden"
+          aria-hidden="true"
+        >
+          <img
+            src="/images/logo/Logo01.png"
+            alt=""
+            class="w-[55%] max-h-[58%] object-contain opacity-[0.06]"
+          />
+        </div>
+
+        <div class="relative z-10">
+        <!-- Encabezado institucional -->
+        <header class="dc-keep text-center">
+          <div class="mx-auto flex h-16 items-center justify-center">
+            <img
+              src="/images/logo/Logo01.png"
+              alt="DCredits"
+              class="h-16 w-auto object-contain"
+            />
+          </div>
+          <p class="mt-4 text-[11px] font-semibold tracking-[0.45em] text-brand-700 uppercase">
+            DCredits
+          </p>
+          <h1 class="mt-2 text-[26px] font-semibold tracking-[0.2em] text-gray-900 uppercase">
+            Constancia
+          </h1>
+          <p class="mt-1 text-[11px] tracking-[0.35em] text-gray-500 uppercase">
+            de créditos académicos
+          </p>
+        </header>
+
+        <div class="dc-keep my-7 flex items-center justify-center gap-3">
+          <span class="h-px w-20 bg-gray-200"></span>
+          <span class="size-1.5 rotate-45 bg-brand-600"></span>
+          <span class="h-px w-20 bg-gray-200"></span>
+        </div>
+
+        <!-- Otorgada a -->
+        <div class="dc-keep text-center">
+          <p class="text-[11px] tracking-[0.3em] text-gray-500 uppercase">Otorgada a</p>
+          <p class="mt-3 text-3xl font-semibold text-gray-900">
+            {{ item.lastName }}, {{ item.firstName }}
+          </p>
+          <p class="mt-1.5 text-sm text-gray-500">
+            {{ item.universityCode }} · {{ item.professionalSchool }}
+          </p>
+        </div>
+
+        <!-- Cuerpo -->
+        <p class="dc-keep mx-auto mt-7 max-w-2xl text-center text-[13.5px] leading-7 text-gray-600">
+          por haber acreditado
+          <span class="font-semibold text-gray-900"
+            >{{ summary().totalCredits }} créditos académicos</span
+          >
+          mediante su participación en actividades reconocidas por DCredits, alcanzando el mínimo de
+          <span class="font-semibold text-gray-900">{{ requiredCredits }} créditos</span>
+          requerido para la acreditación de créditos extracurriculares.
+        </p>
+
+        <!-- Banda de cifras -->
+        <div class="dc-keep mt-8 flex items-stretch justify-center gap-10 border-y border-gray-100 py-6">
+          <div class="text-center">
+            <p class="text-3xl font-semibold text-brand-700">{{ summary().totalCredits }}</p>
+            <p class="mt-1 text-[10px] tracking-[0.2em] text-gray-400 uppercase">Créditos</p>
+          </div>
+          <div class="w-px bg-gray-200"></div>
+          <div class="text-center">
+            <p class="text-3xl font-semibold text-gray-900">{{ requiredCredits }}</p>
+            <p class="mt-1 text-[10px] tracking-[0.2em] text-gray-400 uppercase">Requeridos</p>
+          </div>
+          <div class="w-px bg-gray-200"></div>
+          <div class="text-center">
+            <p class="text-3xl font-semibold text-gray-900">{{ summary().eventsParticipated }}</p>
+            <p class="mt-1 text-[10px] tracking-[0.2em] text-gray-400 uppercase">Eventos</p>
+          </div>
+        </div>
+
+        <!-- Actividades acreditadas -->
+        @if (rows().length) {
+        <section class="mt-7">
+          <p class="dc-keep text-center text-[10px] font-semibold tracking-[0.25em] text-gray-400 uppercase">
+            Actividades acreditadas
+          </p>
+          <table class="mt-4 w-full border-collapse text-left text-xs">
+            <thead>
+              <tr
+                class="border-b border-gray-300 text-[10px] font-semibold tracking-wide text-gray-500 uppercase"
+              >
+                <th scope="col" class="py-2 pr-3">Actividad</th>
+                <th scope="col" class="py-2 pr-3">Tipo</th>
+                <th scope="col" class="py-2 pr-3 text-right">Créditos</th>
+                <th scope="col" class="py-2">Código de verificación</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (row of rows(); track row.participation.id) {
+              <tr class="border-b border-gray-100">
+                <td class="py-2.5 pr-3 align-top">
+                  @if (row.event) {
+                  <p class="font-medium text-gray-800">{{ row.event.name }}</p>
+                  <p class="text-[10px] text-gray-400">{{ eventDates(row.event) }}</p>
+                  } @else {
+                  <span class="text-gray-400">Evento no disponible</span>
+                  }
+                </td>
+                <td class="py-2.5 pr-3 align-top text-gray-600">
+                  {{ participationTypeLabel(row.participation.participationType) }}
+                </td>
+                <td class="py-2.5 pr-3 align-top text-right font-semibold text-gray-800">
+                  {{ row.participation.credits }}
+                </td>
+                <td class="py-2.5 align-top">
+                  <dc-certificate-code [codes]="row.participation" [showOrigin]="false" />
+                </td>
+              </tr>
+              }
+            </tbody>
+          </table>
+        </section>
+        }
+
+        <!-- Sello y firmas -->
+        <footer class="mt-9">
+          <div class="dc-keep flex items-end justify-between gap-6">
+            <div class="flex-1 text-center">
+              <div class="mx-auto w-44 border-t border-gray-400"></div>
+              <p class="mt-2 text-[10px] tracking-[0.15em] text-gray-500 uppercase">
+                Dirección académica
+              </p>
+            </div>
+            <div class="flex flex-col items-center">
+              <div
+                class="flex size-24 items-center justify-center rounded-full border border-brand-300 text-brand-700"
+              >
+                <div
+                  class="flex size-[84px] flex-col items-center justify-center rounded-full border border-dashed border-brand-300"
+                >
+                  <dc-icon name="shield-check" [size]="22" />
+                  <p class="mt-1 text-[8px] font-semibold tracking-[0.15em] uppercase">DCredits</p>
+                  <p class="text-[7px] tracking-[0.15em] text-gray-400 uppercase">Sello</p>
+                </div>
+              </div>
+            </div>
+            <div class="flex-1 text-center">
+              <div class="mx-auto w-44 border-t border-gray-400"></div>
+              <p class="mt-2 text-[10px] tracking-[0.15em] text-gray-500 uppercase">
+                Registro académico
+              </p>
+            </div>
+          </div>
+
+          <!-- Datos de seguridad -->
+          <div class="dc-keep mt-8 rounded-lg border border-gray-200 bg-gray-50 px-5 py-4">
+            <div class="flex items-start justify-between gap-4">
+              <div>
+                <p class="text-[10px] font-semibold tracking-[0.2em] text-gray-500 uppercase">
+                  Validación
+                </p>
+                <div class="mt-1 flex items-center gap-2">
+                  <span class="font-mono text-sm font-semibold tracking-wide text-gray-800 select-all">
+                    {{ validationCode() }}
+                  </span>
+                  <button
+                    type="button"
+                    (click)="copyValidationCode()"
+                    class="dc-no-print inline-flex items-center gap-1 rounded border border-gray-300 px-1.5 py-0.5 text-[10px] text-gray-500 transition-colors hover:bg-white"
+                  >
+                    <dc-icon name="copy" [size]="11" />
+                    {{ copied() ? 'Copiado' : 'Copiar' }}
+                  </button>
+                </div>
+                <p class="mt-1.5 font-mono text-[10px] text-gray-400">{{ verificationPath() }}</p>
+              </div>
+              <div class="text-right">
+                <p class="text-[10px] tracking-[0.2em] text-gray-400 uppercase">Emitida el</p>
+                <p class="mt-1 text-xs font-medium text-gray-700">{{ issuedOn }}</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Aviso de uso interno -->
+          <div class="dc-keep mt-7 border-t border-gray-200 pt-4">
+            <div class="flex items-start gap-2.5">
+              <span
+                class="mt-px flex size-5 shrink-0 items-center justify-center rounded-full bg-brand-50 text-brand-700"
+                aria-hidden="true"
+              >
+                <dc-icon name="info" [size]="11" />
+              </span>
+              <div>
+                <p class="text-[9px] font-semibold tracking-[0.2em] text-brand-700 uppercase">
+                  Documento de uso interno
+                </p>
+                <p class="mt-1 text-[9.5px] leading-relaxed text-gray-500">
+                  Válido únicamente para trámites internos dentro de la universidad. No asumimos
+                  responsabilidad por su uso fuera de la institución. Su valor es admitido dentro de
+                  la universidad para los trámites que lo requieran.
+                </p>
+              </div>
+            </div>
+            <p class="mt-3 text-center text-[9px] tracking-wide text-gray-400">
+              Emitido por DCredits el {{ issuedOn }} · Validez comprobable con el código de
+              validación.
+            </p>
+          </div>
+        </footer>
+        </div>
+      </div>
+    </div>
+  </div>
+</article>
+} @else {
+<div
+  class="dc-certificate-print mx-auto w-full max-w-[820px] border border-warning-200 bg-warning-50 px-6 py-6 text-center"
+>
+  <p class="text-sm font-semibold text-warning-800">Constancia no disponible</p>
+  <p class="mt-1 text-sm text-warning-700">
+    El estudiante aún no alcanza los {{ requiredCredits }} créditos requeridos
+    ({{ summary().totalCredits }} acumulados).
+  </p>
+</div>
+}
+} @else {
+<dc-empty-state
+  title="Estudiante no encontrado"
+  description="El código solicitado no existe en el padrón."
+/>
+}

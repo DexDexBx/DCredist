@@ -1,0 +1,372 @@
+<dc-page-header
+  title="Padrón de estudiantes"
+  description="Registro único de estudiantes. Cada código universitario es único y no se modifica al registrar participaciones."
+  [breadcrumbs]="[{ label: 'Inicio', link: '/dashboard' }, { label: 'Estudiantes' }]"
+>
+  @if (auth.can('students', 'MANAGE')) {
+  <a
+    header-actions
+    routerLink="/students/new"
+    class="inline-flex items-center gap-2 rounded-xl bg-brand-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-brand-700"
+  >
+    <dc-icon name="user-plus" [size]="18" />
+    Nuevo estudiante
+  </a>
+  }
+</dc-page-header>
+
+<div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+  <dc-stat-card
+    label="Estudiantes en el padrón"
+    [value]="totalAll()"
+    hint="Registro acumulado"
+    tone="primary"
+  />
+  <dc-stat-card
+    label="Estudiantes activos"
+    [value]="activeAll()"
+    hint="Habilitados para participar"
+    tone="success"
+  />
+  <dc-stat-card
+    label="Escuelas profesionales"
+    [value]="schoolsCount()"
+    hint="Con al menos un estudiante"
+    tone="accent"
+  />
+  <dc-stat-card
+    label="Con participación registrada"
+    [value]="participatingAll()"
+    hint="Al menos un evento en su historial"
+    tone="warning"
+  />
+</div>
+
+<dc-panel
+  class="mt-6"
+  title="Búsqueda y filtros"
+  subtitle="Busca por código, nombre, escuela o sede. Se aceptan varias palabras a la vez."
+>
+  <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+    <label class="block xl:col-span-2">
+      <span
+        class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300"
+        >Búsqueda</span
+      >
+      <div class="relative">
+        <input
+          type="search"
+          [ngModel]="searchInput()"
+          (ngModelChange)="onSearchInput($event)"
+          placeholder="Código, apellidos o nombres"
+          autocomplete="off"
+          class="h-11 w-full rounded-xl border border-gray-300 bg-white px-3.5 pl-10 text-sm text-gray-900 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-600 focus:ring-3 focus:ring-brand-500/15 focus:outline-none dark:border-gray-700 dark:bg-white/[0.03] dark:text-white/90"
+        />
+        <dc-icon
+          name="search"
+          [size]="18"
+          class="pointer-events-none absolute top-1/2 left-3.5 -translate-y-1/2 text-gray-400"
+        />
+      </div>
+      @if (isCodeSearch()) {
+      <p class="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
+        Buscando por código: escribe el número completo para un resultado exacto.
+      </p>
+      }
+    </label>
+
+    <label class="block">
+      <span
+        class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300"
+        >Escuela profesional</span
+      >
+      <select
+        [ngModel]="school()"
+        (ngModelChange)="school.set($event)"
+        class="h-11 w-full rounded-xl border border-gray-300 bg-white px-3.5 text-sm text-gray-900 shadow-theme-xs focus:border-brand-600 focus:ring-3 focus:ring-brand-500/15 focus:outline-none dark:border-gray-700 dark:bg-white/[0.03] dark:text-white/90"
+      >
+        <option value="">Todas las escuelas</option>
+        @for (item of schools(); track item) {
+        <option [value]="item">{{ item }}</option>
+        }
+      </select>
+    </label>
+
+    <label class="block">
+      <span class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300"
+        >Sede</span
+      >
+      <select
+        [ngModel]="site()"
+        (ngModelChange)="site.set($event)"
+        class="h-11 w-full rounded-xl border border-gray-300 bg-white px-3.5 text-sm text-gray-900 shadow-theme-xs focus:border-brand-600 focus:ring-3 focus:ring-brand-500/15 focus:outline-none dark:border-gray-700 dark:bg-white/[0.03] dark:text-white/90"
+      >
+        <option value="">Todas las sedes</option>
+        @for (item of sites(); track item) {
+        <option [value]="item">{{ item }}</option>
+        }
+      </select>
+    </label>
+
+    <label class="block">
+      <span class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300"
+        >Estado</span
+      >
+      <select
+        [ngModel]="status()"
+        (ngModelChange)="status.set($event)"
+        class="h-11 w-full rounded-xl border border-gray-300 bg-white px-3.5 text-sm text-gray-900 shadow-theme-xs focus:border-brand-600 focus:ring-3 focus:ring-brand-500/15 focus:outline-none dark:border-gray-700 dark:bg-white/[0.03] dark:text-white/90"
+      >
+        <option value="Todos">Todos</option>
+        <option value="ACTIVE">Activo</option>
+        <option value="INACTIVE">Inactivo</option>
+      </select>
+    </label>
+  </div>
+
+  <div class="mt-4 flex flex-wrap items-center justify-between gap-3">
+    <div class="flex flex-wrap items-center gap-2">
+      <p class="text-sm text-gray-500 dark:text-gray-400">
+        {{ pageData().total }} de {{ totalAll() }} estudiantes
+      </p>
+
+      @if (hasFilters()) {
+      <button
+        type="button"
+        (click)="clearFilters()"
+        class="rounded-lg border border-gray-300 px-2.5 py-1 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-white/[0.05]"
+      >
+        Limpiar filtros
+      </button>
+      }
+    </div>
+
+    <div class="flex flex-wrap items-center gap-2">
+      <div
+        class="inline-flex rounded-xl border border-gray-300 p-0.5 dark:border-gray-700"
+        role="group"
+        aria-label="Ordenar por"
+      >
+        @for (option of sortOptions; track option.value) {
+        <button
+          type="button"
+          (click)="onSortChange(option.value)"
+          [attr.aria-pressed]="isActiveSort(option.value)"
+          class="rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors"
+          [class.bg-brand-600]="isActiveSort(option.value)"
+          [class.text-white]="isActiveSort(option.value)"
+          [class.text-gray-600]="!isActiveSort(option.value)"
+          [class.hover:bg-gray-50]="!isActiveSort(option.value)"
+          [class.dark:text-gray-300]="!isActiveSort(option.value)"
+          [class.dark:hover:bg-white/5]="!isActiveSort(option.value)"
+        >
+          {{ option.label }}
+        </button>
+        }
+      </div>
+
+      <button
+        type="button"
+        (click)="exportPadron()"
+        [disabled]="!school()"
+        class="rounded-xl border border-brand-200 bg-brand-50 px-3.5 py-2 text-sm font-medium text-brand-700 transition-colors hover:bg-brand-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-brand-500/20 dark:bg-brand-500/10 dark:text-brand-200"
+      >
+        Exportar padrón de la escuela
+      </button>
+    </div>
+  </div>
+</dc-panel>
+
+<dc-panel class="mt-6" [bodyClass]="'px-0 py-0'">
+  @if (hasResults()) {
+  <!-- Tabla: a partir de la中型, donde hay ancho para las columnas. -->
+  <div class="hidden overflow-x-auto lg:block">
+    <table class="w-full min-w-[900px] border-collapse text-left text-sm">
+      <thead>
+        <tr
+          class="border-b border-gray-200 bg-gray-50 text-xs font-semibold tracking-wide text-gray-500 uppercase dark:border-gray-800 dark:bg-white/[0.02] dark:text-gray-400"
+        >
+          <th scope="col" class="px-5 py-3">Código</th>
+          <th scope="col" class="px-5 py-3">Estudiante</th>
+          <th scope="col" class="px-5 py-3">Escuela profesional</th>
+          <th scope="col" class="px-5 py-3">Sede</th>
+          <th scope="col" class="px-5 py-3 text-right">Eventos</th>
+          <th scope="col" class="px-5 py-3 text-right">Créditos</th>
+          <th scope="col" class="px-5 py-3">Estado</th>
+          <th scope="col" class="px-5 py-3"><span class="sr-only">Acciones</span></th>
+        </tr>
+      </thead>
+
+      <tbody class="divide-y divide-gray-200 dark:divide-gray-800">
+        @for (row of rows(); track row.student.id) {
+        <tr
+          class="dc-stagger transition-colors hover:bg-gray-50 dark:hover:bg-white/[0.02]"
+          [style.--dc-stagger-index]="row.position"
+        >
+          <td class="px-5 py-3 font-mono text-gray-700 dark:text-gray-200">
+            {{ row.student.universityCode }}
+          </td>
+          <td class="px-5 py-3">
+            <p class="font-medium text-gray-900 dark:text-white/90">
+              {{ row.student.lastName }}, {{ row.student.firstName }}
+            </p>
+            @if (row.pendingGrades > 0) {
+            <p class="text-xs text-warning-600 dark:text-warning-500">
+              {{ row.pendingGrades }} participación(es) sin nota
+            </p>
+            }
+          </td>
+          <td class="px-5 py-3 text-gray-600 dark:text-gray-300">
+            {{ row.student.professionalSchool }}
+          </td>
+          <td class="px-5 py-3 text-gray-600 dark:text-gray-300">
+            {{ row.student.headquarters }}
+          </td>
+          <td class="px-5 py-3 text-right text-gray-600 dark:text-gray-300">
+            {{ row.participations }}
+          </td>
+          <td class="px-5 py-3 text-right">
+            <span
+              class="font-medium"
+              [class.text-success-600]="row.completed"
+              [class.dark:text-success-500]="row.completed"
+              [class.text-gray-900]="!row.completed"
+              [class.dark:text-white/90]="!row.completed"
+              >{{ row.credits }}</span
+            >
+            <span class="text-xs text-gray-400 dark:text-gray-500">
+              / {{ row.creditsTarget }}
+            </span>
+          </td>
+          <td class="px-5 py-3">
+            <app-badge
+              size="sm"
+              [color]="statusColor(row.student.status)"
+              >{{ statusLabel[row.student.status] }}</app-badge
+            >
+          </td>
+          <td class="px-5 py-3">
+            <div class="flex flex-col items-end gap-2">
+              @if (row.completed) {
+              <button
+                type="button"
+                (click)="openCertificate(row.student.id)"
+                class="inline-flex items-center gap-1.5 rounded-lg border border-brand-200 bg-brand-50 px-2.5 py-1 text-xs font-medium text-brand-700 transition-colors hover:bg-brand-100 dark:border-brand-500/20 dark:bg-brand-500/10 dark:text-brand-200"
+              >
+                <dc-icon name="graduation" [size]="14" />
+                Constancia
+              </button>
+              } @else {
+              <app-badge size="sm" color="warning"
+                >Créditos insuficientes ({{ row.credits }}/{{ row.creditsTarget }})</app-badge
+              >
+              <a
+                [routerLink]="['/students', row.student.id, 'constancy']"
+                class="inline-flex items-center gap-1 text-xs font-medium text-gray-500 transition-colors hover:text-brand-600 dark:text-gray-400 dark:hover:text-brand-300"
+              >
+                Ver constancia de avance
+              </a>
+              }
+              <a
+                [routerLink]="['/students', row.student.id]"
+                class="inline-flex items-center gap-1 text-sm font-medium text-brand-600 transition-colors hover:text-brand-700 dark:text-brand-300"
+              >
+                Ver ficha
+                <dc-icon name="chevron-right" [size]="16" />
+              </a>
+            </div>
+          </td>
+        </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Cards: en movil la tabla no cabe, y tampoco se puede leer. -->
+  <ul class="divide-y divide-gray-200 lg:hidden dark:divide-gray-800">
+    @for (row of rows(); track row.student.id) {
+    <li
+      class="dc-stagger px-4 py-4 transition-colors hover:bg-gray-50 dark:hover:bg-white/[0.02]"
+      [style.--dc-stagger-index]="row.position"
+    >
+      <div class="flex items-start justify-between gap-3">
+        <div class="min-w-0">
+          <a
+            [routerLink]="['/students', row.student.id]"
+            class="block truncate font-medium text-gray-900 dark:text-white/90"
+          >
+            {{ row.student.lastName }}, {{ row.student.firstName }}
+          </a>
+          <p class="truncate text-xs text-gray-500 dark:text-gray-400">
+            {{ row.student.professionalSchool }} · {{ row.student.headquarters }}
+          </p>
+        </div>
+        <app-badge
+          size="sm"
+          [color]="statusColor(row.student.status)"
+          >{{ statusLabel[row.student.status] }}</app-badge
+        >
+      </div>
+
+      <div class="mt-3 flex flex-wrap items-center justify-between gap-2">
+        <span class="font-mono text-sm text-gray-700 dark:text-gray-200">
+          {{ row.student.universityCode }}
+        </span>
+        <span class="text-xs text-gray-500 dark:text-gray-400">
+          {{ row.participations }} evento(s) ·
+          <span class="font-medium text-gray-900 dark:text-white/90"
+            >{{ row.credits }}/{{ row.creditsTarget }}</span
+          >
+          créditos
+        </span>
+      </div>
+
+      <div class="mt-3 flex flex-wrap items-center gap-2">
+        @if (row.completed) {
+        <button
+          type="button"
+          (click)="openCertificate(row.student.id)"
+          class="inline-flex items-center gap-1.5 rounded-lg border border-brand-200 bg-brand-50 px-2.5 py-1 text-xs font-medium text-brand-700 transition-colors hover:bg-brand-100 dark:border-brand-500/20 dark:bg-brand-500/10 dark:text-brand-200"
+        >
+          <dc-icon name="graduation" [size]="14" />
+          Constancia
+        </button>
+        } @else {
+        <app-badge size="sm" color="warning"
+          >Créditos insuficientes ({{ row.credits }}/{{ row.creditsTarget }})</app-badge
+        >
+        <a
+          [routerLink]="['/students', row.student.id, 'constancy']"
+          class="inline-flex items-center gap-1 text-xs font-medium text-gray-500 transition-colors hover:text-brand-600 dark:text-gray-400 dark:hover:text-brand-300"
+        >
+          Ver constancia de avance
+        </a>
+        }
+      </div>
+    </li>
+    }
+  </ul>
+
+  <dc-pagination
+    [page]="pageData().page"
+    [pageCount]="pageData().pageCount"
+    [total]="pageData().total"
+    [from]="pageData().from"
+    [to]="pageData().to"
+    [pageSize]="pageSize()"
+    (pageChange)="goToPage($event)"
+    (pageSizeChange)="onPageSizeChange($event)"
+  />
+  } @else {
+  <dc-empty-state
+    title="Sin estudiantes"
+    description="Ningún estudiante coincide con los filtros aplicados."
+  />
+  }
+</dc-panel>
+
+<dc-certificate-modal
+  [isOpen]="certificateStudentId() !== null"
+  [studentId]="certificateStudentId()"
+  (close)="closeCertificate()"
+/>

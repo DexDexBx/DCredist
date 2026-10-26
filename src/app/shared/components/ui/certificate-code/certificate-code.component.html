@@ -1,0 +1,15 @@
+@if (code(); as value) {
+<div class="flex flex-col gap-1">
+  @if (showOrigin()) {
+  <app-badge size="sm" [color]="badgeColor()">{{ originLabel() }}</app-badge>
+  }
+
+  <span [class]="monoClass()" class="text-sm break-all">{{ value }}</span>
+
+  @if (!showOrigin() && isLegacy()) {
+  <span class="text-[11px] text-gray-400 dark:text-gray-500">Sistema anterior</span>
+  }
+</div>
+} @else {
+<span class="text-sm text-gray-400 dark:text-gray-500">Sin código</span>
+}

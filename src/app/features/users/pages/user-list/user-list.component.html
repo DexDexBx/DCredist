@@ -1,0 +1,483 @@
+<dc-page-header
+  title="Usuarios y perfiles"
+  description="Directorio de usuarios de demostración y los módulos habilitados para cada uno."
+>
+  @if (auth.can('users', 'MANAGE')) {
+  <div header-actions>
+    <a
+      routerLink="/users/new"
+      class="inline-flex items-center gap-2 rounded-xl bg-brand-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-brand-700"
+    >
+      <dc-icon name="user-plus" [size]="18" />
+      Nuevo usuario
+    </a>
+  </div>
+  }
+</dc-page-header>
+
+<div
+  class="mb-6 grid gap-3 rounded-2xl border border-gray-200 bg-white p-4 shadow-theme-xs dark:border-gray-800 dark:bg-white/[0.03] md:grid-cols-4"
+>
+  <label class="relative md:col-span-1">
+    <span class="sr-only">Buscar usuario</span>
+    <dc-icon
+      name="search"
+      [size]="17"
+      class="pointer-events-none absolute start-3.5 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500"
+    />
+    <input
+      type="search"
+      [value]="search()"
+      (input)="onSearch($event)"
+      placeholder="Buscar por nombre o correo"
+      class="h-11 w-full rounded-xl border border-gray-300 bg-white ps-10 pe-3.5 text-sm text-gray-900 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-600 focus:outline-none focus:ring-3 focus:ring-brand-500/15 dark:border-gray-700 dark:bg-white/[0.03] dark:text-white/90 dark:placeholder:text-gray-500"
+    />
+  </label>
+
+  <label class="flex items-center">
+    <span class="sr-only">Filtrar por perfil</span>
+    <select
+      [value]="roleFilter()"
+      (change)="onRoleChange($event)"
+      class="h-11 w-full rounded-xl border border-gray-300 bg-white px-3.5 text-sm text-gray-900 shadow-theme-xs focus:border-brand-600 focus:outline-none focus:ring-3 focus:ring-brand-500/15 dark:border-gray-700 dark:bg-white/[0.03] dark:text-white/90"
+    >
+      <option value="Todos">Todos los perfiles</option>
+      @for (role of roles; track role) {
+      <option [value]="role">{{ roleLabels[role] }}</option>
+      }
+    </select>
+  </label>
+
+  <label class="flex items-center">
+    <span class="sr-only">Filtrar por estado</span>
+    <select
+      [value]="statusFilter()"
+      (change)="onStatusChange($event)"
+      class="h-11 w-full rounded-xl border border-gray-300 bg-white px-3.5 text-sm text-gray-900 shadow-theme-xs focus:border-brand-600 focus:outline-none focus:ring-3 focus:ring-brand-500/15 dark:border-gray-700 dark:bg-white/[0.03] dark:text-white/90"
+    >
+      <option value="Todos">Todos los estados</option>
+      @for (status of statuses; track status) {
+      <option [value]="status">{{ statusLabel[status] }}</option>
+      }
+    </select>
+  </label>
+
+  @if (hasFilters()) {
+  <button
+    type="button"
+    (click)="clearFilters()"
+    class="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-gray-300 px-4 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-100 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-white/5"
+  >
+    <dc-icon name="close" [size]="16" />
+    Limpiar
+  </button>
+  } @else {
+  <div class="hidden items-center gap-2 text-sm text-gray-500 dark:text-gray-400 md:flex">
+    <dc-icon name="users" [size]="17" />
+    {{ filteredUsers().length }} de {{ directory().length }} usuarios
+  </div>
+  }
+</div>
+
+<dc-panel
+  title="Directorio de usuarios"
+  subtitle="Registra, busca y ajusta los accesos de cada persona."
+  icon="users"
+>
+  <div class="mb-4 flex flex-wrap gap-2">
+    @for (role of roles; track role) {
+    <span
+      class="inline-flex items-center gap-2 rounded-full border border-gray-200 px-3 py-1 text-xs font-medium text-gray-600 dark:border-gray-800 dark:text-gray-300"
+    >
+      {{ roleLabels[role] }}
+      <span
+        class="rounded-full bg-gray-100 px-1.5 text-[11px] font-semibold text-gray-700 dark:bg-white/10 dark:text-gray-200"
+      >
+        {{ roleCounts()[role] }}
+      </span>
+    </span>
+    }
+  </div>
+
+  @if (pageData().items.length === 0) {
+  <dc-empty-state
+    title="Sin usuarios que coincidan"
+    description="Ajusta los filtros o limpia la búsqueda."
+  >
+    <button
+      type="button"
+      (click)="clearFilters()"
+      class="inline-flex h-10 items-center rounded-xl bg-brand-700 px-4 text-sm font-semibold text-white transition-colors hover:bg-brand-800"
+    >
+      Limpiar filtros
+    </button>
+  </dc-empty-state>
+  } @else {
+  <div class="overflow-x-auto">
+    <table class="w-full min-w-[900px] border-collapse text-sm">
+      <thead>
+        <tr class="border-b border-gray-200 dark:border-gray-800">
+          <th
+            class="py-2.5 pe-4 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500"
+          >
+            Usuario
+          </th>
+          <th
+            class="px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500"
+          >
+            Perfil
+          </th>
+          <th
+            class="px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500"
+          >
+            Estado
+          </th>
+          <th
+            class="px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500"
+          >
+            Accesos
+          </th>
+          <th
+            class="py-2.5 ps-3 text-right text-[11px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500"
+          >
+            Acciones
+          </th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (user of pageData().items; track user.id) {
+        <tr class="border-b border-gray-100 last:border-0 dark:border-gray-800/60">
+          <td class="py-3 pe-4">
+            <div class="flex min-w-0 items-center gap-3">
+              <span
+                class="flex size-9 shrink-0 items-center justify-center rounded-lg bg-brand-50 text-xs font-semibold text-brand-700 dark:bg-brand-500/15 dark:text-brand-300"
+                aria-hidden="true"
+                >{{ user.initials }}</span
+              >
+              <div class="min-w-0">
+                <p class="truncate font-medium">
+                  <a
+                    [routerLink]="['/users', user.id]"
+                    class="text-gray-900 transition-colors hover:text-brand-600 dark:text-white/90 dark:hover:text-brand-300"
+                  >
+                    {{ user.fullName }}
+                  </a>
+                  @if (isCurrent(user)) {
+                  <span
+                    class="ml-1.5 rounded-full bg-success-50 px-2 py-0.5 text-[10px] font-medium text-success-600 dark:bg-success-500/15 dark:text-success-500"
+                  >
+                    Sesión actual
+                  </span>
+                  }
+                </p>
+                <p class="truncate text-xs text-gray-500 dark:text-gray-400">
+                  {{ user.email }}
+                </p>
+              </div>
+            </div>
+          </td>
+          <td class="px-3 py-3">
+            <app-badge size="sm" [color]="badgeColor(user.role)">
+              {{ roleLabels[user.role] }}
+            </app-badge>
+          </td>
+          <td class="px-3 py-3">
+            @if (user.status === 'ACTIVE') {
+            <span
+              class="inline-flex items-center gap-1.5 rounded-full bg-success-50 px-2.5 py-0.5 text-xs font-medium text-success-600 dark:bg-success-500/15 dark:text-success-500"
+            >
+              <dc-icon name="check" [size]="12" />
+              Activo
+            </span>
+            } @else {
+            <span
+              class="inline-flex items-center gap-1.5 rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-500 dark:bg-white/10 dark:text-gray-400"
+            >
+              <dc-icon name="close" [size]="12" />
+              Inactivo
+            </span>
+            }
+          </td>
+          <td class="px-3 py-3 text-xs text-gray-600 dark:text-gray-300">
+            @if (overrideCount(user) > 0) {
+            {{ overrideCount(user) }} módulo(s) ajustado(s)
+            } @else {
+            Predeterminados del perfil
+            }
+          </td>
+          <td class="py-3 ps-3">
+            <div class="flex items-center justify-end gap-2">
+              <a
+                [routerLink]="['/users', user.id]"
+                title="Ver y editar usuario"
+                class="inline-flex h-9 items-center justify-center rounded-lg border border-gray-300 px-2.5 text-gray-700 transition-colors hover:bg-gray-100 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-white/5"
+              >
+                <dc-icon name="pencil" [size]="16" />
+              </a>
+              <button
+                type="button"
+                (click)="openPermissions(user)"
+                title="Configurar accesos"
+                class="inline-flex h-9 items-center justify-center rounded-lg border border-brand-200 bg-brand-50 px-2.5 text-brand-700 transition-colors hover:bg-brand-100 dark:border-brand-500/30 dark:bg-brand-500/10 dark:text-brand-300 dark:hover:bg-brand-500/20"
+              >
+                <dc-icon name="settings" [size]="16" />
+              </button>
+              <button
+                type="button"
+                (click)="signInAs(user)"
+                [disabled]="isCurrent(user) || !canSignIn(user)"
+                title="Entrar como este usuario"
+                class="inline-flex h-9 items-center justify-center rounded-lg border border-gray-300 px-2.5 text-gray-700 transition-colors hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-white/5"
+              >
+                <dc-icon name="logout" [size]="16" />
+              </button>
+            </div>
+          </td>
+        </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+
+  <div class="mt-4">
+    <dc-pagination
+      [page]="pageData().page"
+      [pageCount]="pageData().pageCount"
+      [total]="pageData().total"
+      [from]="pageData().from"
+      [to]="pageData().to"
+      [pageSize]="pageData().pageSize"
+      (pageChange)="goToPage($event)"
+      (pageSizeChange)="onPageSizeChange($event)"
+    />
+  </div>
+  }
+
+  <p class="mt-4 text-xs leading-relaxed text-gray-500 dark:text-gray-400">
+    Los usuarios se gestionan desde este módulo (alta, edición y accesos). Los datos son mock
+    mientras no exista la API: los cambios viven en la sesión de demostración y se pierden al
+    recargar. Solo los 4 perfiles de arranque traen contraseña; el resto se usa desde "entrar
+    como este usuario".
+  </p>
+</dc-panel>
+
+<dc-panel
+  class="mt-6"
+  title="Acceso por perfil"
+  subtitle="Nivel inicial de cada módulo antes de los ajustes por usuario."
+  icon="shield-check"
+>
+  <div class="overflow-x-auto">
+    <table class="w-full min-w-[560px] border-collapse text-sm">
+      <thead>
+        <tr class="border-b border-gray-200 dark:border-gray-800">
+          <th
+            class="py-2.5 pe-4 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500"
+          >
+            Módulo
+          </th>
+          @for (role of roles; track role) {
+          <th
+            class="whitespace-nowrap px-3 py-2.5 text-center text-[11px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500"
+          >
+            {{ roleShortLabels[role] }}
+          </th>
+          }
+        </tr>
+      </thead>
+      <tbody>
+        @for (module of modules; track module.key) {
+        <tr class="border-b border-gray-100 last:border-0 dark:border-gray-800/60">
+          <td class="py-3 pe-4 text-gray-700 dark:text-gray-200">{{ module.label }}</td>
+          @for (role of roles; track role) {
+          <td class="px-3 py-3 text-center">
+            @switch (defaultLevel(role, module.key)) {
+              @case ('MANAGE') {
+              <span
+                class="inline-flex h-6 w-6 items-center justify-center rounded-full bg-success-50 text-success-600 dark:bg-success-500/15 dark:text-success-400"
+                [attr.title]="'Gestionar: ' + roleLabels[role] + ' en ' + module.label"
+              >
+                <dc-icon name="shield-check" [size]="14" />
+              </span>
+              }
+              @case ('VIEW') {
+              <span
+                class="inline-flex h-6 w-6 items-center justify-center rounded-full bg-gray-100 text-gray-500 dark:bg-white/10 dark:text-gray-300"
+                [attr.title]="'Solo ver: ' + roleLabels[role] + ' en ' + module.label"
+              >
+                <dc-icon name="check" [size]="14" />
+              </span>
+              }
+              @default {
+              <span class="text-gray-300 dark:text-gray-600" [attr.title]="'Sin acceso'">—</span>
+              }
+            }
+          </td>
+          }
+        </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+
+  <div
+    class="mt-4 flex flex-wrap items-center gap-x-5 gap-y-2 rounded-xl bg-gray-50 px-3 py-2.5 text-xs text-gray-600 dark:bg-white/[0.03] dark:text-gray-300"
+  >
+    <span class="inline-flex items-center gap-1.5">
+      <span
+        class="inline-flex h-5 w-5 items-center justify-center rounded-full bg-success-50 text-success-600 dark:bg-success-500/15 dark:text-success-400"
+      >
+        <dc-icon name="shield-check" [size]="13" />
+      </span>
+      Gestionar
+    </span>
+    <span class="inline-flex items-center gap-1.5">
+      <span
+        class="inline-flex h-5 w-5 items-center justify-center rounded-full bg-gray-100 text-gray-500 dark:bg-white/10 dark:text-gray-300"
+      >
+        <dc-icon name="check" [size]="13" />
+      </span>
+      Solo ver
+    </span>
+    <span class="inline-flex items-center gap-1.5">
+      <span class="text-gray-400 dark:text-gray-500">—</span>
+      Sin acceso
+    </span>
+  </div>
+
+  <p class="mt-4 text-xs leading-relaxed text-gray-500 dark:text-gray-400">
+    El menú lateral, las rutas y los botones respetan estos permisos. Los ajustes por
+    usuario se guardan en la sesión de demostración (localStorage) y no viajan a ningún
+    servidor.
+  </p>
+</dc-panel>
+
+<app-modal
+  [isOpen]="editingUser() !== null"
+  (close)="closePermissions()"
+  className="mx-4 max-w-2xl overflow-hidden p-0"
+>
+  @if (editingUser(); as user) {
+  <div class="flex max-h-[85vh] flex-col">
+    <div class="shrink-0 border-b border-gray-200 px-5 py-4 dark:border-gray-800 sm:px-6">
+      <div class="flex items-start gap-3 pe-10">
+        <span
+          class="flex size-10 shrink-0 items-center justify-center rounded-xl bg-brand-50 text-brand-700 dark:bg-brand-500/15 dark:text-brand-300"
+          aria-hidden="true"
+          >{{ user.initials }}</span
+        >
+        <div class="min-w-0">
+          <h2 class="text-base font-semibold text-gray-900 dark:text-white/90">
+            Accesos de {{ user.fullName }}
+          </h2>
+          <p
+            class="mt-1 flex flex-wrap items-center gap-2 text-xs text-gray-500 dark:text-gray-400"
+          >
+            <app-badge size="sm" [color]="badgeColor(user.role)">
+              {{ roleLabels[user.role] }}
+            </app-badge>
+            <span>Ajusta el nivel de cada módulo.</span>
+          </p>
+        </div>
+      </div>
+
+      @if (editingSummary(); as summary) {
+      <div class="mt-3 flex flex-wrap gap-2">
+        @for (item of summary; track item.level) {
+        <span
+          class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-medium"
+          [ngClass]="
+            item.level === 'MANAGE'
+              ? 'bg-success-50 text-success-600 dark:bg-success-500/15 dark:text-success-400'
+              : item.level === 'VIEW'
+                ? 'bg-gray-100 text-gray-600 dark:bg-white/10 dark:text-gray-300'
+                : 'bg-gray-100 text-gray-400 dark:bg-white/5 dark:text-gray-500'
+          "
+        >
+          {{ item.count }} {{ levelLabel[item.level].toLowerCase() }}
+        </span>
+        }
+      </div>
+      }
+    </div>
+
+    <div class="min-h-0 flex-1 overflow-y-auto px-5 py-4 sm:px-6">
+      <div class="grid gap-2 sm:grid-cols-2">
+        @for (module of modules; track module.key) {
+        <div
+          class="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-gray-200 px-3.5 py-3 dark:border-gray-800"
+        >
+          <div class="min-w-0">
+            <p
+              class="flex items-center gap-2 text-sm font-medium text-gray-900 dark:text-white/90"
+            >
+              {{ module.label }}
+              @if (isOverridden(user, module.key)) {
+              <span
+                class="rounded-full bg-brand-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-brand-700 dark:bg-brand-500/15 dark:text-brand-300"
+              >
+                Ajustado
+              </span>
+              }
+            </p>
+            <p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
+              @if (isLocked(user, module.key)) {
+              No editable: es tu acceso a este módulo y quitarlo te bloquearía.
+              } @else {
+              {{ module.description }}
+              }
+            </p>
+          </div>
+
+          <label class="flex shrink-0 flex-col gap-1">
+            <span class="sr-only">Nivel para {{ module.label }}</span>
+            <select
+              [ngModel]="editingLevel(module.key)"
+              (ngModelChange)="setLevel(module.key, $event)"
+              [disabled]="isLocked(user, module.key)"
+              class="h-9 w-36 appearance-none rounded-lg border border-gray-300 bg-white px-2.5 text-xs font-medium text-gray-900 transition-colors focus:border-brand-600 focus:outline-none focus:ring-3 focus:ring-brand-500/15 disabled:cursor-not-allowed disabled:bg-gray-100 dark:border-gray-700 dark:bg-white/[0.03] dark:text-white/90 dark:disabled:bg-white/[0.02]"
+            >
+              @for (level of levels; track level) {
+              <option [ngValue]="level">{{ levelLabel[level] }}</option>
+              }
+            </select>
+          </label>
+        </div>
+        }
+      </div>
+    </div>
+
+    <div
+      class="flex shrink-0 flex-wrap items-center justify-between gap-3 border-t border-gray-200 px-5 py-4 dark:border-gray-800 sm:px-6"
+    >
+      <button
+        type="button"
+        (click)="restoreRoleDefaults()"
+        class="inline-flex h-10 items-center gap-2 rounded-xl border border-gray-300 px-4 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-100 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-white/5"
+      >
+        <dc-icon name="refresh" [size]="16" />
+        Restaurar predeterminados
+      </button>
+
+      <div class="flex items-center gap-2">
+        <button
+          type="button"
+          (click)="closePermissions()"
+          class="inline-flex h-10 items-center rounded-xl border border-gray-300 px-4 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-100 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-white/5"
+        >
+          Cancelar
+        </button>
+        <button
+          type="button"
+          (click)="savePermissions()"
+          [disabled]="!hasChanges()"
+          class="inline-flex h-10 items-center gap-2 rounded-xl bg-brand-700 px-4 text-sm font-semibold text-white transition-colors hover:bg-brand-800 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          <dc-icon name="check" [size]="16" />
+          Guardar accesos
+        </button>
+      </div>
+    </div>
+  </div>
+  }
+</app-modal>

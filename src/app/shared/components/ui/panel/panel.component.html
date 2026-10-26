@@ -1,0 +1,64 @@
+<section
+  class="rounded-2xl border border-gray-200 bg-white shadow-theme-xs dark:border-gray-800 dark:bg-white/[0.03]"
+>
+  @if (title()) {
+  <header
+    class="flex flex-col gap-3 border-b border-gray-200 px-5 py-4 sm:flex-row sm:items-center sm:justify-between dark:border-gray-800"
+  >
+    <div class="flex min-w-0 items-center gap-3">
+      @if (icon()) {
+      <span
+        class="flex size-9 shrink-0 items-center justify-center rounded-lg bg-brand-50 text-brand-600 dark:bg-brand-500/10 dark:text-brand-300"
+      >
+        <dc-icon [name]="icon()!" [size]="18" />
+      </span>
+      }
+      <div class="min-w-0">
+        <h2 class="text-base font-semibold text-gray-900 dark:text-white/90">
+          {{ title() }}
+        </h2>
+        @if (subtitle()) {
+        <p class="mt-0.5 text-sm text-gray-500 dark:text-gray-400">
+          {{ subtitle() }}
+        </p>
+        }
+      </div>
+    </div>
+    <div class="flex shrink-0 items-center gap-2">
+      <ng-content select="[panel-actions]" />
+      @if (collapsible()) {
+      <button
+        type="button"
+        (click)="toggle()"
+        [attr.aria-expanded]="!collapsed()"
+        [attr.aria-label]="collapsed() ? 'Expandir' : 'Contraer'"
+        class="flex size-8 items-center justify-center rounded-lg border border-gray-200 text-gray-500 transition-colors hover:bg-gray-50 hover:text-gray-700 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-white/[0.05] dark:hover:text-white"
+      >
+        <dc-icon
+          name="chevron-down"
+          [size]="18"
+          class="transition-transform duration-300"
+          [class.rotate-180]="!collapsed()"
+        />
+      </button>
+      }
+    </div>
+  </header>
+  }
+
+  <div
+    class="grid"
+    [class]="
+      collapsible()
+        ? 'transition-all duration-300 ease-in-out ' +
+          (collapsed() ? 'grid-rows-[0fr]' : 'grid-rows-[1fr]')
+        : ''
+    "
+  >
+    <div [class]="collapsible() ? 'min-h-0 overflow-hidden' : ''">
+      <div [class]="bodyClasses()">
+        <ng-content />
+      </div>
+    </div>
+  </div>
+</section>

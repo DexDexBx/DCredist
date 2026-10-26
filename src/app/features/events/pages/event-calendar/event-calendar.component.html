@@ -1,0 +1,134 @@
+<dc-page-header
+  title="Calendario de eventos"
+  description="Navega la agenda por mes, semana, día o año."
+  [breadcrumbs]="[
+    { label: 'Eventos', link: '/events' },
+    { label: 'Calendario' }
+  ]"
+>
+  <a
+    header-actions
+    routerLink="/events"
+    class="inline-flex h-10 items-center gap-2 rounded-xl border border-gray-200 px-4 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-100 dark:border-gray-800 dark:text-gray-200 dark:hover:bg-white/5"
+  >
+    <dc-icon name="arrow-left" [size]="17" />
+    Volver al listado
+  </a>
+
+  @if (auth.can('events', 'MANAGE')) {
+  <a
+    header-actions
+    routerLink="/events/new"
+    class="inline-flex h-10 items-center gap-2 rounded-xl bg-brand-700 px-4 text-sm font-semibold text-white transition-colors hover:bg-brand-800"
+  >
+    <dc-icon name="plus" [size]="17" />
+    Nuevo evento
+  </a>
+  }
+</dc-page-header>
+
+<div
+  class="rounded-2xl border border-gray-200 bg-white p-4 shadow-theme-xs dark:border-gray-800 dark:bg-white/[0.03] md:p-5"
+>
+  <div
+    class="mb-4 flex flex-wrap items-center justify-between gap-3 border-b border-gray-200 pb-4 dark:border-gray-800"
+  >
+    <ul class="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-gray-600 dark:text-gray-300">
+      @for (status of statuses; track status) {
+      <li class="flex items-center gap-1.5">
+        <span
+          class="size-2.5 rounded-full"
+          [style.background-color]="statusColor(status)"
+          aria-hidden="true"
+        ></span>
+        {{ status }}
+      </li>
+      }
+    </ul>
+
+    @if (auth.can('events', 'MANAGE')) {
+    <p class="text-xs text-gray-400 dark:text-gray-500">
+      Selecciona un día para crear un evento
+    </p>
+    }
+  </div>
+
+  <div #calendar class="dc-calendar">
+    <full-calendar [options]="options()" />
+  </div>
+</div>
+
+<app-modal [isOpen]="selected() !== null" (close)="closeModal()" className="max-w-lg p-5 sm:p-6">
+  @if (selected(); as current) {
+  <div class="pe-8">
+    <div class="flex flex-wrap items-center gap-2">
+      <app-event-status-badge [status]="current.status" />
+      <span
+        class="inline-flex items-center rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-700 dark:bg-white/5 dark:text-gray-200"
+        >{{ current.modality }}</span
+      >
+    </div>
+
+    <h2 class="mt-3 text-lg font-semibold text-gray-900 dark:text-white/90">
+      {{ current.name }}
+    </h2>
+    <p class="mt-1 font-mono text-xs font-medium text-gray-500 dark:text-gray-400">
+      {{ current.code }}
+    </p>
+
+    <dl class="mt-5 flex flex-col gap-3 text-sm">
+      <div class="flex items-start gap-3">
+        <dc-icon name="clock" [size]="18" class="mt-0.5 text-gray-400" />
+        <div>
+          <dt class="text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">
+            Fecha y horario
+          </dt>
+          <dd class="mt-0.5 text-gray-900 dark:text-white/90">{{ current.range }}</dd>
+          <dd class="text-xs text-gray-500 dark:text-gray-400">{{ current.schedule }}</dd>
+        </div>
+      </div>
+
+      <div class="flex items-start gap-3">
+        <dc-icon name="map-pin" [size]="18" class="mt-0.5 text-gray-400" />
+        <div>
+          <dt class="text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">
+            Ubicación
+          </dt>
+          <dd class="mt-0.5 text-gray-900 dark:text-white/90">{{ current.location }}</dd>
+        </div>
+      </div>
+
+      <div class="flex items-start gap-3">
+        <dc-icon name="building" [size]="18" class="mt-0.5 text-gray-400" />
+        <div>
+          <dt class="text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">
+            Organizador
+          </dt>
+          <dd class="mt-0.5 text-gray-900 dark:text-white/90">{{ current.organizer }}</dd>
+        </div>
+      </div>
+    </dl>
+
+    <div class="mt-6 flex flex-col gap-2 sm:flex-row">
+      <button
+        type="button"
+        class="inline-flex h-10 flex-1 items-center justify-center gap-2 rounded-xl bg-brand-700 px-4 text-sm font-semibold text-white transition-colors hover:bg-brand-800"
+        (click)="goToEvent()"
+      >
+        <dc-icon name="event" [size]="17" />
+        Ver evento
+      </button>
+      @if (auth.can('participations', 'MANAGE')) {
+      <button
+        type="button"
+        class="inline-flex h-10 flex-1 items-center justify-center gap-2 rounded-xl border border-gray-300 px-4 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-100 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-white/5"
+        (click)="goToRegister()"
+      >
+        <dc-icon name="user-plus" [size]="17" />
+        Registrar participación
+      </button>
+      }
+    </div>
+  </div>
+  }
+</app-modal>

@@ -1,0 +1,377 @@
+<dc-page-header
+  title="Códigos de certificado"
+  description="Emite el código de DCredits para certificados que solo tienen el código del sistema anterior, sin perder el código que el estudiante ya conoce."
+  [breadcrumbs]="[
+    { label: 'Inicio', link: '/dashboard' },
+    { label: 'Certificados' },
+    { label: 'Códigos' },
+  ]"
+>
+  <a
+    header-actions
+    routerLink="/participations"
+    class="inline-flex items-center gap-2 rounded-xl border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-white/[0.05]"
+  >
+    <dc-icon name="arrow-left" [size]="18" />
+    Volver a participaciones
+  </a>
+</dc-page-header>
+
+<div class="grid gap-4 sm:grid-cols-3">
+  <dc-stat-card
+    label="Pendientes de convertir"
+    [value]="pending().length"
+    hint="Tienen código anterior y todavía no tienen código DC"
+    tone="warning"
+  />
+  <dc-stat-card
+    label="Con ambos códigos"
+    [value]="migratedCount()"
+    hint="Código DC y código anterior, uno junto al otro"
+    tone="success"
+  />
+  <dc-stat-card
+    label="Ejemplo de código nuevo"
+    [value]="0"
+    [hint]="exampleDcCode"
+    tone="primary"
+  />
+</div>
+
+<dc-panel
+  class="mt-6"
+  title="Consultar un código"
+  subtitle="Escribe el código del sistema anterior o el código DC, y comprueba a qué certificado corresponde."
+>
+  <div class="grid gap-4 md:grid-cols-[2fr_1fr]">
+    <label class="block">
+      <span class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300"
+        >Código</span
+      >
+      <input
+        type="search"
+        [ngModel]="lookupInput()"
+        (ngModelChange)="lookupInput.set($event)"
+        (keydown.enter)="lookup()"
+        placeholder="SIS/2019/008821 o DC-2026-8F4K2P"
+        class="h-11 w-full rounded-xl border border-gray-300 bg-white px-3.5 font-mono text-sm text-gray-900 shadow-theme-xs placeholder:font-sans placeholder:text-gray-400 focus:border-brand-600 focus:ring-3 focus:ring-brand-500/15 focus:outline-none dark:border-gray-700 dark:bg-white/[0.03] dark:text-white/90"
+      />
+    </label>
+
+    <div class="flex items-end gap-2">
+      <button
+        type="button"
+        (click)="lookup()"
+        class="inline-flex h-11 flex-1 items-center justify-center gap-2 rounded-xl bg-brand-600 px-4 text-sm font-medium text-white transition-colors hover:bg-brand-700"
+      >
+        <dc-icon name="search" [size]="16" />
+        Buscar
+      </button>
+      <button
+        type="button"
+        (click)="clear()"
+        class="inline-flex h-11 items-center justify-center rounded-xl border border-gray-300 px-4 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-white/[0.05]"
+      >
+        Limpiar
+      </button>
+    </div>
+  </div>
+
+  <div class="mt-4 grid gap-3 sm:grid-cols-2">
+    <div class="rounded-xl border border-gray-200 bg-gray-50 p-3.5 dark:border-gray-800 dark:bg-white/[0.03]">
+      <p class="text-xs font-semibold tracking-wide text-gray-500 uppercase dark:text-gray-400">
+        Formato del código de DCredits
+      </p>
+      <p class="mt-1 font-mono text-sm text-gray-900 dark:text-white/90">{{ exampleDcCode }}</p>
+      <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+        Código de DCredits. Emitido una vez y no cambia aunque se anule la participación.
+      </p>
+    </div>
+    <div class="rounded-xl border border-gray-200 bg-gray-50 p-3.5 dark:border-gray-800 dark:bg-white/[0.03]">
+      <p class="text-xs font-semibold tracking-wide text-gray-500 uppercase dark:text-gray-400">
+        Formato del código anterior
+      </p>
+      <p class="mt-1 font-mono text-sm text-gray-900 dark:text-white/90">{{ exampleLegacyCode }}</p>
+      <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+        Código del sistema anterior. Se conserva tal cual, con sus guiones y barras.
+      </p>
+    </div>
+  </div>
+
+  @if (message(); as text) {
+  <div
+    class="mt-4 rounded-xl border px-4 py-3 text-sm"
+    [class.border-success-200]="messageTone() === 'success'"
+    [class.bg-success-50]="messageTone() === 'success'"
+    [class.text-success-700]="messageTone() === 'success'"
+    [class.dark:border-success-500/20]="messageTone() === 'success'"
+    [class.dark:bg-success-500/10]="messageTone() === 'success'"
+    [class.dark:text-success-300]="messageTone() === 'success'"
+    [class.border-warning-200]="messageTone() === 'warning'"
+    [class.bg-warning-50]="messageTone() === 'warning'"
+    [class.text-warning-700]="messageTone() === 'warning'"
+    [class.dark:border-warning-500/20]="messageTone() === 'warning'"
+    [class.dark:bg-warning-500/10]="messageTone() === 'warning'"
+    [class.dark:text-warning-300]="messageTone() === 'warning'"
+    [class.border-error-200]="messageTone() === 'error'"
+    [class.bg-error-50]="messageTone() === 'error'"
+    [class.text-error-700]="messageTone() === 'error'"
+    [class.dark:border-error-500/20]="messageTone() === 'error'"
+    [class.dark:bg-error-500/10]="messageTone() === 'error'"
+    [class.dark:text-error-300]="messageTone() === 'error'"
+  >
+    {{ text }}
+  </div>
+  }
+</dc-panel>
+
+@if (found(); as item) {
+<dc-panel class="mt-6" title="Certificado encontrado">
+  <div class="grid gap-5 lg:grid-cols-2">
+    <div>
+      <dl class="space-y-3 text-sm">
+        <div>
+          <dt class="text-xs font-semibold tracking-wide text-gray-500 uppercase dark:text-gray-400">
+            Estudiante
+          </dt>
+          <dd class="mt-0.5 text-gray-900 dark:text-white/90">
+            {{ studentName(item) }}
+            <span class="block font-mono text-xs text-gray-500 dark:text-gray-400">{{
+              studentCode(item)
+            }}</span>
+          </dd>
+        </div>
+        <div>
+          <dt class="text-xs font-semibold tracking-wide text-gray-500 uppercase dark:text-gray-400">
+            Evento
+          </dt>
+          <dd class="mt-0.5 text-gray-900 dark:text-white/90">{{ eventName(item) }}</dd>
+        </div>
+        <div class="flex flex-wrap gap-6">
+          <div>
+            <dt class="text-xs font-semibold tracking-wide text-gray-500 uppercase dark:text-gray-400">
+              Fecha
+            </dt>
+            <dd class="mt-0.5 text-gray-900 dark:text-white/90">
+              {{ date(item.participation.participationDate) }}
+            </dd>
+          </div>
+          <div>
+            <dt class="text-xs font-semibold tracking-wide text-gray-500 uppercase dark:text-gray-400">
+              Créditos
+            </dt>
+            <dd class="mt-0.5 text-gray-900 dark:text-white/90">
+              {{ item.participation.credits }}
+            </dd>
+          </div>
+          <div>
+            <dt class="text-xs font-semibold tracking-wide text-gray-500 uppercase dark:text-gray-400">
+              Tipo
+            </dt>
+            <dd class="mt-0.5 text-gray-900 dark:text-white/90">
+              {{ typeLabel[item.participation.participationType] }}
+            </dd>
+          </div>
+        </div>
+        <div>
+          <dt class="text-xs font-semibold tracking-wide text-gray-500 uppercase dark:text-gray-400">
+            Estado
+          </dt>
+          <dd class="mt-1">
+            <app-badge size="sm" [color]="statusColor(item.participation)">{{
+              statusLabel[item.participation.status]
+            }}</app-badge>
+          </dd>
+        </div>
+      </dl>
+    </div>
+
+    <div class="space-y-3">
+      <div
+        class="rounded-xl border border-gray-200 p-4 dark:border-gray-800"
+        [class.border-dashed]="item.participation.verificationCode === null"
+      >
+        <p class="text-xs font-semibold tracking-wide text-gray-500 uppercase dark:text-gray-400">
+          Código de DCredits
+        </p>
+        @if (item.participation.verificationCode) {
+        <dc-certificate-code [codes]="item.participation" />
+        <p class="mt-2 text-xs text-success-700 dark:text-success-300">
+          Emitido por DCredits. Este es el código que se envía para generar el certificado.
+        </p>
+        } @else {
+        <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+          Todavía no tiene código de DCredits.
+        </p>
+        }
+      </div>
+
+      <div
+        class="rounded-xl border border-gray-200 p-4 dark:border-gray-800"
+        [class.border-dashed]="item.participation.legacyCode === null"
+      >
+        <p class="text-xs font-semibold tracking-wide text-gray-500 uppercase dark:text-gray-400">
+          Código del sistema anterior
+        </p>
+        @if (item.participation.legacyCode) {
+        <p class="mt-1 font-mono text-sm text-gray-900 dark:text-white/90">
+          {{ item.participation.legacyCode }}
+        </p>
+        <p class="mt-2 text-xs text-gray-500 dark:text-gray-400">
+          Se conserva tal cual. El certificado impreso sigue localizándose con él.
+        </p>
+        } @else {
+        <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+          Este certificado se emitió directamente en DCredits.
+        </p>
+        }
+      </div>
+
+      <div class="flex flex-wrap items-center gap-2">
+        <app-badge size="sm" color="info">{{ originOf(item.participation) }}</app-badge>
+        <span class="text-xs text-gray-500 dark:text-gray-400">
+          Ambos códigos se pueden consultar en la verificación pública.
+        </span>
+      </div>
+
+      @if (canIssue(item)) {
+      <button
+        type="button"
+        (click)="issue(item)"
+        class="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-brand-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-brand-700"
+      >
+        <dc-icon name="key" [size]="16" />
+        Generar código de DCredits
+      </button>
+      }
+    </div>
+  </div>
+</dc-panel>
+}
+
+@if (pending().length) {
+<dc-panel
+  class="mt-6"
+  title="Pendientes de convertir"
+  subtitle="Participaciones que conservan el código anterior y todavía no tienen código de DCredits."
+>
+  <div class="overflow-x-auto">
+    <table class="w-full min-w-[820px] border-collapse text-left text-sm">
+      <thead>
+        <tr
+          class="border-b border-gray-200 bg-gray-50 text-xs font-semibold tracking-wide text-gray-500 uppercase dark:border-gray-800 dark:bg-white/[0.02] dark:text-gray-400"
+        >
+          <th scope="col" class="px-4 py-3">Estudiante</th>
+          <th scope="col" class="px-4 py-3">Evento</th>
+          <th scope="col" class="px-4 py-3">Fecha</th>
+          <th scope="col" class="px-4 py-3">Código anterior</th>
+          <th scope="col" class="px-4 py-3 text-right">Acción</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-gray-200 dark:divide-gray-800">
+        @for (item of pending().slice(0, 20); track item.participation.id) {
+        <tr class="transition-colors hover:bg-gray-50 dark:hover:bg-white/[0.02]">
+          <td class="px-4 py-3">
+            <span class="font-medium text-gray-900 dark:text-white/90">
+              {{ studentName(item) }}
+            </span>
+            <span class="block font-mono text-xs text-gray-500 dark:text-gray-400">{{
+              studentCode(item)
+            }}</span>
+          </td>
+          <td class="px-4 py-3 text-gray-600 dark:text-gray-300">
+            {{ eventName(item) }}
+          </td>
+          <td class="px-4 py-3 text-gray-600 dark:text-gray-300">
+            {{ date(item.participation.participationDate) }}
+          </td>
+          <td class="px-4 py-3 font-mono text-gray-700 dark:text-gray-200">
+            {{ item.participation.legacyCode }}
+          </td>
+          <td class="px-4 py-3 text-right">
+            <button
+              type="button"
+              (click)="issue(item)"
+              class="rounded-lg border border-brand-200 bg-brand-50 px-3 py-1.5 text-xs font-medium text-brand-700 transition-colors hover:bg-brand-100 dark:border-brand-500/20 dark:bg-brand-500/10 dark:text-brand-200"
+            >
+              Generar código
+            </button>
+          </td>
+        </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+
+  @if (pending().length > 20) {
+  <p class="mt-3 text-xs text-gray-500 dark:text-gray-400">
+    Se muestran los primeros 20 de {{ pending().length }} pendientes. La conversión
+    conjunta procesa hasta 200 por tanda.
+  </p>
+  }
+
+  <button
+    type="button"
+    (click)="issueAll()"
+    class="mt-4 inline-flex items-center gap-2 rounded-xl bg-brand-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-brand-700"
+  >
+    <dc-icon name="refresh" [size]="16" />
+    Convertir hasta 200 pendientes
+  </button>
+</dc-panel>
+} @else {
+<dc-panel class="mt-6" title="Pendientes de convertir">
+  <dc-empty-state
+    title="No hay códigos anteriores pendientes"
+    description="Todas las participaciones con código del sistema anterior ya tienen también su código de DCredits."
+  />
+</dc-panel>
+}
+
+<dc-panel
+  class="mt-6"
+  title="Histórico de la migración"
+  subtitle="Participaciones que ya guardan los dos códigos juntos."
+>
+  @if (recentlyIssued().length) {
+  <div class="overflow-x-auto">
+    <table class="w-full min-w-[820px] border-collapse text-left text-sm">
+      <thead>
+        <tr
+          class="border-b border-gray-200 bg-gray-50 text-xs font-semibold tracking-wide text-gray-500 uppercase dark:border-gray-800 dark:bg-white/[0.02] dark:text-gray-400"
+        >
+          <th scope="col" class="px-4 py-3">Código anterior</th>
+          <th scope="col" class="px-4 py-3">Código de DCredits</th>
+          <th scope="col" class="px-4 py-3">Origen</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-gray-200 dark:divide-gray-800">
+        @for (item of recentlyIssued(); track item.id) {
+        <tr>
+          <td class="px-4 py-3 font-mono text-gray-700 dark:text-gray-200">
+            {{ item.legacyCode }}
+          </td>
+          <td class="px-4 py-3 font-mono text-gray-900 dark:text-white/90">
+            {{ item.verificationCode }}
+          </td>
+          <td class="px-4 py-3">
+            <app-badge size="sm" color="info">{{ originOf(item) }}</app-badge>
+          </td>
+        </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+  <p class="mt-3 text-xs text-gray-500 dark:text-gray-400">
+    {{ migratedCount() }} participación{{ migratedCount() === 1 ? '' : 'iones' }} conserva{{
+      migratedCount() === 1 ? '' : 'n'
+    }}
+    los dos códigos.
+  </p>
+  } @else {
+  <dc-empty-state
+    title="Todavía no hay migraciones"
+    description="Cuando se emita el primer código de DCredits a un certificado anterior, aparecerá aquí el histórico."
+  />
+  }
+</dc-panel>

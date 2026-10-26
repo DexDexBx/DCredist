@@ -1,0 +1,10 @@
+import { Component } from '@angular/core';
+import { AuthPageLayoutComponent } from '../../../../layout/auth-page-layout/auth-page-layout.component';
+import { SigninFormComponent } from '../../components/signin-form/signin-form.component';
+
+@Component({
+  selector: 'app-sign-in',
+  imports: [AuthPageLayoutComponent, SigninFormComponent],
+  templateUrl: './sign-in.component.html',
+})
+export class SignInComponent {}

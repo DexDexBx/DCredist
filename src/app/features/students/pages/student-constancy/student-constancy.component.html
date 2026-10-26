@@ -1,0 +1,204 @@
+@if (student(); as item) {
+<dc-page-header
+  [title]="'Constancia de avance · ' + item.lastName + ', ' + item.firstName"
+  [description]="'Avance académico de ' + item.universityCode + ' · ' + item.professionalSchool"
+  [breadcrumbs]="[
+    { label: 'Inicio', link: '/dashboard' },
+    { label: 'Estudiantes', link: '/students' },
+    { label: item.universityCode, link: '/students/' + item.id },
+    { label: 'Constancia de avance' },
+  ]"
+>
+  <a
+    header-actions
+    [routerLink]="['/students', item.id]"
+    class="inline-flex items-center gap-2 rounded-xl border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-white/[0.05]"
+  >
+    <dc-icon name="arrow-left" [size]="18" />
+    Volver a la ficha
+  </a>
+</dc-page-header>
+
+@if (meetsRequirement()) {
+<div
+  class="mb-6 flex flex-col gap-4 rounded-2xl border border-success-200 bg-success-50 px-4 py-4 dark:border-success-500/20 dark:bg-success-500/10 sm:flex-row sm:items-center sm:justify-between"
+>
+  <div class="flex items-start gap-3">
+    <span
+      class="flex size-10 shrink-0 items-center justify-center rounded-full bg-success-100 text-success-600 dark:bg-success-500/20 dark:text-success-400"
+    >
+      <dc-icon name="check" [size]="22" />
+    </span>
+    <div>
+      <p class="text-sm font-semibold text-success-800 dark:text-success-300">
+        Listo para tu constancia de créditos
+      </p>
+      <p class="mt-0.5 text-sm text-success-700 dark:text-success-400">
+        {{ item.lastName }}, {{ item.firstName }} alcanzó los {{ requiredCredits }} créditos
+        requeridos con {{ summary().totalCredits }} créditos acumulados.
+      </p>
+    </div>
+  </div>
+  <a
+    [routerLink]="['/students', item.id, 'certificate']"
+    class="inline-flex shrink-0 items-center gap-2 rounded-xl bg-success-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-success-700"
+  >
+    <dc-icon name="graduation" [size]="18" />
+    Ver constancia
+  </a>
+</div>
+} @else {
+<div
+  class="mb-6 flex items-start gap-3 rounded-2xl border border-warning-200 bg-warning-50 px-4 py-4 dark:border-warning-500/20 dark:bg-warning-500/10"
+>
+  <span
+    class="flex size-10 shrink-0 items-center justify-center rounded-full bg-warning-100 text-warning-600 dark:bg-warning-500/20 dark:text-orange-400"
+  >
+    <dc-icon name="info" [size]="22" />
+  </span>
+  <div>
+    <p class="text-sm font-semibold text-warning-800 dark:text-orange-300">
+      Aún no cumple con los {{ requiredCredits }} créditos requeridos
+    </p>
+    <p class="mt-0.5 text-sm text-warning-700 dark:text-orange-300">
+      Créditos acumulados: <span class="font-semibold">{{ summary().totalCredits }}</span>. Faltan
+      <span class="font-semibold">{{ missingCredits() }}</span> crédito(s) para emitir la
+      constancia.
+    </p>
+  </div>
+</div>
+}
+
+<div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+  <dc-stat-card
+    label="Créditos acumulados"
+    [value]="summary().totalCredits"
+    [hint]="'Requiere: ' + requiredCredits + ' créditos'"
+    tone="primary"
+  />
+  <dc-stat-card
+    label="Participaciones vigentes"
+    [value]="summary().validParticipations"
+    hint="Suma de participaciones VALID"
+    tone="success"
+  />
+  <dc-stat-card
+    label="Eventos"
+    [value]="summary().eventsParticipated"
+    hint="Con participación vigente"
+    tone="accent"
+  />
+  <dc-stat-card
+    label="Avance"
+    [value]="summary().progress + '%'"
+    [hint]="'Meta: ' + requiredCredits + ' créditos'"
+    tone="warning"
+  />
+</div>
+
+<div class="mt-6 grid gap-6 xl:grid-cols-3">
+  <dc-panel title="Datos del estudiante" subtitle="Información permanente del padrón.">
+    <dl class="space-y-3 text-sm">
+      <div class="flex items-start justify-between gap-4">
+        <dt class="text-gray-500 dark:text-gray-400">Código universitario</dt>
+        <dd class="font-mono font-medium text-gray-900 dark:text-white/90">
+          {{ item.universityCode }}
+        </dd>
+      </div>
+      <div class="flex items-start justify-between gap-4">
+        <dt class="text-gray-500 dark:text-gray-400">Grado académico</dt>
+        <dd class="text-right text-gray-900 dark:text-white/90">
+          {{ item.academicDegree || 'No registrado' }}
+        </dd>
+      </div>
+      <div class="flex items-start justify-between gap-4">
+        <dt class="text-gray-500 dark:text-gray-400">Escuela profesional</dt>
+        <dd class="text-right text-gray-900 dark:text-white/90">{{ item.professionalSchool }}</dd>
+      </div>
+      <div class="flex items-start justify-between gap-4">
+        <dt class="text-gray-500 dark:text-gray-400">Sede</dt>
+        <dd class="text-gray-900 dark:text-white/90">{{ item.headquarters }}</dd>
+      </div>
+      <div class="flex items-start justify-between gap-4">
+        <dt class="text-gray-500 dark:text-gray-400">Créditos requeridos</dt>
+        <dd class="font-medium text-gray-900 dark:text-white/90">{{ requiredCredits }}</dd>
+      </div>
+      <div class="flex items-start justify-between gap-4">
+        <dt class="text-gray-500 dark:text-gray-400">Condición</dt>
+        <dd>
+          @if (meetsRequirement()) {
+          <app-badge size="sm" color="success">Cumple</app-badge>
+          } @else {
+          <app-badge size="sm" color="warning"
+            >Créditos insuficientes ({{ summary().totalCredits }}/{{ requiredCredits }})</app-badge
+          >
+          }
+        </dd>
+      </div>
+    </dl>
+  </dc-panel>
+
+  <dc-panel
+    class="xl:col-span-2"
+    title="Detalle de participaciones"
+    subtitle="Cada participación aporta créditos y tiene su propio código de verificación."
+    [bodyClass]="'px-0 py-0'"
+  >
+    @if (history().length) {
+    <div class="overflow-x-auto">
+      <table class="w-full min-w-[760px] border-collapse text-left text-sm">
+        <thead>
+          <tr
+            class="border-b border-gray-200 bg-gray-50 text-xs font-semibold tracking-wide text-gray-500 uppercase dark:border-gray-800 dark:bg-white/[0.02] dark:text-gray-400"
+          >
+            <th scope="col" class="px-5 py-3">Evento</th>
+            <th scope="col" class="px-5 py-3">Tipo</th>
+            <th scope="col" class="px-5 py-3 text-right">Créditos</th>
+            <th scope="col" class="px-5 py-3">Código</th>
+            <th scope="col" class="px-5 py-3">Estado</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-200 dark:divide-gray-800">
+          @for (row of history(); track row.participation.id) {
+          <tr class="transition-colors hover:bg-gray-50 dark:hover:bg-white/[0.02]">
+            <td class="px-5 py-3">
+              @if (row.event) {
+              <p class="font-medium text-gray-900 dark:text-white/90">{{ row.event.name }}</p>
+              <p class="text-xs text-gray-500 dark:text-gray-400">{{ eventDates(row.event) }}</p>
+              } @else {
+              <span class="text-gray-400">Evento no disponible</span>
+              }
+            </td>
+            <td class="px-5 py-3 text-gray-600 dark:text-gray-300">
+              {{ participationTypeLabel(row.participation.participationType) }}
+            </td>
+            <td class="px-5 py-3 text-right font-medium text-gray-900 dark:text-white/90">
+              {{ row.participation.credits }}
+            </td>
+            <td class="px-5 py-3">
+              <dc-certificate-code [codes]="row.participation" [showOrigin]="false" />
+            </td>
+            <td class="px-5 py-3">
+              <app-badge size="sm" [color]="participationStatusColor(row.participation.status)">
+                {{ statusLabel[row.participation.status] }}
+              </app-badge>
+            </td>
+          </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+    } @else {
+    <dc-empty-state
+      title="Sin participaciones"
+      description="Este estudiante aún no tiene participaciones registradas."
+    />
+    }
+  </dc-panel>
+</div>
+} @else {
+<dc-empty-state
+  title="Estudiante no encontrado"
+  description="El código solicitado no existe en el padrón."
+/>
+}

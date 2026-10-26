@@ -1,0 +1,313 @@
+<dc-page-header
+  title="Dashboard"
+  description="Resumen de participación y créditos. El detalle está a un clic."
+>
+  @if (auth.can('participations', 'MANAGE')) {
+  <a
+    header-actions
+    routerLink="/participations/register"
+    class="inline-flex h-10 items-center gap-2 rounded-xl border border-gray-200 px-4 text-sm font-semibold text-gray-700 transition-colors hover:bg-gray-100 dark:border-gray-800 dark:text-gray-200 dark:hover:bg-white/5"
+  >
+    <dc-icon name="user-plus" [size]="17" />
+    Registrar participación
+  </a>
+  }
+  @if (auth.can('events', 'MANAGE')) {
+  <a
+    header-actions
+    routerLink="/events/new"
+    class="inline-flex h-10 items-center gap-2 rounded-xl bg-brand-700 px-4 text-sm font-semibold text-white transition-colors hover:bg-brand-800"
+  >
+    <dc-icon name="plus" [size]="17" />
+    Nuevo evento
+  </a>
+  }
+</dc-page-header>
+
+<div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+  <dc-stat-card
+    label="Estudiantes en el padrón"
+    [value]="totalStudents()"
+    hint="Registro maestro"
+  />
+  <dc-stat-card
+    label="Eventos registrados"
+    [value]="totalEvents()"
+    tone="success"
+    [hint]="activeEvents() + ' en curso'"
+  />
+  <dc-stat-card
+    label="Participaciones"
+    [value]="totalParticipations()"
+    tone="accent"
+    hint="Histórico completo"
+  />
+  <dc-stat-card
+    label="Créditos entregados"
+    [value]="totalCredits()"
+    tone="warning"
+    [hint]="'Meta: ' + creditsTarget + ' por estudiante'"
+  />
+</div>
+
+<div class="mt-6 grid gap-6 xl:grid-cols-3">
+  <dc-panel title="Avance de créditos" subtitle="Hacia la meta de egreso">
+    <button
+      panel-actions
+      type="button"
+      (click)="openCreditsDetail()"
+      class="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-semibold text-brand-700 transition-colors hover:bg-brand-50 dark:text-brand-300 dark:hover:bg-brand-500/10"
+    >
+      Ver detalle
+      <dc-icon name="chevron-right" [size]="14" />
+    </button>
+
+    <dc-credit-progress
+      [credits]="creditsProgress().totalCredits"
+      [target]="creditsProgress().creditsTarget"
+      label="Créditos vigentes en todo el sistema"
+    />
+
+    <dl class="mt-5 grid grid-cols-3 gap-3">
+      <div>
+        <dt class="text-xs text-gray-500 dark:text-gray-400">Avance promedio</dt>
+        <dd class="mt-1 text-lg font-semibold text-gray-900 dark:text-white/90">
+          {{ creditsProgress().averageProgress }}%
+        </dd>
+      </div>
+      <div>
+        <dt class="text-xs text-gray-500 dark:text-gray-400">Completaron</dt>
+        <dd class="mt-1 text-lg font-semibold text-gray-900 dark:text-white/90">
+          {{ creditsProgress().studentsCompleted }}
+          <span class="text-xs font-normal text-gray-400">
+            / {{ creditsProgress().studentsWithCredits }}
+          </span>
+        </dd>
+      </div>
+      <div>
+        <dt class="text-xs text-gray-500 dark:text-gray-400">Faltan</dt>
+        <dd class="mt-1 text-lg font-semibold text-gray-900 dark:text-white/90">
+          {{ creditsProgress().remainingCredits }}
+        </dd>
+      </div>
+    </dl>
+  </dc-panel>
+
+  <dc-panel title="Créditos por escuela" subtitle="Las 5 con más créditos">
+    <button
+      panel-actions
+      type="button"
+      (click)="openSchoolsDetail()"
+      class="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-semibold text-brand-700 transition-colors hover:bg-brand-50 dark:text-brand-300 dark:hover:bg-brand-500/10"
+    >
+      Ver detalle
+      <dc-icon name="chevron-right" [size]="14" />
+    </button>
+
+    @if (schoolsTop().length === 0) {
+    <p class="text-sm text-gray-500 dark:text-gray-400">Aún no hay créditos registrados.</p>
+    } @else {
+    <ul class="flex flex-col gap-4">
+      @for (school of schoolsTop(); track school.professionalSchool) {
+      <li>
+        <div class="flex items-baseline justify-between gap-3">
+          <p class="truncate text-sm font-medium text-gray-900 dark:text-white/90">
+            {{ school.professionalSchool }}
+          </p>
+          <p class="shrink-0 text-xs font-semibold text-gray-700 dark:text-gray-200">
+            {{ school.totalCredits }}
+          </p>
+        </div>
+        <div class="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-gray-200 dark:bg-gray-800">
+          <div
+            class="h-full rounded-full bg-brand-600"
+            [style.width.%]="(school.totalCredits / maxSchoolCredits()) * 100"
+          ></div>
+        </div>
+      </li>
+      }
+    </ul>
+    }
+  </dc-panel>
+
+  <dc-panel title="Próximos eventos" subtitle="Hoy y siguientes">
+    <a
+      panel-actions
+      routerLink="/events/calendar"
+      class="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-semibold text-brand-700 transition-colors hover:bg-brand-50 dark:text-brand-300 dark:hover:bg-brand-500/10"
+    >
+      Ver agenda
+      <dc-icon name="chevron-right" [size]="14" />
+    </a>
+
+    @if (agenda().length === 0) {
+    <div
+      class="flex flex-col items-center gap-2 rounded-xl border border-dashed border-gray-300 px-4 py-8 text-center dark:border-gray-700"
+    >
+      <dc-icon name="calendar" [size]="22" class="text-gray-400 dark:text-gray-500" />
+      <p class="text-sm font-medium text-gray-700 dark:text-gray-200">
+        No hay eventos programados
+      </p>
+      <a
+        routerLink="/events"
+        class="text-xs font-medium text-brand-700 hover:text-brand-800 dark:text-brand-300"
+        >Ver todos los eventos</a
+      >
+    </div>
+    } @else {
+    <ul class="flex flex-col divide-y divide-gray-200 dark:divide-gray-800">
+      @for (item of agenda(); track item.event.id) {
+      <li class="flex items-start gap-3 py-3 first:pt-0 last:pb-0">
+        @if (item.today) {
+        <span class="mt-1.5 size-1.5 shrink-0 rounded-full bg-brand-600"></span>
+        } @else {
+        <span class="mt-1.5 size-1.5 shrink-0 rounded-full bg-gray-300 dark:bg-gray-600"></span>
+        }
+        <div class="min-w-0 flex-1">
+          <div class="flex flex-wrap items-center gap-2">
+            <a
+              [routerLink]="['/events', item.event.id]"
+              class="truncate text-sm font-medium text-gray-900 hover:text-brand-700 dark:text-white/90 dark:hover:text-brand-300"
+              >{{ item.event.name }}</a
+            >
+            <app-event-status-badge [status]="item.event.status" />
+          </div>
+          <p class="mt-0.5 truncate text-xs text-gray-500 dark:text-gray-400">
+            @if (item.today) {
+            <span class="font-medium text-brand-700 dark:text-brand-300">Hoy · </span>
+            } {{ formatSchedule(item.event) }}
+          </p>
+        </div>
+      </li>
+      }
+    </ul>
+    <a
+      routerLink="/events"
+      class="mt-3 inline-flex items-center gap-1 text-xs font-medium text-brand-700 hover:text-brand-800 dark:text-brand-300"
+    >
+      Ver todos los eventos
+      <dc-icon name="chevron-right" [size]="14" />
+    </a>
+    }
+  </dc-panel>
+</div>
+
+<!-- Detalle de créditos -->
+<app-modal
+  [isOpen]="creditsDetailOpen()"
+  (close)="closeCreditsDetail()"
+  className="max-w-2xl p-5 sm:p-6"
+>
+  <h2 class="text-lg font-semibold text-gray-900 dark:text-white/90">Detalle de créditos</h2>
+  <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+    Avance hacia la meta de {{ creditsTarget }} créditos por estudiante.
+  </p>
+
+  <dc-credit-progress
+    class="mt-5 block"
+    [credits]="creditsProgress().totalCredits"
+    [target]="creditsProgress().creditsTarget"
+    label="Créditos vigentes en todo el sistema"
+  />
+
+  @if (graduatedStudents().length > 0) {
+  <div class="mt-6 border-t border-gray-200 pt-4 dark:border-gray-800">
+    <p class="mb-3 text-sm font-semibold text-gray-900 dark:text-white/90">
+      Estudiantes con la meta completa
+    </p>
+    <ul class="flex max-h-56 flex-col gap-3 overflow-y-auto pr-1">
+      @for (item of graduatedStudents(); track item.student.id) {
+      <li class="flex items-center gap-3">
+        <a
+          [routerLink]="['/students', item.student.id]"
+          class="w-40 truncate text-sm font-medium text-gray-900 hover:text-brand-600 dark:text-white/90 dark:hover:text-brand-400"
+        >
+          {{ item.student.lastName }}, {{ item.student.firstName }}
+        </a>
+        <div class="flex-1">
+          <dc-credit-progress
+            [credits]="item.summary.totalCredits"
+            [target]="item.summary.creditsTarget"
+            label="Avance"
+            [showPercent]="false"
+          />
+        </div>
+      </li>
+      }
+    </ul>
+  </div>
+  }
+
+  @if (topStudents().length > 0) {
+  <div class="mt-6 border-t border-gray-200 pt-4 dark:border-gray-800">
+    <p class="mb-3 text-sm font-semibold text-gray-900 dark:text-white/90">
+      Estudiantes con más créditos
+    </p>
+    <ul class="flex max-h-56 flex-col gap-4 overflow-y-auto pr-1">
+      @for (row of topStudents(); track row.studentId) {
+      <li>
+        <a
+          [routerLink]="['/students', row.studentId]"
+          class="flex items-center justify-between gap-3 text-sm"
+        >
+          <span
+            class="truncate font-medium text-gray-900 hover:text-brand-700 dark:text-white/90 dark:hover:text-brand-300"
+            >{{ row.name }}</span
+          >
+          <span class="shrink-0 font-mono text-gray-700 dark:text-gray-200">{{ row.credits }}</span>
+        </a>
+        <div class="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-gray-100 dark:bg-white/10">
+          <div
+            class="h-full rounded-full bg-brand-600"
+            [style.width.%]="maxStudentCredits() ? (row.credits / maxStudentCredits()) * 100 : 0"
+          ></div>
+        </div>
+      </li>
+      }
+    </ul>
+  </div>
+  }
+</app-modal>
+
+<!-- Detalle de escuelas -->
+<app-modal
+  [isOpen]="schoolsDetailOpen()"
+  (close)="closeSchoolsDetail()"
+  className="max-w-2xl p-5 sm:p-6"
+>
+  <h2 class="text-lg font-semibold text-gray-900 dark:text-white/90">
+    Créditos por escuela profesional
+  </h2>
+  <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+    Base de la consulta institucional de créditos.
+  </p>
+
+  @if (schoolsAll().length === 0) {
+  <p class="mt-4 text-sm text-gray-500 dark:text-gray-400">No hay escuelas con registros.</p>
+  } @else {
+  <ul class="mt-5 flex max-h-[65vh] flex-col gap-4 overflow-y-auto pr-1">
+    @for (row of schoolsAll(); track row.professionalSchool) {
+    <li>
+      <div class="flex items-center justify-between gap-3 text-sm">
+        <span class="truncate font-medium text-gray-900 dark:text-white/90">{{
+          row.professionalSchool
+        }}</span>
+        <span class="shrink-0 font-mono text-gray-700 dark:text-gray-200">{{
+          row.totalCredits
+        }}</span>
+      </div>
+      <div class="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-gray-100 dark:bg-white/10">
+        <div
+          class="h-full rounded-full bg-accent-400"
+          [style.width.%]="maxSchoolCredits() ? (row.totalCredits / maxSchoolCredits()) * 100 : 0"
+        ></div>
+      </div>
+      <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+        {{ row.activeStudents }} estudiante(s) activo(s) · {{ row.validParticipations }}
+        participación(es)
+      </p>
+    </li>
+    }
+  </ul>
+  }
+</app-modal>

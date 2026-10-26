@@ -1,0 +1,291 @@
+@if (student(); as item) {
+<dc-page-header
+  [title]="item.lastName + ', ' + item.firstName"
+  [description]="'Padrón maestro · ' + item.professionalSchool + ' · Sede ' + item.headquarters"
+  [breadcrumbs]="[
+    { label: 'Inicio', link: '/dashboard' },
+    { label: 'Estudiantes', link: '/students' },
+    { label: item.universityCode },
+  ]"
+>
+  <div header-actions class="flex flex-wrap items-center gap-2">
+    <label
+      class="inline-flex cursor-pointer items-center gap-3 rounded-xl border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-white/[0.05]"
+    >
+      <span>{{ statusLabel[item.status] }}</span>
+      <span class="relative inline-flex h-6 w-11 shrink-0 items-center">
+        <input
+          type="checkbox"
+          class="peer sr-only"
+          [checked]="item.status === 'ACTIVE'"
+          (change)="toggleStatus()"
+        />
+        <span
+          class="h-6 w-11 rounded-full bg-gray-300 transition-colors peer-checked:bg-brand-600 dark:bg-gray-700"
+        ></span>
+        <span
+          class="absolute top-0.5 left-0.5 size-5 rounded-full bg-white shadow transition-transform peer-checked:translate-x-5"
+        ></span>
+      </span>
+    </label>
+
+    @if (eligible()) {
+    <button
+      type="button"
+      (click)="openCertificate()"
+      class="inline-flex items-center gap-2 rounded-xl bg-brand-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-brand-700"
+    >
+      <dc-icon name="graduation" [size]="18" />
+      Constancia
+    </button>
+    } @else {
+    <a
+      [routerLink]="['/students', item.id, 'constancy']"
+      class="inline-flex items-center gap-2 rounded-xl border border-brand-200 bg-brand-50 px-4 py-2.5 text-sm font-medium text-brand-700 transition-colors hover:bg-brand-100 dark:border-brand-500/20 dark:bg-brand-500/10 dark:text-brand-200"
+    >
+      <dc-icon name="document" [size]="18" />
+      Constancia de avance
+    </a>
+    }
+    <a
+      routerLink="/students"
+      class="inline-flex items-center gap-2 rounded-xl border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-white/[0.05]"
+    >
+      <dc-icon name="arrow-left" [size]="18" />
+      Volver al padrón
+    </a>
+  </div>
+</dc-page-header>
+
+@if (eligible()) {
+<div
+  class="mb-6 flex items-start gap-3 rounded-2xl border border-success-200 bg-success-50 px-4 py-3.5 dark:border-success-500/20 dark:bg-success-500/10"
+>
+  <dc-icon name="check" [size]="20" class="mt-0.5 text-success-600 dark:text-success-500" />
+  <p class="text-sm font-medium text-success-700 dark:text-success-500">
+    Cumple los {{ requiredCredits }} créditos requeridos ({{ summary().totalCredits }} acumulados).
+    Constancia disponible.
+  </p>
+</div>
+} @else {
+<div
+  class="mb-6 flex items-start gap-3 rounded-2xl border border-warning-200 bg-warning-50 px-4 py-3.5 dark:border-warning-500/20 dark:bg-warning-500/10"
+>
+  <dc-icon name="info" [size]="20" class="mt-0.5 text-warning-600 dark:text-warning-500" />
+  <p class="text-sm font-medium text-warning-700 dark:text-orange-300">
+    Créditos insuficientes ({{ summary().totalCredits }}/{{ requiredCredits }}). Faltan
+    {{ missingCredits() }} crédito(s) para la constancia. Puede emitirse una constancia de avance.
+  </p>
+</div>
+}
+
+<div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+  <dc-stat-card
+    label="Créditos acumulados"
+    [value]="summary().totalCredits"
+    hint="Suma de participaciones vigentes"
+    tone="primary"
+    icon="trending-up"
+  />
+  <dc-stat-card
+    label="Participaciones vigentes"
+    [value]="summary().validParticipations"
+    [hint]="summary().cancelledParticipations + ' anulada(s), ' + summary().pendingParticipations + ' pendiente(s)'"
+    tone="success"
+    icon="shield-check"
+  />
+  <dc-stat-card
+    label="Eventos"
+    [value]="summary().eventsParticipated"
+    hint="Con participación vigente"
+    tone="accent"
+    icon="event"
+  />
+  <dc-stat-card
+    label="Notas pendientes"
+    [value]="summary().pendingGrades"
+    hint="Participaciones sin nota registrada"
+    tone="warning"
+    icon="clock"
+  />
+</div>
+
+<div class="mt-6 space-y-6">
+  <dc-panel
+    icon="event"
+    title="Historial de participaciones"
+    subtitle="Cada participación tiene su propio código de verificación."
+    [bodyClass]="'px-0 py-0'"
+    [collapsible]="true"
+  >
+    <div panel-actions>
+      <span
+        class="inline-flex items-center gap-1.5 rounded-full bg-brand-50 px-3 py-1 text-xs font-semibold text-brand-700 dark:bg-brand-500/15 dark:text-brand-300"
+      >
+        <dc-icon name="trending-up" [size]="14" />
+        {{ summary().totalCredits }} créditos
+      </span>
+    </div>
+
+    @if (history().length) {
+    <div class="overflow-x-auto">
+      <table class="w-full min-w-[820px] border-collapse text-left text-sm">
+        <thead>
+          <tr
+            class="border-b border-gray-200 bg-gray-50 text-xs font-semibold tracking-wide text-gray-500 uppercase dark:border-gray-800 dark:bg-white/[0.02] dark:text-gray-400"
+          >
+            <th scope="col" class="px-5 py-3">
+              <span class="inline-flex items-center gap-1.5">
+                <dc-icon name="calendar" [size]="13" class="text-gray-400 dark:text-gray-500" />
+                Evento
+              </span>
+            </th>
+            <th scope="col" class="px-5 py-3">
+              <span class="inline-flex items-center gap-1.5">
+                <dc-icon name="document" [size]="13" class="text-gray-400 dark:text-gray-500" />
+                Tipo
+              </span>
+            </th>
+            <th scope="col" class="px-5 py-3 text-right">
+              <span class="inline-flex items-center gap-1.5">
+                <dc-icon name="trending-up" [size]="13" class="text-gray-400 dark:text-gray-500" />
+                Créditos
+              </span>
+            </th>
+            <th scope="col" class="px-5 py-3 text-right">
+              <span class="inline-flex items-center gap-1.5">
+                <dc-icon name="graduation" [size]="13" class="text-gray-400 dark:text-gray-500" />
+                Nota
+              </span>
+            </th>
+            <th scope="col" class="px-5 py-3">
+              <span class="inline-flex items-center gap-1.5">
+                <dc-icon name="shield-check" [size]="13" class="text-gray-400 dark:text-gray-500" />
+                Código de verificación
+              </span>
+            </th>
+            <th scope="col" class="px-5 py-3">
+              <span class="inline-flex items-center gap-1.5">
+                <dc-icon name="info" [size]="13" class="text-gray-400 dark:text-gray-500" />
+                Estado
+              </span>
+            </th>
+          </tr>
+        </thead>
+
+        <tbody class="divide-y divide-gray-100 dark:divide-gray-800/70">
+          @for (row of history(); track row.participation.id) {
+          <tr
+            class="align-top transition-colors even:bg-gray-50/50 hover:bg-gray-100/70 dark:even:bg-white/[0.015] dark:hover:bg-white/[0.03]"
+          >
+            <td class="px-5 py-3.5">
+              <div class="flex items-start gap-3">
+                <span
+                  class="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-lg bg-gray-100 text-gray-500 dark:bg-white/[0.06] dark:text-gray-300"
+                >
+                  <dc-icon name="calendar" [size]="16" />
+                </span>
+                <div class="min-w-0">
+                  @if (row.event) {
+                  <a
+                    [routerLink]="['/events', row.event.id]"
+                    class="font-medium text-gray-900 hover:text-brand-600 dark:text-white/90 dark:hover:text-brand-300"
+                    >{{ row.event.name }}</a
+                  >
+                  <p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
+                    {{ eventDates(row.event) }}
+                  </p>
+                  } @else {
+                  <span class="text-gray-400">Evento no disponible</span>
+                  }
+                </div>
+              </div>
+            </td>
+            <td class="px-5 py-3.5">
+              <div class="flex flex-wrap items-center gap-1.5">
+                <span
+                  class="inline-flex items-center rounded-md bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600 dark:bg-white/[0.06] dark:text-gray-300"
+                  >{{ participationTypeLabel(row.participation.participationType) }}</span
+                >
+                @if (isLate(row.participation)) {
+                <app-badge size="sm" color="warning">Extemporáneo</app-badge>
+                }
+              </div>
+            </td>
+            <td class="px-5 py-3.5 text-right">
+              <span
+                class="inline-flex items-center rounded-full bg-brand-50 px-2.5 py-0.5 text-xs font-semibold text-brand-700 dark:bg-brand-500/15 dark:text-brand-300"
+              >
+                +{{ row.participation.credits }}
+              </span>
+            </td>
+            <td class="px-5 py-3.5 text-right">
+              @if (row.participation.grade !== null && row.participation.grade !== undefined) {
+              <span
+                class="inline-flex items-center rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-700 dark:bg-white/[0.06] dark:text-gray-200"
+                >{{ row.participation.grade }}</span
+              >
+              } @else {
+              <span class="text-xs text-gray-400 dark:text-gray-500">—</span>
+              }
+            </td>
+            <td class="px-5 py-3.5">
+              <dc-certificate-code [codes]="row.participation" />
+              @if (codeOf(row.participation); as code) {
+              <a
+                [routerLink]="['/verify']"
+                [queryParams]="{ codigo: code }"
+                class="mt-2 inline-flex items-center gap-1.5 text-xs font-medium text-brand-600 transition-colors hover:text-brand-700 dark:text-brand-300 dark:hover:text-brand-200"
+              >
+                <dc-icon name="shield-check" [size]="14" />
+                Verificar código
+              </a>
+              }
+            </td>
+            <td class="px-5 py-3.5">
+              <app-badge
+                size="sm"
+                [color]="participationStatusColor(row.participation.status)"
+                >{{ participationStatusLabel[row.participation.status] }}</app-badge
+              >
+            </td>
+          </tr>
+          }
+        </tbody>
+
+        <tfoot>
+          <tr class="border-t border-gray-200 bg-gray-50/60 dark:border-gray-800 dark:bg-white/[0.02]">
+            <td colspan="3" class="px-5 py-3.5 text-xs text-gray-500 dark:text-gray-400">
+              {{ summary().validParticipations }} participación(es) vigente(s)
+            </td>
+            <td colspan="3" class="px-5 py-3.5 text-right text-xs text-gray-500 dark:text-gray-400">
+              Total acreditado:
+              <span class="text-sm font-semibold text-brand-700 dark:text-brand-300"
+                >{{ summary().totalCredits }}</span
+              >
+              créditos
+            </td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+    } @else {
+    <dc-empty-state
+      title="Sin participaciones"
+      description="Este estudiante aún no participa en ningún evento."
+    />
+    }
+  </dc-panel>
+</div>
+
+<dc-certificate-modal
+  [isOpen]="certificateOpen()"
+  [studentId]="item.id"
+  (close)="closeCertificate()"
+/>
+} @else {
+<dc-empty-state
+  title="Estudiante no encontrado"
+  description="El código solicitado no existe en el padrón."
+/>
+}

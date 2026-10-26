@@ -1,0 +1,65 @@
+<form class="flex flex-col gap-5" [formGroup]="form" (ngSubmit)="onSubmit()" novalidate>
+  <div class="grid gap-5 sm:grid-cols-2">
+    <dc-input
+      formControlName="firstNames"
+      label="Nombres"
+      placeholder="Nombres"
+      [required]="true"
+      [invalid]="hasError('firstNames', 'required') || hasError('firstNames', 'minlength')"
+    />
+    <dc-input
+      formControlName="lastNames"
+      label="Apellidos"
+      placeholder="Apellidos"
+      [required]="true"
+      [invalid]="hasError('lastNames', 'required') || hasError('lastNames', 'minlength')"
+    />
+  </div>
+
+  <dc-input
+    formControlName="email"
+    type="email"
+    label="Correo electrónico"
+    placeholder="nombre@institucion.edu"
+    autocomplete="email"
+    [required]="true"
+    [invalid]="hasError('email', 'required') || hasError('email', 'email')"
+  />
+
+  <dc-input
+    formControlName="password"
+    type="text"
+    label="Contraseña"
+    placeholder="Mínimo 6 caracteres"
+    autocomplete="new-password"
+    [required]="true"
+    [invalid]="hasError('password', 'required') || hasError('password', 'minlength')"
+  />
+
+  <button
+    type="submit"
+    class="inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-brand-700 px-4 text-sm font-semibold text-white transition-colors hover:bg-brand-800 focus:outline-none focus:ring-3 focus:ring-brand-500/30"
+  >
+    Crear cuenta
+    <dc-icon name="chevron-right" [size]="17" />
+  </button>
+
+  <div
+    class="flex gap-3 rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 dark:border-gray-800 dark:bg-white/[0.03]"
+  >
+    <dc-icon name="info" [size]="17" class="mt-0.5 text-gray-400 dark:text-gray-500" />
+    <p class="text-xs leading-relaxed text-gray-500 dark:text-gray-400">
+      El registro de cuentas se habilitará con el backend. Por ahora no se guarda ninguna
+      información.
+    </p>
+  </div>
+
+  <p class="text-center text-sm text-gray-500 dark:text-gray-400">
+    ¿Ya tienes cuenta?
+    <a
+      routerLink="/signin"
+      class="font-medium text-brand-700 transition-colors hover:text-brand-800 dark:text-brand-300"
+      >Iniciar sesión</a
+    >
+  </p>
+</form>

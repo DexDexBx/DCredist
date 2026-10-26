@@ -1,0 +1,238 @@
+<dc-page-header
+  title="Nuevo evento"
+  description="Registra un evento académico. El código se asigna automáticamente."
+  [breadcrumbs]="[
+    { label: 'Eventos', link: '/events' },
+    { label: 'Nuevo evento' }
+  ]"
+/>
+
+@if (createdCode()) {
+<div
+  class="mb-6 flex flex-col gap-3 rounded-2xl border border-success-200 bg-success-50 px-5 py-4 dark:border-success-500/30 dark:bg-success-500/10 sm:flex-row sm:items-center sm:justify-between"
+>
+  <div class="flex items-start gap-3">
+    <dc-icon name="check" [size]="20" class="mt-0.5 text-success-600" />
+    <div>
+      <p class="text-sm font-semibold text-gray-900 dark:text-white/90">
+        Evento creado correctamente
+      </p>
+      <p class="mt-0.5 text-sm text-gray-600 dark:text-gray-300">
+        Código asignado: <span class="font-mono font-semibold">{{ createdCode() }}</span>
+      </p>
+    </div>
+  </div>
+
+  <div class="flex items-center gap-2">
+    <button
+      type="button"
+      class="inline-flex h-9 items-center gap-2 rounded-lg border border-gray-300 px-3.5 text-xs font-medium text-gray-700 transition-colors hover:bg-white dark:border-gray-600 dark:text-gray-200 dark:hover:bg-white/5"
+      (click)="onCancel()"
+    >
+      Volver al listado
+    </button>
+    @if (auth.can('participations', 'MANAGE')) {
+    <a
+      routerLink="/participations/register"
+      [queryParams]="{ evento: createdId() }"
+      class="inline-flex h-9 items-center gap-2 rounded-lg bg-brand-700 px-3.5 text-xs font-semibold text-white transition-colors hover:bg-brand-800"
+    >
+      Registrar participación
+      <dc-icon name="chevron-right" [size]="15" />
+    </a>
+    }
+  </div>
+</div>
+}
+
+@if (formError(); as message) {
+<div
+  class="mb-6 flex items-start gap-3 rounded-2xl border border-error-200 bg-error-50 px-5 py-4 dark:border-error-500/20 dark:bg-error-500/10"
+>
+  <dc-icon name="info" [size]="20" class="mt-0.5 text-error-600 dark:text-error-500" />
+  <p class="text-sm font-medium text-error-700 dark:text-error-500">{{ message }}</p>
+</div>
+}
+
+<form [formGroup]="form" (ngSubmit)="onSubmit()" novalidate class="grid gap-6 xl:grid-cols-3">
+  <dc-panel title="Datos del evento" class="xl:col-span-2">
+    <div class="flex flex-col gap-5">
+      <dc-input
+        formControlName="name"
+        label="Nombre del evento"
+        placeholder="Congreso Internacional de Educación Superior"
+        [required]="true"
+        [invalid]="isInvalid('name')"
+      />
+      @if (isInvalid('name')) {
+      <p class="-mt-3 text-xs text-error-500">
+        Ingresa un nombre de al menos 5 caracteres.
+      </p>
+      }
+
+      <dc-textarea
+        formControlName="description"
+        label="Descripción"
+        placeholder="Resume los objetivos, la agenda y el público del evento."
+        [rows]="5"
+        [required]="true"
+        [invalid]="isInvalid('description')"
+        hint="Mínimo 20 caracteres."
+      />
+
+      <div class="grid gap-5 sm:grid-cols-2">
+        <dc-input
+          formControlName="startDate"
+          type="datetime-local"
+          label="Inicio"
+          [required]="true"
+          [invalid]="isInvalid('startDate')"
+        />
+        <dc-input
+          formControlName="endDate"
+          type="datetime-local"
+          label="Fin"
+          [required]="true"
+          [invalid]="isInvalid('endDate')"
+        />
+      </div>
+      @if (isInvalid('endDate')) {
+      <p class="-mt-3 text-xs text-error-500">
+        @if (form.errors?.['endBeforeStart']) {
+        La fecha de fin no puede ser anterior a la de inicio.
+        } @else {
+        Indica la fecha de finalización.
+        }
+      </p>
+      }
+
+      <div class="grid gap-5 sm:grid-cols-2">
+        <dc-select
+          formControlName="eventType"
+          label="Tipo de evento"
+          [options]="typeOptions"
+          placeholder="Selecciona el tipo"
+          [required]="true"
+        />
+
+        <dc-select
+          formControlName="modality"
+          label="Modalidad"
+          [options]="modalityOptions"
+          placeholder="Selecciona la modalidad"
+          [required]="true"
+        />
+        <dc-input
+          formControlName="location"
+          label="Ubicación o enlace"
+          placeholder="Auditorio Central, Campus Norte"
+          [required]="true"
+          [invalid]="isInvalid('location')"
+        />
+      </div>
+
+      <div class="grid gap-5 sm:grid-cols-2">
+        <div>
+          <dc-input
+            formControlName="credits"
+            type="number"
+            label="Créditos"
+            hint="Créditos que otorga el evento a cada participante."
+            [required]="true"
+            [invalid]="isInvalid('credits')"
+            [min]="0"
+          />
+          @if (isInvalid('credits')) {
+          <p class="mt-1.5 text-xs text-error-500">
+            Solo se admiten números (ej. 1 o 0.5); no se permiten valores negativos.
+          </p>
+          }
+        </div>
+        <dc-combobox
+          formControlName="organizer"
+          label="Organizador"
+          [options]="organizerOptions()"
+          placeholder="Buscar organizador..."
+          hint="Se administra desde Catálogos."
+          [required]="true"
+          [invalid]="isInvalid('organizer')"
+        />
+      </div>
+
+      <div>
+        <dc-input
+          formControlName="tags"
+          label="Etiquetas"
+          placeholder="Congreso, Internacional"
+          hint="Separa las etiquetas con comas. Solo letras."
+          [invalid]="isInvalid('tags')"
+        />
+        @if (isInvalid('tags')) {
+        <p class="mt-1.5 text-xs text-error-500">
+          Las etiquetas solo pueden contener letras y comas, sin números ni símbolos.
+        </p>
+        }
+      </div>
+    </div>
+  </dc-panel>
+
+  <div class="flex flex-col gap-6">
+    <dc-panel title="Configuración">
+      <div class="flex flex-col gap-5">
+        <dc-select
+          formControlName="status"
+          label="Estado inicial"
+          [options]="statusOptions"
+          placeholder="Selecciona el estado"
+          [required]="true"
+        />
+
+        <div>
+          <dc-input
+            formControlName="capacity"
+            type="number"
+            label="Capacidad"
+            placeholder="0"
+            hint="Usa 0 cuando el evento no tenga límite de participantes."
+            [invalid]="isInvalid('capacity')"
+            [min]="0"
+          />
+          @if (isInvalid('capacity')) {
+          <p class="mt-1.5 text-xs text-error-500">
+            Solo números enteros iguales o mayores a 0, sin símbolos.
+          </p>
+          }
+        </div>
+
+        <div
+          class="flex gap-3 rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 dark:border-gray-800 dark:bg-white/[0.03]"
+        >
+          <dc-icon name="info" [size]="17" class="mt-0.5 text-gray-400 dark:text-gray-500" />
+          <p class="text-xs leading-relaxed text-gray-500 dark:text-gray-400">
+            Un evento puede durar uno o varios días. El código se genera automáticamente y los
+            datos se guardan solo en memoria hasta que exista la API de DCredits.
+          </p>
+        </div>
+      </div>
+    </dc-panel>
+
+    <div class="flex flex-col gap-2">
+      <button
+        type="submit"
+        [disabled]="submitting()"
+        class="inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-brand-700 px-4 text-sm font-semibold text-white transition-colors hover:bg-brand-800 focus:outline-none focus:ring-3 focus:ring-brand-500/30 disabled:cursor-not-allowed disabled:opacity-60"
+      >
+        <dc-icon name="check" [size]="17" />
+        Guardar evento
+      </button>
+
+      <button
+        type="button"
+        class="inline-flex h-11 w-full items-center justify-center rounded-xl border border-gray-300 px-4 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-100 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-white/5"
+        (click)="onCancel()"
+      >
+        Cancelar
+      </button>
+    </div>
+  </div>
+</form>

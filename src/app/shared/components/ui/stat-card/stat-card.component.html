@@ -1,0 +1,33 @@
+<div
+  class="dc-rise group relative flex flex-col gap-2 overflow-hidden rounded-2xl border border-gray-200 bg-white p-5 shadow-theme-xs transition-all duration-200 hover:-translate-y-0.5 hover:shadow-theme-sm dark:border-gray-800 dark:bg-white/[0.03]"
+>
+  <span
+    class="absolute inset-x-0 top-0 h-1 dc-grow"
+    [class]="toneBar()"
+    aria-hidden="true"
+  ></span>
+
+  <div class="flex items-start justify-between gap-3">
+    <p
+      class="text-4xl leading-none font-bold tracking-tight text-gray-900 tabular-nums dark:text-white/90"
+    >
+      {{ displayValue() }}
+    </p>
+
+    @if (icon()) {
+    <span
+      class="flex size-10 shrink-0 items-center justify-center rounded-xl transition-transform duration-200 group-hover:scale-110"
+      [class]="toneIcon()"
+      aria-hidden="true"
+    >
+      <dc-icon [name]="icon()!" [size]="20" />
+    </span>
+    }
+  </div>
+
+  <span class="text-sm font-medium text-gray-500 dark:text-gray-400">{{ label() }}</span>
+
+  @if (hint()) {
+  <p class="text-xs text-gray-500 dark:text-gray-400">{{ hint() }}</p>
+  }
+</div>
