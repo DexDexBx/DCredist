@@ -1,4 +1,25 @@
 
+name: DCredits - Despliegue de pruebas
+
+on:
+  push:
+    branches:
+      - feature/dcredits-v01-limpieza
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dcredits-test-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Actualizar servidor de pruebas
+    runs-on: ubuntu-latest
+
+    steps:
       - name: Comprobar secretos y preparar SSH
         env:
           SSH_PRIVATE_KEY: ${{ secrets.DCREDITS_SSH_KEY }}
@@ -8,23 +29,48 @@
           set -eu
 
           test -n "$SSH_PRIVATE_KEY" || {
-            echo "::error::DCREDITS_SSH_KEY está vacío o no está disponible"
+            echo "::error::Falta el secreto DCREDITS_SSH_KEY"
             exit 1
           }
 
           test -n "$DEPLOY_HOST" || {
-            echo "::error::DCREDITS_HOST está vacío o no está disponible"
+            echo "::error::Falta el secreto DCREDITS_HOST"
             exit 1
           }
 
           test -n "$DEPLOY_USER" || {
-            echo "::error::DCREDITS_USER está vacío o no está disponible"
+            echo "::error::Falta el secreto DCREDITS_USER"
             exit 1
           }
 
           mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
           printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519
           chmod 600 ~/.ssh/id_ed25519
           ssh-keyscan -H "$DEPLOY_HOST" >> ~/.ssh/known_hosts
 
-          echo "Los tres secretos están disponibles."
+          echo "Secretos disponibles y SSH preparado."
+
+      - name: Desplegar DCredits en pruebas
+        env:
+          DEPLOY_HOST: ${{ secrets.DCREDITS_HOST }}
+          DEPLOY_USER: ${{ secrets.DCREDITS_USER }}
+        run: |
+          set -eu
+
+          ssh -i ~/.ssh/id_ed25519 \
+            -o BatchMode=yes \
+            -o StrictHostKeyChecking=yes \
+            "$DEPLOY_USER@$DEPLOY_HOST" 'bash -se' <<'REMOTE'
+          set -Eeuo pipefail
+
+          cd /opt/dcredits/test/app
+
+          git fetch origin feature/dcredits-v01-limpieza
+          git checkout feature/dcredits-v01-limpieza
+          git pull --ff-only origin feature/dcredits-v01-limpieza
+
+          docker compose --env-file .env -f compose.yaml config --quiet
+          docker compose --env-file .env -f compose.yaml up -d --build --remove-orphans
+          docker compose --env-file .env -f compose.yaml ps
+          REMOTE
