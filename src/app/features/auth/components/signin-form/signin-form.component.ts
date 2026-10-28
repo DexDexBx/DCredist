@@ -2,7 +2,6 @@ import { Component, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { AuthService } from '../../../../core/services/auth.service';
-import { DemoUserAccount, ROLE_LABELS } from '../../../../models/user.model';
 import { DcInputComponent } from '../../../../shared/components/form/dc-input/dc-input.component';
 import { IconComponent } from '../../../../shared/components/ui/icon/icon.component';
 
@@ -17,13 +16,11 @@ export class SigninFormComponent {
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
 
-  readonly demoAccounts = this.auth.demoAccounts;
-  readonly roleLabels = ROLE_LABELS;
   readonly errorMessage = signal('');
 
   readonly form = this.fb.nonNullable.group({
     email: ['', [Validators.required, Validators.email]],
-      password: ['', [Validators.required, Validators.minLength(6)]],
+    password: ['', [Validators.required, Validators.minLength(6)]],
   });
 
   onSubmit(): void {
@@ -37,21 +34,7 @@ export class SigninFormComponent {
     const { email, password } = this.form.getRawValue();
 
     if (!this.auth.login(email, password)) {
-      this.errorMessage.set(
-        'El correo o la contraseña no coinciden con ningún perfil de demostración.',
-      );
-      return;
-    }
-
-    this.redirectAfterLogin();
-  }
-
-  signInAs(account: DemoUserAccount): void {
-    this.form.setValue({ email: account.email, password: account.password ?? '' });
-    this.errorMessage.set('');
-
-    if (!this.auth.loginAs(account.id)) {
-      this.errorMessage.set('No fue posible abrir la sesión de demostración.');
+      this.errorMessage.set('El correo o la contraseña no son correctos.');
       return;
     }
 

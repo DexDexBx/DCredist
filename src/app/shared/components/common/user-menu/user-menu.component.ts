@@ -6,8 +6,7 @@ import { ROLE_LABELS } from '../../../../models/user.model';
 import { IconComponent } from '../../ui/icon/icon.component';
 
 /**
- * Menu de usuario. Muestra el perfil activo de la sesión de demostración y
- * permite cerrarla. El acceso real llegará con la API de DCredits.
+ * Menú de usuario. Muestra el perfil activo y permite cerrar sesión.
  */
 @Component({
   selector: 'dc-user-menu',
@@ -25,7 +24,7 @@ export class UserMenuComponent {
   readonly initials = computed(() => this.currentUser()?.initials ?? 'DC');
   readonly roleLabel = computed(() => {
     const user = this.currentUser();
-    return user ? ROLE_LABELS[user.role] : 'Acceso de demostración';
+    return user ? ROLE_LABELS[user.role] : 'Sin sesión';
   });
 
   toggle(): void {

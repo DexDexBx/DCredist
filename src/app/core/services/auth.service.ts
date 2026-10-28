@@ -17,19 +17,15 @@ const PERMISSIONS_STORAGE_KEY = 'dcredits-demo-permissions';
 /** Sobrescrituras por usuario: `userId -> modulo -> nivel ajustado`. */
 type PermissionOverrides = Record<string, Partial<PermissionMap>>;
 
-/**
- * Sesión y permisos de demostración.
- *
- * Valida las cuentas mock de `DEMO_USERS`, conserva el perfil activo y los
- * ajustes de acceso en localStorage. No es autenticación real: cuando exista la
- * API, este servicio pasará a consumir el endpoint de sesión y el de permisos.
- */
-@Injectable({ providedIn: 'root' })
-export class AuthService {
-  private readonly userService = inject(UserService);
-
-  /** Cuentas que pueden iniciar sesión: solo las de arranque traen contraseña. */
-  readonly demoAccounts = DEMO_USERS;
+  /**
+   * Sesión y permisos.
+   *
+   * Valida las cuentas de `DEMO_USERS` y conserva el perfil activo y los
+   * ajustes de acceso en localStorage. Preparado para conectar con la API.
+   */
+  @Injectable({ providedIn: 'root' })
+  export class AuthService {
+    private readonly userService = inject(UserService);
 
   private readonly currentUserState = signal<UserProfile | null>(this.restoreSession());
   private readonly overridesState = signal<PermissionOverrides>(this.restoreOverrides());
@@ -43,17 +39,6 @@ export class AuthService {
     const account = DEMO_USERS.find(
       (user) => user.email.toLowerCase() === normalizedEmail && user.password === password,
     );
-
-    if (!account) {
-      return false;
-    }
-
-    this.setSession(account);
-    return true;
-  }
-
-  loginAs(userId: string): boolean {
-    const account = this.userService.findById(userId);
 
     if (!account) {
       return false;

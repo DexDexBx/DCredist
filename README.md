@@ -123,32 +123,13 @@ La V1 no incluye certificados PDF, firma digital, pagos, facturacion,
 ecommerce, gestion academica completa, aulas virtuales, cursos, LMS, RRHH
 ni proyectos institucionales.
 
-## Datos y autenticacion
+## Datos y autenticación
 
-Eventos, estudiantes y participaciones provienen del API cuando este responde; en
-caso contrario se usan datos de demostracion. La **autenticacion sigue siendo de
-demostracion**: la sesion se guarda en `localStorage`, las cuentas viven en
-`core/services/mock-data/users.mock.ts` y no existe backend de usuarios. Rutas,
-menú y botones se filtran por permisos: cada usuario tiene un nivel por módulo
-(sin acceso, solo ver o gestionar).
+Eventos, estudiantes y participaciones provienen del API cuando este responde. La sesión se guarda en `localStorage`. Los permisos se gestionan desde el módulo `/users` (solo administrador). Los catálogos (`/catalogs/organizers`, `/catalogs/schools`, `/catalogs/headquarters`) alimentan los formularios de eventos y estudiantes.
 
-Cuentas de demostracion:
-
-| Perfil                  | Correo                      | Contrasena     |
-| ----------------------- | --------------------------- | -------------- |
-| Administrador           | admin@dcredits.demo         | admin123       |
-| Coordinador academico   | coordinacion@dcredits.demo  | coordinacion123 |
-| Operador de registro    | operador@dcredits.demo      | operador123    |
-| Consulta                | consulta@dcredits.demo      | consulta123    |
-
-El modulo `/users` muestra un directorio mock de ~100 usuarios (busqueda por
-nombre o correo, filtro por perfil y estado, y paginacion) para que la pantalla se
-vea con el volumen real que tendra. Solo los 4 perfiles de la tabla pueden iniciar
-sesion; los demas son registros sin credencial. El Administrador puede revisar los
-perfiles y ajustar los accesos por usuario y por modulo; esos ajustes se guardan en
-`localStorage`. Los catalogos (`/catalogs/organizers`, `/catalogs/schools`,
-`/catalogs/headquarters`) alimentan los formularios de eventos y estudiantes y
-tambien son datos mock en memoria: al recargar vuelven las semillas.
+Usuario administrador por defecto:
+- Correo: `admin@dcredits.com`
+- Contraseña: `admin123`
 
 ## Licencia
 
