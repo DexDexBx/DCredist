@@ -298,8 +298,7 @@ export class UserListComponent {
       return;
     }
 
-    this.auth.loginAs(user.id);
-    void this.router.navigateByUrl('/');
+    void this.router.navigateByUrl('/signin');
   }
 
   isCurrent(user: UserProfile): boolean {
