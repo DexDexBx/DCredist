@@ -20,7 +20,26 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Diagnosticar y preparar SSH
+      - name: Diagnosticar conectividad SSH
+        shell: bash
+        env:
+          DEPLOY_HOST: ${{ secrets.DCREDITS_HOST }}
+        run: |
+          set -eu
+          test -n "$DEPLOY_HOST" || {
+            echo "::error::Falta el secreto DCREDITS_HOST"
+            exit 1
+          }
+
+          echo "Probando el puerto SSH 22..."
+          if timeout 10 bash -c 'echo > /dev/tcp/$1/22' _ "$DEPLOY_HOST"; then
+            echo "Puerto 22 accesible."
+          else
+            echo "::error::No se puede conectar al puerto 22 del host configurado."
+            exit 1
+          fi
+
+      - name: Preparar SSH
         shell: bash
         env:
           SSH_PRIVATE_KEY: ${{ secrets.DCREDITS_SSH_KEY }}
@@ -33,12 +52,6 @@ jobs:
             echo "::error::Falta DCREDITS_SSH_KEY"
             exit 1
           }
-
-          test -n "$DEPLOY_HOST" || {
-            echo "::error::Falta DCREDITS_HOST"
-            exit 1
-          }
-
           test -n "$DEPLOY_USER" || {
             echo "::error::Falta DCREDITS_USER"
             exit 1
@@ -46,22 +59,14 @@ jobs:
 
           mkdir -p "$HOME/.ssh"
           chmod 700 "$HOME/.ssh"
-
           printf '%s\n' "$SSH_PRIVATE_KEY" > "$HOME/.ssh/id_ed25519"
           chmod 600 "$HOME/.ssh/id_ed25519"
 
-          if ! ssh-keygen -y -f "$HOME/.ssh/id_ed25519" > /dev/null; then
-            echo "::error::La clave SSH no es válida o requiere contraseña"
-            exit 1
-          fi
+          ssh-keygen -y -f "$HOME/.ssh/id_ed25519" > /dev/null
 
-          echo "Clave privada SSH válida."
+          ssh-keyscan -T 10 -p 22 -H "$DEPLOY_HOST" >> "$HOME/.ssh/known_hosts" 2>/dev/null
 
-          if ! ssh-keyscan -T 10 -H "$DEPLOY_HOST" >> "$HOME/.ssh/known_hosts" 2>/dev/null; then
-            echo "::error::No se pudo obtener la clave SSH del servidor"
-            exit 1
-          fi
-
+          test -s "$HOME/.ssh/known_hosts"
           echo "Preparación SSH completada."
 
       - name: Desplegar DCredits en pruebas
@@ -73,6 +78,7 @@ jobs:
           set -eu
 
           ssh -i "$HOME/.ssh/id_ed25519" \
+            -p 22 \
             -o BatchMode=yes \
             -o StrictHostKeyChecking=yes \
             "$DEPLOY_USER@$DEPLOY_HOST" 'bash -se' <<'REMOTE'
