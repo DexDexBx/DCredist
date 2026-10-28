@@ -1,7 +1,7 @@
 
 name: DCredits - Despliegue de pruebas
 
-on:
+'on':
   push:
     branches:
       - feature/dcredits-v01-limpieza
@@ -20,7 +20,8 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Comprobar secretos y preparar SSH
+      - name: Diagnosticar y preparar SSH
+        shell: bash
         env:
           SSH_PRIVATE_KEY: ${{ secrets.DCREDITS_SSH_KEY }}
           DEPLOY_HOST: ${{ secrets.DCREDITS_HOST }}
@@ -29,36 +30,49 @@ jobs:
           set -eu
 
           test -n "$SSH_PRIVATE_KEY" || {
-            echo "::error::Falta el secreto DCREDITS_SSH_KEY"
+            echo "::error::Falta DCREDITS_SSH_KEY"
             exit 1
           }
 
           test -n "$DEPLOY_HOST" || {
-            echo "::error::Falta el secreto DCREDITS_HOST"
+            echo "::error::Falta DCREDITS_HOST"
             exit 1
           }
 
           test -n "$DEPLOY_USER" || {
-            echo "::error::Falta el secreto DCREDITS_USER"
+            echo "::error::Falta DCREDITS_USER"
             exit 1
           }
 
-          mkdir -p ~/.ssh
-          chmod 700 ~/.ssh
-          printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519
-          chmod 600 ~/.ssh/id_ed25519
-          ssh-keyscan -H "$DEPLOY_HOST" >> ~/.ssh/known_hosts
+          mkdir -p "$HOME/.ssh"
+          chmod 700 "$HOME/.ssh"
 
-          echo "Secretos disponibles y SSH preparado."
+          printf '%s\n' "$SSH_PRIVATE_KEY" > "$HOME/.ssh/id_ed25519"
+          chmod 600 "$HOME/.ssh/id_ed25519"
+
+          if ! ssh-keygen -y -f "$HOME/.ssh/id_ed25519" > /dev/null; then
+            echo "::error::La clave SSH no es válida o requiere contraseña"
+            exit 1
+          fi
+
+          echo "Clave privada SSH válida."
+
+          if ! ssh-keyscan -T 10 -H "$DEPLOY_HOST" >> "$HOME/.ssh/known_hosts" 2>/dev/null; then
+            echo "::error::No se pudo obtener la clave SSH del servidor"
+            exit 1
+          fi
+
+          echo "Preparación SSH completada."
 
       - name: Desplegar DCredits en pruebas
+        shell: bash
         env:
           DEPLOY_HOST: ${{ secrets.DCREDITS_HOST }}
           DEPLOY_USER: ${{ secrets.DCREDITS_USER }}
         run: |
           set -eu
 
-          ssh -i ~/.ssh/id_ed25519 \
+          ssh -i "$HOME/.ssh/id_ed25519" \
             -o BatchMode=yes \
             -o StrictHostKeyChecking=yes \
             "$DEPLOY_USER@$DEPLOY_HOST" 'bash -se' <<'REMOTE'
