@@ -6,6 +6,13 @@
  * reenvia a `http://localhost:3000` y en produccion las resuelve el reverse
  * proxy, de modo que no hay que hornear el host en el bundle.
  *
+ *   POST   /auth/login                       (credenciales contra users)
+ *
+ *   GET    /users?search=&role=&status=&professionalSchool=
+ *   GET    /users/:id
+ *   POST   /users                            (contraseña inicial obligatoria)
+ *   PATCH  /users/:id                        (datos, estado o contraseña)
+ *
  *   GET    /students?search=&professionalSchool=&headquarters=&status=
  *   GET    /students/facets
  *   POST   /students
@@ -37,6 +44,11 @@
 export const API_BASE_URL = '/api';
 
 export const API_ENDPOINTS = {
+  authLogin: `${API_BASE_URL}/auth/login`,
+
+  users: `${API_BASE_URL}/users`,
+  user: (id: string) => `${API_BASE_URL}/users/${id}`,
+
   students: `${API_BASE_URL}/students`,
   student: (id: string) => `${API_BASE_URL}/students/${id}`,
   studentFacets: `${API_BASE_URL}/students/facets`,

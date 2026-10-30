@@ -6,6 +6,44 @@
  * de modo que ningun componente conoce el API.
  */
 
+export type ApiUserRole = 'ADMIN' | 'COORDINATOR' | 'ORGANIZER' | 'OPERATOR' | 'VIEWER';
+export type ApiUserStatus = 'ACTIVE' | 'INACTIVE';
+
+/** Perfil que devuelve POST /auth/login. Nunca incluye el hash de la contrasena. */
+export interface ApiLoginResponse {
+  id: string;
+  fullName: string;
+  email: string;
+  role: ApiUserRole;
+  status: ApiUserStatus;
+  professionalSchool: string;
+  mustChangePassword: boolean;
+}
+
+/** Usuario del directorio tal como lo devuelve /users. */
+export interface ApiUser extends ApiLoginResponse {
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** Cuerpo de alta o edicion. La contrasena viaja solo cuando se define. */
+export interface ApiUserPayload {
+  fullName: string;
+  email: string;
+  role: ApiUserRole;
+  status: ApiUserStatus;
+  password?: string;
+  professionalSchool?: string;
+}
+
+/** El alta exige contrasena inicial. */
+export interface ApiUserCreatePayload extends ApiUserPayload {
+  password: string;
+}
+
+/** La edicion solo envia los campos que cambian. */
+export type ApiUserUpdatePayload = Partial<ApiUserPayload>;
+
 export type ApiStudentStatus = 'ACTIVE' | 'INACTIVE';
 export type ApiStudentImportIssueCode =
   | 'MISSING_CODE'

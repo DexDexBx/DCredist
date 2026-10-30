@@ -4,6 +4,7 @@ import { Router } from '@angular/router';
 import { UserService } from '../../../../core/services/user.service';
 import {
   ALL_USER_ROLES,
+  MIN_PASSWORD_LENGTH,
   ROLE_LABELS,
   USER_STATUS_LABEL,
   UserStatus,
@@ -21,9 +22,9 @@ import { PanelComponent } from '../../../../shared/components/ui/panel/panel.com
 /**
  * ALTA DE USUARIOS.
  *
- * Registra un perfil en el directorio. La contraseña no se define aquí: mientras
- * no exista la API, el acceso se hace desde la sesión de demostración
- * ("entrar como este usuario" en el listado).
+ * Registra un perfil en el directorio. La contraseña no se define aquí: el
+ * mantenimiento de usuarios todavía no tiene API y el acceso se valida con las
+ * credenciales de la tabla users.
  */
 @Component({
   selector: 'app-user-new',
@@ -45,6 +46,8 @@ export class UserNewComponent {
   readonly createdName = signal<string | null>(null);
   readonly formError = signal<string | null>(null);
 
+  readonly minPasswordLength = MIN_PASSWORD_LENGTH;
+
   readonly roleOptions: DcSelectOption[] = ALL_USER_ROLES.map((role) => ({
     value: role,
     label: ROLE_LABELS[role],
@@ -57,6 +60,7 @@ export class UserNewComponent {
   readonly form = this.fb.nonNullable.group({
     fullName: ['', [Validators.required, Validators.minLength(3)]],
     email: ['', [Validators.required, Validators.email]],
+    password: ['', [Validators.required, Validators.minLength(MIN_PASSWORD_LENGTH)]],
     role: ['OPERATOR' as UserRole, [Validators.required]],
     status: ['ACTIVE' as UserStatus, [Validators.required]],
   });
@@ -71,7 +75,7 @@ export class UserNewComponent {
     }
 
     const value = this.form.getRawValue();
-    const validation = this.userService.validate(value);
+    const validation = this.userService.validate(value, undefined, true);
 
     if (!validation.valid) {
       this.formError.set(Object.values(validation.errors)[0] ?? 'Revisa los datos del usuario.');
@@ -85,6 +89,7 @@ export class UserNewComponent {
       this.form.reset({
         fullName: '',
         email: '',
+        password: '',
         role: 'OPERATOR',
         status: 'ACTIVE',
       });
@@ -98,7 +103,7 @@ export class UserNewComponent {
     void this.router.navigate(['/users']);
   }
 
-  isInvalid(control: 'fullName' | 'email' | 'role'): boolean {
+  isInvalid(control: 'fullName' | 'email' | 'password' | 'role'): boolean {
     const field = this.form.controls[control];
     return field.touched && field.invalid;
   }

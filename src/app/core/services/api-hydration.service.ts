@@ -1,22 +1,29 @@
 import { Injectable, inject } from '@angular/core';
 import { firstValueFrom, forkJoin } from 'rxjs';
-import { mapApiEvent, mapApiParticipation, mapApiStudent } from '../api/api.mappers';
+import {
+  mapApiEvent,
+  mapApiParticipation,
+  mapApiStudent,
+  mapApiUser,
+} from '../api/api.mappers';
 import { DcreditsApiClient } from '../api/dcredits-api.client';
 import { DataModeService } from './data-mode.service';
 import { EventService } from './event.service';
 import { ParticipationService } from './participation.service';
 import { StudentService } from './student.service';
+import { UserService } from './user.service';
 
 /**
  * HIDRATACION INICIAL DESDE EL API.
  *
- * Carga eventos, estudiantes y participaciones del backend y reemplaza el
- * contenido de los servicios de dominio. Los componentes siguen leyendo signals
- * sincronos: no saben si el origen es el API o el mock.
+ * Carga eventos, estudiantes, participaciones y usuarios del backend y
+ * reemplaza el contenido de los servicios de dominio. Los componentes siguen
+ * leyendo signals sincronos: no saben si el origen es el API o el estado local.
  *
- * Es todo-o-nada: solo se reemplaza si las tres lecturas responden. Ante
- * cualquier fallo (API apagado, red, 500) se conservan los mocks, de modo que la
- * aplicacion nunca queda vacia. `dataMode` expone de donde salieron los datos.
+ * Es todo-o-nada: solo se reemplaza si las cuatro lecturas responden. Ante
+ * cualquier fallo (API apagado, red, 500) los servicios conservan el estado
+ * local de la sesion, que arranca vacio. `dataMode` expone de donde salieron
+ * los datos.
  */
 @Injectable({ providedIn: 'root' })
 export class ApiHydrationService {
@@ -25,6 +32,7 @@ export class ApiHydrationService {
   private readonly eventService = inject(EventService);
   private readonly studentService = inject(StudentService);
   private readonly participationService = inject(ParticipationService);
+  private readonly userService = inject(UserService);
 
   private started = false;
 
@@ -35,21 +43,23 @@ export class ApiHydrationService {
     this.started = true;
 
     try {
-      const { events, students, participations } = await firstValueFrom(
+      const { events, students, participations, users } = await firstValueFrom(
         forkJoin({
           events: this.api.listEvents(),
           students: this.api.listStudents(),
           participations: this.api.listParticipations(),
+          users: this.api.listUsers(),
         })
       );
 
       this.eventService.replaceAll(events.map(mapApiEvent));
       this.studentService.replaceAll(students.map(mapApiStudent));
       this.participationService.replaceAll(participations.map(mapApiParticipation));
+      this.userService.replaceAll(users.map(mapApiUser));
       this.dataMode.source.set('api');
     } catch {
-      // Sin API se mantiene el contenido mock ya cargado por cada servicio.
-      this.dataMode.source.set('mock');
+      // Sin API se mantiene el estado local (vacio al arrancar).
+      this.dataMode.source.set('local');
     }
   }
 }

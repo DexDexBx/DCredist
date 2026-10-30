@@ -117,6 +117,14 @@ export function codeContainsCompact(
   return false;
 }
 
+/** Iniciales de un nombre completo: primera letra de las dos primeras palabras. */
+export function initialsOf(fullName: string): string {
+  const parts = fullName.split(' ').filter(Boolean);
+  const first = parts[0]?.[0] ?? '';
+  const second = parts[1]?.[0] ?? parts[0]?.[1] ?? '';
+  return (first + second).toUpperCase();
+}
+
 /** Escapa texto antes de inyectarlo en plantillas de FullCalendar. */
 export function escapeHtml(value: string): string {
   return value.replace(/[&<>"']/g, (char) => HTML_ESCAPES[char] ?? char);

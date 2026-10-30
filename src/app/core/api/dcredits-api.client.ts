@@ -5,6 +5,7 @@ import { API_ENDPOINTS } from './api-endpoints';
 import {
   ApiEvent,
   ApiEventPayload,
+  ApiLoginResponse,
   ApiParticipation,
   ApiParticipationPayload,
   ApiStudent,
@@ -12,6 +13,9 @@ import {
   ApiStudentImportResult,
   ApiStudentImportRow,
   ApiStudentPayload,
+  ApiUser,
+  ApiUserCreatePayload,
+  ApiUserUpdatePayload,
 } from './api.types';
 
 /**
@@ -26,6 +30,30 @@ import {
 @Injectable({ providedIn: 'root' })
 export class DcreditsApiClient {
   private readonly http = inject(HttpClient);
+
+  // --- Autenticacion ---
+
+  login(email: string, password: string): Observable<ApiLoginResponse> {
+    return this.http.post<ApiLoginResponse>(API_ENDPOINTS.authLogin, { email, password });
+  }
+
+  // --- Usuarios ---
+
+  listUsers(): Observable<ApiUser[]> {
+    return this.http.get<ApiUser[]>(API_ENDPOINTS.users);
+  }
+
+  getUser(id: string): Observable<ApiUser> {
+    return this.http.get<ApiUser>(API_ENDPOINTS.user(id));
+  }
+
+  createUser(payload: ApiUserCreatePayload): Observable<ApiUser> {
+    return this.http.post<ApiUser>(API_ENDPOINTS.users, payload);
+  }
+
+  updateUser(id: string, payload: ApiUserUpdatePayload): Observable<ApiUser> {
+    return this.http.patch<ApiUser>(API_ENDPOINTS.user(id), payload);
+  }
 
   // --- Eventos ---
 

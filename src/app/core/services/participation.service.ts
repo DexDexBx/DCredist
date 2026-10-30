@@ -40,7 +40,6 @@ import { StudentService } from './student.service';
 import { mapApiParticipation, toApiParticipationPayload } from '../api/api.mappers';
 import { DcreditsApiClient } from '../api/dcredits-api.client';
 import { DataModeService } from './data-mode.service';
-import { buildMockParticipations } from './mock-data/participations.mock';
 
 /**
  * Texto buscado ya resuelto.
@@ -177,9 +176,7 @@ export class ParticipationService {
   private readonly api = inject(DcreditsApiClient);
   private readonly dataMode = inject(DataModeService);
 
-  private readonly participationsState = signal<Participation[]>(
-    buildMockParticipations(this.eventService.events(), this.studentService.students())
-  );
+  private readonly participationsState = signal<Participation[]>([]);
 
   readonly participations = this.participationsState.asReadonly();
 
@@ -1227,7 +1224,7 @@ getParticipations(query: ParticipationQuery = {}): Participation[] {
     return this.importStage2CommitLocal(eventId, validItems, mode, uploadedBy);
   }
 
-  /** Registro de la carga en memoria (modo mock): valida y guarda item por item. */
+  /** Registro de la carga en memoria (modo local): valida y guarda item por item. */
   private async importStage2CommitLocal(
     eventId: string,
     validItems: ParticipationImportStagedItem[],
@@ -1277,7 +1274,7 @@ getParticipations(query: ParticipationQuery = {}): Participation[] {
    * Sella el LOTE de la carga con su trazabilidad y lo asocia al evento.
    *
    * El backend no expone lotes ni cierre por lote: esto es trazabilidad de la
-   * interfaz (modo, quien subio, cuando), compartida por el modo real y el mock.
+   * interfaz (modo, quien subio, cuando), compartida por el modo real y el local.
    */
   private sealImportBatch(
     eventId: string,

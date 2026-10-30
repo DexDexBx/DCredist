@@ -28,7 +28,7 @@ const INSTITUTIONAL_DELIMITER = ';';
 const CSV_MIME = 'text/csv;charset=utf-8';
 
 /**
- * MOCK SERVICE - EXPORTACION DE PARTICIPANTES.
+ * SERVICIO - EXPORTACION DE PARTICIPANTES.
  *
  * Un unico formato, el institucional: respeta EXACTAMENTE el formato requerido
  * por la institucion. Encabezado de metadatos + columnas obligatorias + filas.

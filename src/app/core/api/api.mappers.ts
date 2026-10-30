@@ -7,8 +7,12 @@ import {
   EventType,
   Participation,
   ParticipationDraft,
+  ROLE_DESCRIPTIONS,
   Student,
   StudentDraft,
+  UserCreateDraft,
+  UserProfile,
+  UserUpdateDraft,
 } from '../../models';
 import type { StudentImportRow } from '../services/student.service';
 import {
@@ -21,7 +25,11 @@ import {
   ApiStudent,
   ApiStudentImportRow,
   ApiStudentPayload,
+  ApiUser,
+  ApiUserCreatePayload,
+  ApiUserUpdatePayload,
 } from './api.types';
+import { initialsOf } from '../../shared/utils/text.utils';
 
 /** Formato del API -> etiqueta de dominio. */
 const MODALITY_FROM_API: Record<ApiEventModality, EventModality> = {
@@ -74,6 +82,18 @@ export function mapApiStudent(row: ApiStudent): Student {
     professionalSchool: row.professionalSchool,
     headquarters: row.headquarters,
     status: row.status,
+  };
+}
+
+export function mapApiUser(row: ApiUser): UserProfile {
+  return {
+    id: row.id,
+    fullName: row.fullName,
+    email: row.email,
+    role: row.role,
+    status: row.status,
+    initials: initialsOf(row.fullName),
+    description: ROLE_DESCRIPTIONS[row.role],
   };
 }
 
@@ -158,5 +178,26 @@ export function toApiParticipationPayload(draft: ParticipationDraft): ApiPartici
     participationType: draft.participationType,
     credits: draft.credits,
     grade: draft.grade ?? null,
+  };
+}
+
+export function toApiUserCreatePayload(draft: UserCreateDraft): ApiUserCreatePayload {
+  return {
+    fullName: draft.fullName.trim().replace(/\s+/g, ' '),
+    email: draft.email.trim().toLowerCase(),
+    role: draft.role,
+    status: draft.status,
+    password: draft.password,
+  };
+}
+
+/** La contraseña solo viaja si se va a cambiar. */
+export function toApiUserUpdatePayload(draft: UserUpdateDraft): ApiUserUpdatePayload {
+  return {
+    fullName: draft.fullName.trim().replace(/\s+/g, ' '),
+    email: draft.email.trim().toLowerCase(),
+    role: draft.role,
+    status: draft.status,
+    ...(draft.password ? { password: draft.password } : {}),
   };
 }

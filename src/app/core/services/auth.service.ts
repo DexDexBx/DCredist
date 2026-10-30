@@ -1,4 +1,5 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
+import { firstValueFrom } from 'rxjs';
 
 import {
   ModuleKey,
@@ -7,29 +8,30 @@ import {
   ROLE_DEFAULT_PERMISSIONS,
   permissionAtLeast,
 } from '../../models/permission.model';
-import { DemoUserAccount, UserProfile } from '../../models/user.model';
-import { DEMO_USERS } from './mock-data/users.mock';
+import { ROLE_DESCRIPTIONS, UserProfile } from '../../models/user.model';
+import { initialsOf } from '../../shared/utils/text.utils';
+import { ApiLoginResponse } from '../api/api.types';
+import { DcreditsApiClient } from '../api/dcredits-api.client';
 import { UserService } from './user.service';
 
-const SESSION_STORAGE_KEY = 'dcredits-demo-session';
-const PERMISSIONS_STORAGE_KEY = 'dcredits-demo-permissions';
+const SESSION_STORAGE_KEY = 'dcredits-session';
+const PERMISSIONS_STORAGE_KEY = 'dcredits-permissions';
 
 /** Sobrescrituras por usuario: `userId -> modulo -> nivel ajustado`. */
 type PermissionOverrides = Record<string, Partial<PermissionMap>>;
 
 /**
- * Sesión y permisos de demostración.
+ * Sesión y permisos.
  *
- * Valida las cuentas mock de `DEMO_USERS`, conserva el perfil activo y los
- * ajustes de acceso en localStorage. No es autenticación real: cuando exista la
- * API, este servicio pasará a consumir el endpoint de sesión y el de permisos.
+ * El login valida correo + contraseña contra `POST /auth/login`, que compara la
+ * contraseña con su hash scrypt en la tabla `users`. El perfil devuelto se
+ * conserva en localStorage para restaurar la sesión al recargar. Los ajustes de
+ * acceso por usuario también viven en localStorage mientras no exista su API.
  */
 @Injectable({ providedIn: 'root' })
 export class AuthService {
+  private readonly api = inject(DcreditsApiClient);
   private readonly userService = inject(UserService);
-
-  /** Cuentas que pueden iniciar sesión: solo las de arranque traen contraseña. */
-  readonly demoAccounts = DEMO_USERS;
 
   private readonly currentUserState = signal<UserProfile | null>(this.restoreSession());
   private readonly overridesState = signal<PermissionOverrides>(this.restoreOverrides());
@@ -38,29 +40,21 @@ export class AuthService {
   readonly isAuthenticated = computed(() => this.currentUserState() !== null);
   readonly isAdmin = computed(() => this.currentUserState()?.role === 'ADMIN');
 
-  login(email: string, password: string): boolean {
-    const normalizedEmail = email.trim().toLowerCase();
-    const account = DEMO_USERS.find(
-      (user) => user.email.toLowerCase() === normalizedEmail && user.password === password,
-    );
+  async login(email: string, password: string): Promise<boolean> {
+    try {
+      const user = await firstValueFrom(
+        this.api.login(email.trim().toLowerCase(), password)
+      );
 
-    if (!account) {
+      if (user.status !== 'ACTIVE') {
+        return false;
+      }
+
+      this.setSession(this.toProfile(user));
+      return true;
+    } catch {
       return false;
     }
-
-    this.setSession(account);
-    return true;
-  }
-
-  loginAs(userId: string): boolean {
-    const account = this.userService.findById(userId);
-
-    if (!account) {
-      return false;
-    }
-
-    this.setSession(account);
-    return true;
   }
 
   logout(): void {
@@ -131,11 +125,11 @@ export class AuthService {
     this.persistOverrides(overrides);
   }
 
-  private setSession(account: DemoUserAccount): void {
-    this.currentUserState.set(this.toProfile(account));
+  private setSession(profile: UserProfile): void {
+    this.currentUserState.set(profile);
 
     if (typeof localStorage !== 'undefined') {
-      localStorage.setItem(SESSION_STORAGE_KEY, account.id);
+      localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(profile));
     }
   }
 
@@ -144,9 +138,19 @@ export class AuthService {
       return null;
     }
 
-    const storedId = localStorage.getItem(SESSION_STORAGE_KEY);
-    const account = DEMO_USERS.find((user) => user.id === storedId);
-    return account ? this.toProfile(account) : null;
+    const stored = localStorage.getItem(SESSION_STORAGE_KEY);
+    if (!stored) {
+      return null;
+    }
+
+    try {
+      const profile = JSON.parse(stored) as UserProfile;
+      return profile && typeof profile.id === 'string' && typeof profile.email === 'string'
+        ? profile
+        : null;
+    } catch {
+      return null;
+    }
   }
 
   private restoreOverrides(): PermissionOverrides {
@@ -171,15 +175,15 @@ export class AuthService {
     localStorage.setItem(PERMISSIONS_STORAGE_KEY, JSON.stringify(overrides));
   }
 
-  private toProfile(account: DemoUserAccount): UserProfile {
+  private toProfile(account: ApiLoginResponse): UserProfile {
     return {
       id: account.id,
       fullName: account.fullName,
       email: account.email,
       role: account.role,
       status: account.status,
-      initials: account.initials,
-      description: account.description,
+      initials: initialsOf(account.fullName),
+      description: ROLE_DESCRIPTIONS[account.role],
     };
   }
 }

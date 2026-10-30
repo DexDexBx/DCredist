@@ -19,7 +19,7 @@ export const appConfig: ApplicationConfig = {
     // HttpClient queda disponible para los servicios que consumen el API.
     provideHttpClient(withInterceptors([apiInterceptor])),
     // Carga los datos del API antes de mostrar la aplicacion. Si el API no
-    // responde, se conservan los mocks y la aplicacion arranca igual.
+    // responde, la aplicacion arranca con el estado local vacio.
     provideAppInitializer(() => inject(ApiHydrationService).hydrate()),
   ],
 };

@@ -43,6 +43,8 @@ async function bootstrap(): Promise<void> {
       ].join('\n')
     )
     .setVersion('0.1.0')
+    .addTag('auth')
+    .addTag('users')
     .addTag('students')
     .addTag('events')
     .addTag('participations')

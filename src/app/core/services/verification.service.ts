@@ -38,8 +38,9 @@ export interface ConstancyVerificationResponse {
 }
 
 /**
- * MOCK SERVICE - CONSULTA Y VALIDACION DE PARTICIPACIONES.
+ * SERVICIO - CONSULTA Y VALIDACION DE PARTICIPACIONES.
  *
+ * Opera sobre los eventos, estudiantes y participaciones cargados del API.
  * Permite a un estudiante (o a la institucion) confirmar si un codigo de
  * DCredits corresponde a una participacion real.
  *

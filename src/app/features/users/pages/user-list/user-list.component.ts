@@ -1,7 +1,7 @@
 import { Component, computed, inject, linkedSignal, signal } from '@angular/core';
 import { NgClass } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { Router, RouterLink } from '@angular/router';
+import { RouterLink } from '@angular/router';
 
 import { AuthService } from '../../../../core/services/auth.service';
 import { UserService } from '../../../../core/services/user.service';
@@ -15,7 +15,6 @@ import {
 } from '../../../../models/permission.model';
 import {
   ALL_USER_ROLES,
-  DemoUserAccount,
   ROLE_LABELS,
   ROLE_SHORT_LABELS,
   USER_STATUS_LABEL,
@@ -39,9 +38,9 @@ const ALL_STATUSES: readonly UserStatus[] = ['ACTIVE', 'INACTIVE'];
 /**
  * PERFILES Y ACCESOS.
  *
- * Los perfiles son cuentas mock. Los accesos se ajustan por usuario y por
- * modulo (sin acceso, solo ver, gestionar) y quedan guardados en la sesion de
- * demostracion. La API sustituira esta persistencia sin cambiar la pantalla.
+ * Los perfiles se cargan del directorio de usuarios. Los accesos se ajustan por
+ * usuario y por modulo (sin acceso, solo ver, gestionar) y quedan guardados en
+ * la sesion. La API sustituira esta persistencia sin cambiar la pantalla.
  */
 @Component({
   selector: 'app-user-list',
@@ -62,7 +61,6 @@ const ALL_STATUSES: readonly UserStatus[] = ['ACTIVE', 'INACTIVE'];
 export class UserListComponent {
   readonly auth = inject(AuthService);
   private readonly userService = inject(UserService);
-  private readonly router = inject(Router);
 
   readonly directory = this.userService.users;
   readonly currentUser = this.auth.currentUser;
@@ -88,7 +86,13 @@ export class UserListComponent {
 
   /** Cifras por perfil sobre el directorio completo, para ver el reparto de golpe. */
   readonly roleCounts = computed(() => {
-    const counts: Record<UserRole, number> = { ADMIN: 0, COORDINATOR: 0, OPERATOR: 0, VIEWER: 0 };
+    const counts: Record<UserRole, number> = {
+      ADMIN: 0,
+      COORDINATOR: 0,
+      ORGANIZER: 0,
+      OPERATOR: 0,
+      VIEWER: 0,
+    };
     for (const user of this.directory()) {
       counts[user.role] += 1;
     }
@@ -210,6 +214,7 @@ export class UserListComponent {
     const colors: Record<UserRole, BadgeColor> = {
       ADMIN: 'primary',
       COORDINATOR: 'info',
+      ORGANIZER: 'warning',
       OPERATOR: 'success',
       VIEWER: 'light',
     };
@@ -287,19 +292,6 @@ export class UserListComponent {
 
   onPageSizeChange(pageSize: number): void {
     this.pageSize.set(pageSize);
-  }
-
-  canSignIn(user: UserProfile): boolean {
-    return user.status === 'ACTIVE';
-  }
-
-  signInAs(user: UserProfile): void {
-    if (this.isCurrent(user)) {
-      return;
-    }
-
-    this.auth.loginAs(user.id);
-    void this.router.navigateByUrl('/');
   }
 
   isCurrent(user: UserProfile): boolean {

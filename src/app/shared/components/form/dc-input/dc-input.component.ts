@@ -17,7 +17,9 @@ let sequence = 0;
 })
 export class DcInputComponent implements ControlValueAccessor {
   readonly label = input<string>('');
-  readonly type = input<'text' | 'email' | 'tel' | 'number' | 'date' | 'datetime-local'>('text');
+  readonly type = input<
+    'text' | 'email' | 'tel' | 'number' | 'date' | 'datetime-local' | 'password'
+  >('text');
   readonly placeholder = input<string>('');
   readonly hint = input<string>('');
   readonly required = input(false);

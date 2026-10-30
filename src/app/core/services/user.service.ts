@@ -1,24 +1,45 @@
-import { Injectable, computed, signal } from '@angular/core';
-import { UserDraft, UserValidation, UserProfile } from '../../models';
-import { ROLE_DESCRIPTIONS, MOCK_USER_DIRECTORY, initialsOf } from './mock-data/users.mock';
+import { Injectable, computed, inject, signal } from '@angular/core';
+import { firstValueFrom } from 'rxjs';
+
+import {
+  MIN_PASSWORD_LENGTH,
+  ROLE_DESCRIPTIONS,
+  UserCreateDraft,
+  UserDraft,
+  UserProfile,
+  UserUpdateDraft,
+  UserValidation,
+} from '../../models';
+import { initialsOf } from '../../shared/utils/text.utils';
+import {
+  mapApiUser,
+  toApiUserCreatePayload,
+  toApiUserUpdatePayload,
+} from '../api/api.mappers';
+import { DcreditsApiClient } from '../api/dcredits-api.client';
+import { DataModeService } from './data-mode.service';
 
 /**
  * SERVICE - DIRECTORIO DE USUARIOS.
  *
- * Administra los perfiles del sistema (nombre, correo, perfil y estado). Mientras
- * no exista el backend, opera en memoria sobre una copia del directorio mock:
- * los cambios viven durante la sesión y desaparecen al recargar. Cuando el API
- * exponga `/users` (GET, POST, PATCH) este servicio pasará a consumirlo con el
- * mismo contrato dual que StudentService y EventService.
+ * Lee del API (hidratado al arrancar) y escribe contra el backend cuando está
+ * disponible; sin API opera en memoria durante la sesión. Contrato:
+ *   GET   /users
+ *   GET   /users/:id
+ *   POST  /users
+ *   PATCH /users/:id
  *
- * Regla de dominio: el correo es UNIQUE. La validación se hace aquí y deberá
- * reaparecer como constraint UNIQUE en el backend.
+ * La contraseña se define en el alta y se puede restablecer desde la ficha del
+ * usuario. El backend la guarda como hash scrypt y nunca la devuelve.
+ *
+ * Regla de dominio: el correo es UNIQUE. La validación se hace aquí y
+ * reaparece como constraint UNIQUE en el backend.
  */
 @Injectable({ providedIn: 'root' })
 export class UserService {
-  private readonly usersState = signal<UserProfile[]>(
-    MOCK_USER_DIRECTORY.map((user) => ({ ...user }))
-  );
+  private readonly api = inject(DcreditsApiClient);
+  private readonly dataMode = inject(DataModeService);
+  private readonly usersState = signal<UserProfile[]>([]);
 
   readonly users = this.usersState.asReadonly();
 
@@ -36,6 +57,11 @@ export class UserService {
     return index;
   });
 
+  /** Reemplaza el directorio con el que devuelve el API (hidratación al arrancar). */
+  replaceAll(users: UserProfile[]): void {
+    this.usersState.set(users);
+  }
+
   findById(id: string): UserProfile | undefined {
     return this.byIdIndex().get(id);
   }
@@ -50,7 +76,15 @@ export class UserService {
     return Boolean(existing && existing.id !== exceptId);
   }
 
-  validate(draft: UserDraft, exceptId?: string): UserValidation {
+  /**
+   * Valida el borrador. En el alta (`requirePassword`) la contraseña es
+   * obligatoria; en la edición solo se valida si se escribió una nueva.
+   */
+  validate(
+    draft: UserDraft & { password?: string },
+    exceptId?: string,
+    requirePassword = false
+  ): UserValidation {
     const errors: UserValidation['errors'] = {};
 
     if (!draft.fullName.trim()) {
@@ -66,12 +100,32 @@ export class UserService {
       errors.email = 'Ya existe un usuario con este correo.';
     }
 
+    const password = draft.password ?? '';
+    if (requirePassword && !password) {
+      errors.password = 'La contraseña es obligatoria.';
+    } else if (password && password.length < MIN_PASSWORD_LENGTH) {
+      errors.password = `La contraseña debe tener al menos ${MIN_PASSWORD_LENGTH} caracteres.`;
+    }
+
     return { valid: Object.keys(errors).length === 0, errors };
   }
 
-  async create(draft: UserDraft): Promise<UserProfile | null> {
-    if (!this.validate(draft).valid) {
+  async create(draft: UserCreateDraft): Promise<UserProfile | null> {
+    if (!this.validate(draft, undefined, true).valid) {
       return null;
+    }
+
+    if (this.dataMode.isApi) {
+      try {
+        const created = await firstValueFrom(
+          this.api.createUser(toApiUserCreatePayload(draft))
+        );
+        const user = mapApiUser(created);
+        this.usersState.update((current) => [...current, user]);
+        return user;
+      } catch {
+        return null;
+      }
     }
 
     const user = this.normalizeDraft(draft, `user-${Date.now().toString(36)}`);
@@ -79,9 +133,22 @@ export class UserService {
     return user;
   }
 
-  async update(id: string, draft: UserDraft): Promise<UserProfile | null> {
+  async update(id: string, draft: UserUpdateDraft): Promise<UserProfile | null> {
     if (!this.findById(id) || !this.validate(draft, id).valid) {
       return null;
+    }
+
+    if (this.dataMode.isApi) {
+      try {
+        const updated = await firstValueFrom(
+          this.api.updateUser(id, toApiUserUpdatePayload(draft))
+        );
+        const user = mapApiUser(updated);
+        this.replaceById(id, user);
+        return user;
+      } catch {
+        return null;
+      }
     }
 
     const user = this.normalizeDraft(draft, id);
@@ -95,12 +162,24 @@ export class UserService {
       return;
     }
 
+    if (this.dataMode.isApi) {
+      try {
+        const updated = await firstValueFrom(this.api.updateUser(id, { status }));
+        this.replaceById(id, mapApiUser(updated));
+        return;
+      } catch {
+        // Si el API falla, no se toca el estado local: evita mostrar un cambio
+        // que en realidad no se guardó.
+        return;
+      }
+    }
+
     this.replaceById(id, { ...current, status });
   }
 
   /**
    * Normaliza el borrador: el nombre queda como se escribió (con sus mayúsculas)
-   * y la descripción se deriva del perfil elegido, igual que el directorio mock.
+   * y la descripción se deriva del perfil elegido, igual que el directorio.
    */
   private normalizeDraft(draft: UserDraft, id: string): UserProfile {
     const fullName = draft.fullName.trim().replace(/\s+/g, ' ');

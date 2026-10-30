@@ -1,7 +1,10 @@
-import { Injectable, computed, inject, signal } from '@angular/core';
+import { Injectable, computed, effect, inject, signal, untracked } from '@angular/core';
 
-import { CatalogEntry, CatalogKind } from '../../models/catalog.model';
-import { buildMockCatalogs } from './mock-data/catalogs.mock';
+import {
+  CATALOGS,
+  CatalogEntry,
+  CatalogKind,
+} from '../../models/catalog.model';
 import { EventService } from './event.service';
 import { StudentService } from './student.service';
 
@@ -9,8 +12,9 @@ import { StudentService } from './student.service';
  * CATALOGOS.
  *
  * Mantiene las listas de apoyo (organizadores, escuelas y sedes) y las
- * relaciona con el historico. Como todavia no hay API, todo vive en memoria:
- * al recargar la pagina vuelven las semillas de `buildMockCatalogs`.
+ * relaciona con el historico. No hay datos locales de prueba: las entradas se
+ * derivan de los eventos y estudiantes que llegan del API, y la institucion
+ * puede agregar, renombrar o desactivar entradas desde /catalogs.
  *
  * Renombrar una entrada propaga el nombre a eventos y estudiantes para no
  * dejar registros apuntando a un valor que ya no existe. Borrar solo se
@@ -21,10 +25,28 @@ export class CatalogService {
   private readonly eventService = inject(EventService);
   private readonly studentService = inject(StudentService);
 
-  private readonly state = signal<Record<CatalogKind, CatalogEntry[]>>(buildMockCatalogs());
+  private readonly state = signal<Record<CatalogKind, CatalogEntry[]>>(emptyCatalogs());
   private sequence = 0;
 
   readonly catalogs = this.state.asReadonly();
+
+  constructor() {
+    // Cada vez que cambian los eventos o el padron, se incorporan al catalogo
+    // los nombres que todavia no existan. Asi los formularios ofrecen valores
+    // reales sin depender de listas hardcodeadas.
+    effect(() => {
+      const organizers = this.eventService
+        .events()
+        .map((event) => event.organizer)
+        .filter(
+          (name): name is string => typeof name === 'string' && name.trim().length > 0,
+        );
+      const schools = this.studentService.professionalSchools();
+      const headquarters = this.studentService.headquarters();
+
+      this.seedFromData({ organizers, schools, headquarters });
+    });
+  }
 
   /** Cuantas veces se usa cada nombre en eventos y en el padron. */
   readonly usage = computed<Record<CatalogKind, Map<string, number>>>(() => {
@@ -136,6 +158,50 @@ export class CatalogService {
   }
 
   /**
+   * Incorpora los nombres que ya existen en el historico y que todavia no
+   * estan en el catalogo. Se lee el estado con `untracked` para que el efecto
+   * no dependa de su propia escritura.
+   */
+  private seedFromData(names: Record<CatalogKind, readonly string[]>): void {
+    const current = untracked(() => this.state());
+    const next: Record<CatalogKind, CatalogEntry[]> = {
+      organizers: [...current.organizers],
+      schools: [...current.schools],
+      headquarters: [...current.headquarters],
+    };
+    let changed = false;
+
+    for (const definition of CATALOGS) {
+      const kind = definition.kind;
+      const known = new Set(
+        next[kind].map((entry) => entry.name.trim().toUpperCase()),
+      );
+
+      for (const rawName of names[kind]) {
+        const name = this.normalizeName(kind, rawName);
+        const key = name.toUpperCase();
+
+        if (!name || known.has(key)) {
+          continue;
+        }
+
+        known.add(key);
+        next[kind].push({
+          id: `cat-${kind}-d${++this.sequence}`,
+          name,
+          active: true,
+          createdAt: new Date().toISOString(),
+        });
+        changed = true;
+      }
+    }
+
+    if (changed) {
+      this.state.set(next);
+    }
+  }
+
+  /**
    * El padron guarda escuelas y sedes en mayusculas; el catalogo usa el mismo
    * formato para que el conteo de uso y el renombrado coincidan.
    */
@@ -144,7 +210,8 @@ export class CatalogService {
     return kind === 'organizers' ? trimmed : trimmed.toUpperCase();
   }
 
-  private propagate(kind: CatalogKind, previous: string, next: string): void {    switch (kind) {
+  private propagate(kind: CatalogKind, previous: string, next: string): void {
+    switch (kind) {
       case 'organizers':
         this.eventService.renameOrganizer(previous, next);
         break;
@@ -156,4 +223,8 @@ export class CatalogService {
         break;
     }
   }
+}
+
+function emptyCatalogs(): Record<CatalogKind, CatalogEntry[]> {
+  return { organizers: [], schools: [], headquarters: [] };
 }

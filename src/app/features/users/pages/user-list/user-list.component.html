@@ -1,6 +1,6 @@
 <dc-page-header
   title="Usuarios y perfiles"
-  description="Directorio de usuarios de demostración y los módulos habilitados para cada uno."
+  description="Directorio de usuarios y los módulos habilitados para cada uno."
 >
   @if (auth.can('users', 'MANAGE')) {
   <div header-actions>
@@ -222,15 +222,6 @@
               >
                 <dc-icon name="settings" [size]="16" />
               </button>
-              <button
-                type="button"
-                (click)="signInAs(user)"
-                [disabled]="isCurrent(user) || !canSignIn(user)"
-                title="Entrar como este usuario"
-                class="inline-flex h-9 items-center justify-center rounded-lg border border-gray-300 px-2.5 text-gray-700 transition-colors hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-white/5"
-              >
-                <dc-icon name="logout" [size]="16" />
-              </button>
             </div>
           </td>
         </tr>
@@ -254,10 +245,9 @@
   }
 
   <p class="mt-4 text-xs leading-relaxed text-gray-500 dark:text-gray-400">
-    Los usuarios se gestionan desde este módulo (alta, edición y accesos). Los datos son mock
-    mientras no exista la API: los cambios viven en la sesión de demostración y se pierden al
-    recargar. Solo los 4 perfiles de arranque traen contraseña; el resto se usa desde "entrar
-    como este usuario".
+    Los usuarios se gestionan desde este módulo (alta, edición y accesos). El listado y los
+    cambios viven en memoria durante la sesión hasta que la API exponga el mantenimiento de
+    usuarios; las credenciales se validan contra la base de datos en el inicio de sesión.
   </p>
 </dc-panel>
 
@@ -347,8 +337,7 @@
 
   <p class="mt-4 text-xs leading-relaxed text-gray-500 dark:text-gray-400">
     El menú lateral, las rutas y los botones respetan estos permisos. Los ajustes por
-    usuario se guardan en la sesión de demostración (localStorage) y no viajan a ningún
-    servidor.
+    usuario se guardan en la sesión (localStorage) y no viajan a ningún servidor.
   </p>
 </dc-panel>
 

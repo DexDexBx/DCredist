@@ -62,7 +62,7 @@
 
 @if (canManage()) {
 <form [formGroup]="form" (ngSubmit)="onSubmit()" class="grid gap-6 xl:grid-cols-3">
-  <dc-panel class="xl:col-span-2" title="Datos del usuario" subtitle="Nombre, correo, perfil y estado.">
+  <dc-panel class="xl:col-span-2" title="Datos del usuario" subtitle="Nombre, correo, contraseña, perfil y estado.">
     <div class="grid gap-4 sm:grid-cols-2">
       <dc-input
         formControlName="fullName"
@@ -76,10 +76,20 @@
         formControlName="email"
         type="email"
         label="Correo"
-        placeholder="ana.torres@dcredits.demo"
+        placeholder="nombre@institucion.edu"
         hint="Debe ser único en el directorio."
         [required]="true"
         [invalid]="isInvalid('email')"
+      />
+
+      <dc-input
+        formControlName="password"
+        type="password"
+        label="Nueva contraseña"
+        placeholder="Déjala vacía para conservarla"
+        hint="Solo se cambia si escribes una nueva."
+        autocomplete="new-password"
+        [invalid]="isInvalid('password')"
       />
 
       <dc-select
@@ -107,6 +117,11 @@
     @if (isInvalid('email')) {
     <p class="mt-2 text-xs font-medium text-error-600 dark:text-error-500">
       Escribe un correo válido.
+    </p>
+    }
+    @if (isInvalid('password')) {
+    <p class="mt-2 text-xs font-medium text-error-600 dark:text-error-500">
+      La contraseña debe tener al menos {{ minPasswordLength }} caracteres.
     </p>
     }
 
@@ -155,8 +170,8 @@
           Acceso
         </dt>
         <dd class="mt-1 leading-relaxed text-gray-600 dark:text-gray-300">
-          La contraseña se definirá cuando exista la API. Mientras tanto, un administrador puede
-          entrar como este usuario desde el listado.
+          La contraseña se define en el alta y puede restablecerse desde este formulario. Si dejas
+          el campo vacío, se conserva la actual.
         </dd>
       </div>
     </dl>

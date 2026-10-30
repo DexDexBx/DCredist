@@ -45,7 +45,7 @@ function matchesCreditState(filter: CreditFilter, credits: number, target: numbe
 }
 
 /**
- * MOCK SERVICE - CREDITOS.
+ * SERVICIO - CREDITOS.
  *
  * Los creditos NUNCA se guardan como un total manual en el estudiante: siempre
  * se derivan de las participaciones vigentes.

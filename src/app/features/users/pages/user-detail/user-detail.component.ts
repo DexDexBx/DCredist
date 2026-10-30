@@ -5,6 +5,7 @@ import { AuthService } from '../../../../core/services/auth.service';
 import { UserService } from '../../../../core/services/user.service';
 import {
   ALL_USER_ROLES,
+  MIN_PASSWORD_LENGTH,
   ROLE_LABELS,
   USER_STATUS_LABEL,
   UserStatus,
@@ -61,6 +62,8 @@ export class UserDetailComponent {
   readonly roleLabels = ROLE_LABELS;
   readonly statusLabel = USER_STATUS_LABEL;
 
+  readonly minPasswordLength = MIN_PASSWORD_LENGTH;
+
   readonly roleOptions: DcSelectOption[] = ALL_USER_ROLES.map((role) => ({
     value: role,
     label: ROLE_LABELS[role],
@@ -77,6 +80,7 @@ export class UserDetailComponent {
   readonly form = this.fb.nonNullable.group({
     fullName: ['', [Validators.required, Validators.minLength(3)]],
     email: ['', [Validators.required, Validators.email]],
+    password: ['', [Validators.minLength(MIN_PASSWORD_LENGTH)]],
     role: ['OPERATOR' as UserRole, [Validators.required]],
     status: ['ACTIVE' as UserStatus, [Validators.required]],
   });
@@ -104,6 +108,7 @@ export class UserDetailComponent {
     const colors: Record<UserRole, BadgeColor> = {
       ADMIN: 'primary',
       COORDINATOR: 'info',
+      ORGANIZER: 'warning',
       OPERATOR: 'success',
       VIEWER: 'light',
     };
@@ -121,17 +126,22 @@ export class UserDetailComponent {
     }
 
     const value = this.form.getRawValue();
-    const validation = this.userService.validate(value, this.id());
+    const draft = {
+      ...value,
+      password: value.password || undefined,
+    };
+    const validation = this.userService.validate(draft, this.id());
 
     if (!validation.valid) {
       this.formError.set(Object.values(validation.errors)[0] ?? 'Revisa los datos del usuario.');
       return;
     }
 
-    const updated = await this.userService.update(this.id(), value);
+    const updated = await this.userService.update(this.id(), draft);
 
     if (updated) {
       this.saved.set(true);
+      this.form.controls.password.reset('');
     } else {
       this.formError.set('No se pudo guardar los cambios. Intenta nuevamente.');
     }
@@ -148,7 +158,7 @@ export class UserDetailComponent {
     this.form.patchValue({ status: next });
   }
 
-  isInvalid(control: 'fullName' | 'email' | 'role'): boolean {
+  isInvalid(control: 'fullName' | 'email' | 'password' | 'role'): boolean {
     const field = this.form.controls[control];
     return field.touched && field.invalid;
   }

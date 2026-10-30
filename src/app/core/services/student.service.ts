@@ -18,11 +18,6 @@ import { CODE_COLLATOR, NAME_COLLATOR } from '../../shared/utils/text.utils';
 import { mapApiStudent, toApiStudentImportRows, toApiStudentPayload } from '../api/api.mappers';
 import { DcreditsApiClient } from '../api/dcredits-api.client';
 import { DataModeService } from './data-mode.service';
-import {
-  buildMockStudents,
-  HEADQUARTERS,
-  PROFESSIONAL_SCHOOLS,
-} from './mock-data/students.mock';
 
 /**
  /** Fila de importacion del padron. Acepta CSV o pegado desde una hoja de calculo. */
@@ -65,7 +60,7 @@ export interface StudentImportSummary {
 export class StudentService {
   private readonly api = inject(DcreditsApiClient);
   private readonly dataMode = inject(DataModeService);
-  private readonly studentsState = signal<Student[]>(buildMockStudents());
+  private readonly studentsState = signal<Student[]>([]);
 
   readonly students = this.studentsState.asReadonly();
 
@@ -93,7 +88,7 @@ export class StudentService {
   /**
    * Escuelas y sedes del padron vigente.
    *
-   * Se derivan de los estudiantes cargados (del API o del mock) para que los
+   * Se derivan de los estudiantes cargados (del API o del estado local) para que los
    * filtros muestren lo que existe de verdad; si el padron esta vacio, se cae a
    * las listas base.
    */
@@ -104,7 +99,7 @@ export class StudentService {
         schools.add(student.professionalSchool);
       }
     }
-    return schools.size > 0 ? [...schools].sort() : (PROFESSIONAL_SCHOOLS as readonly string[]);
+    return schools.size > 0 ? [...schools].sort() : [];
   });
 
   readonly headquarters = computed<readonly string[]>(() => {
@@ -114,7 +109,7 @@ export class StudentService {
         sites.add(student.headquarters);
       }
     }
-    return sites.size > 0 ? [...sites].sort() : (HEADQUARTERS as readonly string[]);
+    return sites.size > 0 ? [...sites].sort() : [];
   });
 
   /**

@@ -2,7 +2,6 @@ import { Component, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { AuthService } from '../../../../core/services/auth.service';
-import { DemoUserAccount, ROLE_LABELS } from '../../../../models/user.model';
 import { DcInputComponent } from '../../../../shared/components/form/dc-input/dc-input.component';
 import { IconComponent } from '../../../../shared/components/ui/icon/icon.component';
 
@@ -17,41 +16,30 @@ export class SigninFormComponent {
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
 
-  readonly demoAccounts = this.auth.demoAccounts;
-  readonly roleLabels = ROLE_LABELS;
   readonly errorMessage = signal('');
+  readonly isSubmitting = signal(false);
 
   readonly form = this.fb.nonNullable.group({
     email: ['', [Validators.required, Validators.email]],
-      password: ['', [Validators.required, Validators.minLength(6)]],
+    password: ['', [Validators.required, Validators.minLength(6)]],
   });
 
-  onSubmit(): void {
+  async onSubmit(): Promise<void> {
     this.form.markAllAsTouched();
     this.errorMessage.set('');
 
-    if (this.form.invalid) {
+    if (this.form.invalid || this.isSubmitting()) {
       return;
     }
 
     const { email, password } = this.form.getRawValue();
 
-    if (!this.auth.login(email, password)) {
-      this.errorMessage.set(
-        'El correo o la contraseña no coinciden con ningún perfil de demostración.',
-      );
-      return;
-    }
+    this.isSubmitting.set(true);
+    const authenticated = await this.auth.login(email, password);
+    this.isSubmitting.set(false);
 
-    this.redirectAfterLogin();
-  }
-
-  signInAs(account: DemoUserAccount): void {
-    this.form.setValue({ email: account.email, password: account.password ?? '' });
-    this.errorMessage.set('');
-
-    if (!this.auth.loginAs(account.id)) {
-      this.errorMessage.set('No fue posible abrir la sesión de demostración.');
+    if (!authenticated) {
+      this.errorMessage.set('El correo o la contraseña no son correctos.');
       return;
     }
 

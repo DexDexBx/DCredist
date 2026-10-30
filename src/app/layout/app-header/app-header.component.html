@@ -36,11 +36,11 @@
       </span>
     </button>
 
-    @if (dataMode.source() === 'mock') {
+    @if (dataMode.source() === 'local') {
     <span
       class="hidden rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-700 sm:inline-block dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300"
-      title="El API no respondió: se están mostrando datos de demostración."
-      >Datos de demostración</span
+      title="El API no respondió: los datos no están disponibles."
+      >Sin conexión al API</span
     >
     }
 

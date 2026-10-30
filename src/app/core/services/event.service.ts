@@ -17,7 +17,6 @@ import {
 import { mapApiEvent, toApiEventPayload } from '../api/api.mappers';
 import { DcreditsApiClient } from '../api/dcredits-api.client';
 import { DataModeService } from './data-mode.service';
-import { buildMockEvents } from './mock-data/events.mock';
 
 /**
  * SERVICE - EVENTOS ACADEMICOS.
@@ -38,7 +37,7 @@ import { buildMockEvents } from './mock-data/events.mock';
 export class EventService {
   private readonly api = inject(DcreditsApiClient);
   private readonly dataMode = inject(DataModeService);
-  private readonly eventsState = signal<AcademicEvent[]>(buildMockEvents());
+  private readonly eventsState = signal<AcademicEvent[]>([]);
 
   readonly events = this.eventsState.asReadonly();
 

@@ -49,10 +49,21 @@
         formControlName="email"
         type="email"
         label="Correo"
-        placeholder="ana.torres@dcredits.demo"
+        placeholder="nombre@institucion.edu"
         hint="Debe ser único en el directorio."
         [required]="true"
         [invalid]="isInvalid('email')"
+      />
+
+      <dc-input
+        formControlName="password"
+        type="password"
+        label="Contraseña"
+        placeholder="Mínimo {{ minPasswordLength }} caracteres"
+        hint="La usará para iniciar sesión."
+        autocomplete="new-password"
+        [required]="true"
+        [invalid]="isInvalid('password')"
       />
 
       <dc-select
@@ -82,6 +93,11 @@
       Escribe un correo válido.
     </p>
     }
+    @if (isInvalid('password')) {
+    <p class="mt-2 text-xs font-medium text-error-600 dark:text-error-500">
+      La contraseña debe tener al menos {{ minPasswordLength }} caracteres.
+    </p>
+    }
 
     <div class="mt-6 flex flex-wrap items-center gap-2">
       <button
@@ -109,11 +125,11 @@
       </li>
       <li class="flex items-start gap-2">
         <dc-icon name="key" [size]="16" class="mt-0.5 text-brand-600 dark:text-brand-300" />
-        <span>La contraseña se definirá cuando exista la API. Mientras tanto, un administrador puede entrar como este usuario desde el directorio.</span>
+        <span>La contraseña definida aquí es la que usará para iniciar sesión. Si la olvida, un administrador puede restablecerla desde su ficha.</span>
       </li>
       <li class="flex items-start gap-2">
         <dc-icon name="info" [size]="16" class="mt-0.5 text-brand-600 dark:text-brand-300" />
-        <span>Los cambios viven en la sesión de demostración y se perderán al recargar la página.</span>
+        <span>Los datos se guardan en la base de datos de DCredits cuando el API está disponible.</span>
       </li>
     </ul>
   </dc-panel>

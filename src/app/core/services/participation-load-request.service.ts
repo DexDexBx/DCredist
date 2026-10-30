@@ -8,7 +8,7 @@ import { EventService } from './event.service';
 import { ParticipationService } from './participation.service';
 
 /**
- * MOCK SERVICE - SOLICITUDES DE CARGA (datos en memoria, sin backend).
+ * SERVICIO - SOLICITUDES DE CARGA (estado en memoria, sin endpoint todavia).
  *
  * Contrato de API que debe conservar al migrar a HttpClient:
  *   GET   /events/:id/load-requests

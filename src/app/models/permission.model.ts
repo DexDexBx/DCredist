@@ -87,6 +87,17 @@ export const ROLE_DEFAULT_PERMISSIONS: Record<UserRole, PermissionMap> = {
     users: 'NONE',
     catalogs: 'NONE',
   },
+  ORGANIZER: {
+    dashboard: 'VIEW',
+    calendar: 'VIEW',
+    events: 'MANAGE',
+    students: 'VIEW',
+    participations: 'MANAGE',
+    certificates: 'MANAGE',
+    verification: 'VIEW',
+    users: 'NONE',
+    catalogs: 'NONE',
+  },
   OPERATOR: {
     dashboard: 'VIEW',
     calendar: 'VIEW',
