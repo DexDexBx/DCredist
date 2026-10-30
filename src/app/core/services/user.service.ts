@@ -3,6 +3,9 @@ import { firstValueFrom } from 'rxjs';
 
 import {
   MIN_PASSWORD_LENGTH,
+  MODULES,
+  PermissionMap,
+  ROLE_DEFAULT_PERMISSIONS,
   ROLE_DESCRIPTIONS,
   UserCreateDraft,
   UserDraft,
@@ -12,7 +15,9 @@ import {
 } from '../../models';
 import { initialsOf } from '../../shared/utils/text.utils';
 import {
+  mapApiPermissions,
   mapApiUser,
+  toApiPermissionsPayload,
   toApiUserCreatePayload,
   toApiUserUpdatePayload,
 } from '../api/api.mappers';
@@ -28,9 +33,15 @@ import { DataModeService } from './data-mode.service';
  *   GET   /users/:id
  *   POST  /users
  *   PATCH /users/:id
+ *   GET   /users/:id/permissions
+ *   PUT   /users/:id/permissions
+ *   GET   /modules
  *
  * La contraseña se define en el alta y se puede restablecer desde la ficha del
  * usuario. El backend la guarda como hash scrypt y nunca la devuelve.
+ *
+ * La matriz de permisos vive en la base (`user_module_permissions`). Aquí solo
+ * se pide al abrir la tuerca de accesos y se envía al guardar.
  *
  * Regla de dominio: el correo es UNIQUE. La validación se hace aquí y
  * reaparece como constraint UNIQUE en el backend.
@@ -40,6 +51,9 @@ export class UserService {
   private readonly api = inject(DcreditsApiClient);
   private readonly dataMode = inject(DataModeService);
   private readonly usersState = signal<UserProfile[]>([]);
+
+  /** Solo se usa sin API: matriz por usuario en memoria durante la sesión. */
+  private readonly localPermissions = signal<Record<string, PermissionMap>>({});
 
   readonly users = this.usersState.asReadonly();
 
@@ -177,6 +191,82 @@ export class UserService {
     this.replaceById(id, { ...current, status });
   }
 
+  // --- Permisos -------------------------------------------------------------
+
+  /** Nombres de los módulos registrados en la base (GET /modules). */
+  async listModuleNames(): Promise<string[] | null> {
+    if (!this.dataMode.isApi) {
+      return MODULES.map((module) => module.key);
+    }
+
+    try {
+      const modules = await firstValueFrom(this.api.listModules());
+      return modules.map((module) => module.name);
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Matriz de permisos de un usuario. Se pide solo al abrir la tuerca de
+   * accesos: el listado no la trae para no cargar nueve filas por usuario.
+   */
+  async getPermissions(id: string): Promise<PermissionMap | null> {
+    const user = this.findById(id);
+
+    if (!this.dataMode.isApi) {
+      const stored = this.localPermissions()[id];
+      return stored ?? (user ? { ...ROLE_DEFAULT_PERMISSIONS[user.role] } : null);
+    }
+
+    try {
+      const response = await firstValueFrom(this.api.getUserPermissions(id));
+      return mapApiPermissions(response.permissions);
+    } catch {
+      return null;
+    }
+  }
+
+  /** Reemplaza la matriz completa del usuario. */
+  async updatePermissions(id: string, permissions: PermissionMap): Promise<PermissionMap | null> {
+    const user = this.findById(id);
+    if (!user) {
+      return null;
+    }
+
+    if (!this.dataMode.isApi) {
+      this.localPermissions.update((current) => ({ ...current, [id]: permissions }));
+      this.setPermissionsOverridden(id, user.role, permissions);
+      return permissions;
+    }
+
+    try {
+      const response = await firstValueFrom(
+        this.api.updateUserPermissions(id, toApiPermissionsPayload(permissions))
+      );
+      const updated = mapApiPermissions(response.permissions);
+      this.setPermissionsOverridden(id, user.role, updated);
+      return updated;
+    } catch {
+      return null;
+    }
+  }
+
+  /** Refresca el "X módulos ajustados" del listado sin volver a pedir el directorio. */
+  private setPermissionsOverridden(
+    id: string,
+    role: UserProfile['role'],
+    permissions: PermissionMap
+  ): void {
+    const count = MODULES.filter(
+      (module) => permissions[module.key] !== ROLE_DEFAULT_PERMISSIONS[role][module.key]
+    ).length;
+
+    this.usersState.update((current) =>
+      current.map((user) => (user.id === id ? { ...user, permissionsOverridden: count } : user))
+    );
+  }
+
   /**
    * Normaliza el borrador: el nombre queda como se escribió (con sus mayúsculas)
    * y la descripción se deriva del perfil elegido, igual que el directorio.
@@ -192,6 +282,8 @@ export class UserService {
       status: draft.status,
       initials: initialsOf(fullName),
       description: ROLE_DESCRIPTIONS[draft.role],
+      permissions: null,
+      permissionsOverridden: 0,
     };
   }
 

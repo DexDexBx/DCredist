@@ -38,9 +38,11 @@ const ALL_STATUSES: readonly UserStatus[] = ['ACTIVE', 'INACTIVE'];
 /**
  * PERFILES Y ACCESOS.
  *
- * Los perfiles se cargan del directorio de usuarios. Los accesos se ajustan por
- * usuario y por modulo (sin acceso, solo ver, gestionar) y quedan guardados en
- * la sesion. La API sustituira esta persistencia sin cambiar la pantalla.
+ * Los perfiles se cargan del directorio de usuarios. Los accesos viven en la
+ * base (`user_module_permissions`) y se ajustan por usuario y por módulo (sin
+ * acceso, solo ver, gestionar). La tuerca pide la matriz al abrirse y la guarda
+ * contra el API, de modo que cada cuenta puede diferir del resto aunque comparta
+ * rol.
  */
 @Component({
   selector: 'app-user-list',
@@ -70,10 +72,23 @@ export class UserListComponent {
   readonly statuses = ALL_STATUSES;
   readonly statusLabel = USER_STATUS_LABEL;
 
-  readonly modules = MODULES;
+  /**
+   * Nombres de módulo que devuelve `GET /modules`. Mientras llegan (o si el API
+   * no responde) se usa el catálogo local: las etiquetas son texto de interfaz.
+   */
+  private readonly moduleNames = signal<string[] | null>(null);
+  readonly modules = computed(() => {
+    const names = this.moduleNames();
+    if (!names || names.length === 0) {
+      return MODULES;
+    }
+
+    const available = new Set(names);
+    return MODULES.filter((module) => available.has(module.key));
+  });
+
   readonly levels: PermissionLevel[] = ['NONE', 'VIEW', 'MANAGE'];
   readonly levelLabel = PERMISSION_LEVEL_LABEL;
-  readonly defaultPermissions = ROLE_DEFAULT_PERMISSIONS;
 
   readonly search = signal('');
   readonly roleFilter = signal<UserRole | 'Todos'>('Todos');
@@ -99,16 +114,27 @@ export class UserListComponent {
     return counts;
   });
 
-  /** Usuario cuyo acceso se esta configurando en el modal. */
+  /** Usuario cuyo acceso se está configurando en el modal. */
   readonly configuringUserId = signal<string | null>(null);
 
-  /** Borrador del modal: se edita aqui y se aplica al guardar. */
+  /** Borrador del modal: se edita aquí y se envía al guardar. */
   readonly draft = signal<PermissionMap | null>(null);
+
+  /** Matriz tal como está guardada: base para detectar cambios y ajustes. */
+  private readonly savedPermissions = signal<PermissionMap | null>(null);
+
+  readonly loadingPermissions = signal(false);
+  readonly savingPermissions = signal(false);
+  readonly permissionsError = signal<string | null>(null);
 
   readonly editingUser = computed(() => {
     const id = this.configuringUserId();
     return id ? (this.directory().find((user) => user.id === id) ?? null) : null;
   });
+
+  constructor() {
+    void this.loadModules();
+  }
 
   /** Usuarios que pasan los filtros de búsqueda, rol y estado. */
   readonly filteredUsers = computed(() => {
@@ -155,33 +181,32 @@ export class UserListComponent {
     () => this.search().trim() !== '' || this.roleFilter() !== 'Todos' || this.statusFilter() !== 'Todos',
   );
 
+  /** Hay cambios sin guardar respecto a la matriz que está en la base. */
   readonly hasChanges = computed(() => {
-    const user = this.editingUser();
+    const saved = this.savedPermissions();
     const draft = this.draft();
-    if (!user || !draft) {
+    if (!saved || !draft) {
       return false;
     }
 
-    const current = this.auth.effectivePermissions(user);
-    return this.modules.some((module) => current[module.key] !== draft[module.key]);
+    return this.modules().some((module) => saved[module.key] !== draft[module.key]);
   });
 
-  /** Cuantos modulos quedan en cada nivel, segun lo cargado en el modal. */
+  /** Cuántos módulos quedan en cada nivel, según lo cargado en el modal. */
   readonly editingSummary = computed(() => {
-    const user = this.editingUser();
-    if (!user) {
+    const current = this.draft() ?? this.savedPermissions();
+    if (!current) {
       return null;
     }
 
-    const current = this.draft() ?? this.auth.effectivePermissions(user);
     return this.levels.map((level) => ({
       level,
-      count: this.modules.filter((module) => current[module.key] === level).length,
+      count: this.modules().filter((module) => current[module.key] === level).length,
     }));
   });
 
   /**
-   * El modulo de usuarios de la sesion activa queda bloqueado: quitarlo dejaria
+   * El módulo de usuarios de la sesión activa queda bloqueado: quitarlo dejaría
    * al administrador sin forma de volver a conceder accesos.
    */
   isLocked(user: UserProfile, module: ModuleKey): boolean {
@@ -198,16 +223,23 @@ export class UserListComponent {
       return draft[module];
     }
 
-    const user = this.editingUser();
-    return user ? this.auth.effectivePermissions(user)[module] : 'NONE';
+    const saved = this.savedPermissions();
+    return saved ? saved[module] : 'NONE';
   }
 
-  isOverridden(user: UserProfile, module: ModuleKey): boolean {
-    return this.auth.isOverridden(user.id, module);
+  /** true si el módulo difiere del preset del rol del usuario editado. */
+  isOverridden(module: ModuleKey): boolean {
+    const user = this.editingUser();
+    const saved = this.savedPermissions();
+    if (!user || !saved) {
+      return false;
+    }
+
+    return saved[module] !== ROLE_DEFAULT_PERMISSIONS[user.role][module];
   }
 
   overrideCount(user: UserProfile): number {
-    return this.modules.filter((module) => this.auth.isOverridden(user.id, module.key)).length;
+    return user.permissionsOverridden;
   }
 
   badgeColor(role: UserRole): BadgeColor {
@@ -222,14 +254,39 @@ export class UserListComponent {
     return colors[role];
   }
 
-  openPermissions(user: UserProfile): void {
+  /** Abre la tuerca y pide la matriz del usuario: el listado no la trae. */
+  async openPermissions(user: UserProfile): Promise<void> {
     this.configuringUserId.set(user.id);
-    this.draft.set({ ...this.auth.effectivePermissions(user) });
+    this.draft.set(null);
+    this.savedPermissions.set(null);
+    this.permissionsError.set(null);
+    this.loadingPermissions.set(true);
+
+    const permissions = await this.userService.getPermissions(user.id);
+
+    // Se cerró el modal (o se abrió otro usuario) mientras llegaba la respuesta.
+    if (this.configuringUserId() !== user.id) {
+      return;
+    }
+
+    this.loadingPermissions.set(false);
+
+    if (!permissions) {
+      this.permissionsError.set('No se pudieron cargar los accesos. Vuelve a abrir la ventana.');
+      return;
+    }
+
+    this.savedPermissions.set({ ...permissions });
+    this.draft.set({ ...permissions });
   }
 
   closePermissions(): void {
     this.configuringUserId.set(null);
     this.draft.set(null);
+    this.savedPermissions.set(null);
+    this.loadingPermissions.set(false);
+    this.savingPermissions.set(false);
+    this.permissionsError.set(null);
   }
 
   setLevel(module: ModuleKey, level: PermissionLevel): void {
@@ -248,21 +305,39 @@ export class UserListComponent {
       return;
     }
 
-    this.draft.set({ ...ROLE_DEFAULT_PERMISSIONS[user.role] });
+    const defaults = { ...ROLE_DEFAULT_PERMISSIONS[user.role] };
+
+    // El acceso propio al módulo de usuarios no se puede quitar: si el preset
+    // del rol no lo incluye, se conserva el que ya tiene la sesión.
+    if (this.isCurrent(user)) {
+      defaults.users = this.savedPermissions()?.users ?? defaults.users;
+    }
+
+    this.draft.set(defaults);
   }
 
-  savePermissions(): void {
+  /** Envía la matriz completa y, si es la sesión activa, la refresca. */
+  async savePermissions(): Promise<void> {
     const user = this.editingUser();
     const draft = this.draft();
-    if (!user || !draft) {
+    if (!user || !draft || this.savingPermissions()) {
       return;
     }
 
-    const current = this.auth.effectivePermissions(user);
-    for (const module of this.modules) {
-      if (current[module.key] !== draft[module.key]) {
-        this.auth.setPermission(user.id, module.key, draft[module.key]);
-      }
+    this.savingPermissions.set(true);
+    this.permissionsError.set(null);
+
+    const updated = await this.userService.updatePermissions(user.id, draft);
+
+    this.savingPermissions.set(false);
+
+    if (!updated) {
+      this.permissionsError.set('No se pudieron guardar los accesos. Inténtalo de nuevo.');
+      return;
+    }
+
+    if (this.isCurrent(user)) {
+      this.auth.setPermissions(updated);
     }
 
     this.closePermissions();
@@ -296,5 +371,13 @@ export class UserListComponent {
 
   isCurrent(user: UserProfile): boolean {
     return this.currentUser()?.id === user.id;
+  }
+
+  /** Catálogo de módulos del backend; si falla se mantiene el catálogo local. */
+  private async loadModules(): Promise<void> {
+    const names = await this.userService.listModuleNames();
+    if (names && names.length > 0) {
+      this.moduleNames.set(names);
+    }
   }
 }

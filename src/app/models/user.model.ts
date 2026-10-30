@@ -1,3 +1,5 @@
+import type { PermissionMap } from './permission.model';
+
 export type UserRole = 'ADMIN' | 'COORDINATOR' | 'ORGANIZER' | 'OPERATOR' | 'VIEWER';
 
 export type UserStatus = 'ACTIVE' | 'INACTIVE';
@@ -49,6 +51,14 @@ export interface UserProfile {
   status: UserStatus;
   initials: string;
   description: string;
+  /**
+   * Matriz de permisos por módulo. Solo la sesión activa la recibe completa
+   * (desde el login o desde `GET /users/:id/permissions`). En el directorio
+   * vale `null`: ahí solo importa cuántos módulos están ajustados.
+   */
+  permissions: PermissionMap | null;
+  /** Módulos que difieren del preset del rol. Lo calcula el API. */
+  permissionsOverridden: number;
 }
 
 /** Datos de un usuario tal como llegan desde el formulario de alta o edición. */

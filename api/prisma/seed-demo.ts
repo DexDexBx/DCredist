@@ -1,16 +1,19 @@
 import 'dotenv/config';
 import { hashPassword } from '../src/common/password';
+import { defaultPermission, MODULE_NAMES } from '../src/common/permissions';
 import { UserRole, UserStatus } from '../src/generated/prisma/client';
 import { createPrismaClient } from '../src/common/prisma/prisma-client-factory';
 
 /**
- * SEED DE USUARIOS DE DCREDITS.
+ * SEED DE DEMOSTRACION DE DCREDITS.
  *
- * Solo siembra la tabla `users`:
- *  - 1 cuenta administradora de demostracion (admin@dcredits.demo).
+ * Deja el sistema listo para levantar:
+ *  1. Catalogo de modulos (dashboard, calendar, events, ...).
+ *  2. Cuenta administradora de demostracion (admin@dcredits.demo).
+ *  3. Matriz de permisos de cada usuario segun el preset de su rol.
  *
- * Es idempotente: se puede volver a ejecutar sin duplicar nada, porque el
- * usuario se inserta con `createMany({ skipDuplicates: true })` sobre su correo.
+ * Es idempotente: se puede volver a ejecutar sin duplicar nada. No pisa los
+ * permisos que ya existan, de modo que los ajustes manuales se conservan.
  *
  * NO borra datos existentes.
  *
@@ -24,41 +27,74 @@ const prisma = createPrismaClient();
 // ---------------------------------------------------------------------------
 
 async function main(): Promise<void> {
-  // --- Usuarios -------------------------------------------------------------
-  // Cuenta de demostracion del frontend para el login.
-  const demoUsers = [
-    {
-      fullName: 'Ana Torres',
-      email: 'admin@dcredits.demo',
-      password: 'admin123',
-      role: UserRole.ADMIN,
-      professionalSchool: '',
-    },
-  ];
+  // --- Modulos --------------------------------------------------------------
+  for (const name of MODULE_NAMES) {
+    await prisma.module.upsert({
+      where: { name },
+      create: { name },
+      update: {},
+    });
+  }
 
-  const userRows = [
-    ...demoUsers.map((user) => ({
-      fullName: user.fullName,
-      email: user.email,
-      passwordHash: hashPassword(user.password),
-      mustChangePassword: false,
-      role: user.role,
-      status: UserStatus.ACTIVE,
-      professionalSchool: user.professionalSchool,
-    })),
-  ];
-
-  const usersCreated = await prisma.user.createMany({
-    data: userRows,
-    skipDuplicates: true,
+  const modules = await prisma.module.findMany({
+    select: { id: true, name: true },
+    orderBy: { name: 'asc' },
   });
 
-  // --- Resumen --------------------------------------------------------------
-  const totalUsers = await prisma.user.count();
+  // --- Usuario demo ---------------------------------------------------------
+  // `upsert` por correo: si ya existe no se toca su contrasena ni su rol.
+  const admin = await prisma.user.upsert({
+    where: { email: 'admin@dcredits.demo' },
+    create: {
+      fullName: 'Ana Torres',
+      email: 'admin@dcredits.demo',
+      passwordHash: hashPassword('admin123'),
+      mustChangePassword: false,
+      role: UserRole.ADMIN,
+      status: UserStatus.ACTIVE,
+      professionalSchool: '',
+    },
+    update: {},
+  });
 
-  console.log('Seed de usuarios de DCredits completado:');
-  console.log(`  usuarios insertados : ${usersCreated.count}`);
-  console.log(`  usuarios en la base : ${totalUsers}`);
+  // --- Matriz de permisos ---------------------------------------------------
+  // Rellena solo las cuentas que aun no tengan filas (por ejemplo, las creadas
+  // antes de existir la tabla de permisos).
+  let permissionsCreated = 0;
+  const users = await prisma.user.findMany({ select: { id: true, role: true } });
+
+  for (const user of users) {
+    const existing = await prisma.userModulePermission.count({
+      where: { userId: user.id },
+    });
+
+    if (existing > 0) {
+      continue;
+    }
+
+    const result = await prisma.userModulePermission.createMany({
+      data: modules.map((module) => ({
+        userId: user.id,
+        moduleId: module.id,
+        permission: defaultPermission(user.role, module.name),
+      })),
+      skipDuplicates: true,
+    });
+
+    permissionsCreated += result.count;
+  }
+
+  // --- Resumen --------------------------------------------------------------
+  const totalModules = await prisma.module.count();
+  const totalUsers = await prisma.user.count();
+  const totalPermissions = await prisma.userModulePermission.count();
+
+  console.log('Seed de demostracion de DCredits completado:');
+  console.log(`  modulos en la base    : ${totalModules}`);
+  console.log(`  usuarios en la base   : ${totalUsers}`);
+  console.log(`  permisos insertados   : ${permissionsCreated}`);
+  console.log(`  permisos en la base   : ${totalPermissions}`);
+  console.log(`  administrador demo    : ${admin.email}`);
   console.log('');
 }
 

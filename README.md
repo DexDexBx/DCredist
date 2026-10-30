@@ -49,9 +49,10 @@ El backend NestJS + Prisma + PostgreSQL vive en `api/`. Desde otra terminal:
 ```bash
 cd api
 npm install
-npm run prisma:deploy   # aplica las migraciones
-npm run seed:demo       # carga los datos de demostracion
-npm start               # API en http://localhost:3000 (Swagger en /docs)
+npm run prisma:deploy     # aplica las migraciones
+npm run seed:demo         # carga los datos de demostracion
+npm start                 # API en http://localhost:3000 (Swagger en /docs)
+npx prisma migrate reset  # Borra la BD y crea las migraciones de 0
 ```
 
 El frontend usa `proxy.conf.json` para enviar `/api/*` a `http://localhost:3000`,
@@ -137,9 +138,6 @@ Cuentas de demostracion:
 | Perfil                  | Correo                      | Contrasena     |
 | ----------------------- | --------------------------- | -------------- |
 | Administrador           | admin@dcredits.demo         | admin123       |
-| Coordinador academico   | coordinacion@dcredits.demo  | coordinacion123 |
-| Operador de registro    | operador@dcredits.demo      | operador123    |
-| Consulta                | consulta@dcredits.demo      | consulta123    |
 
 El modulo `/users` muestra un directorio mock de ~100 usuarios (busqueda por
 nombre o correo, filtro por perfil y estado, y paginacion) para que la pantalla se

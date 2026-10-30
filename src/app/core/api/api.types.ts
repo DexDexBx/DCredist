@@ -8,9 +8,22 @@
 
 export type ApiUserRole = 'ADMIN' | 'COORDINATOR' | 'ORGANIZER' | 'OPERATOR' | 'VIEWER';
 export type ApiUserStatus = 'ACTIVE' | 'INACTIVE';
+export type ApiPermissionLevel = 'NONE' | 'VIEW' | 'MANAGE';
 
-/** Perfil que devuelve POST /auth/login. Nunca incluye el hash de la contrasena. */
-export interface ApiLoginResponse {
+/** Permiso de un usuario en un modulo concreto. */
+export interface ApiUserPermission {
+  module: string;
+  permission: ApiPermissionLevel;
+}
+
+/** Modulo del catalogo (GET /modules). */
+export interface ApiModule {
+  id: string;
+  name: string;
+}
+
+/** Datos comunes del perfil. Nunca incluye el hash de la contrasena. */
+export interface ApiUserBase {
   id: string;
   fullName: string;
   email: string;
@@ -20,10 +33,21 @@ export interface ApiLoginResponse {
   mustChangePassword: boolean;
 }
 
+/** Perfil que devuelve POST /auth/login, con su matriz completa de permisos. */
+export interface ApiLoginResponse extends ApiUserBase {
+  permissions: ApiUserPermission[];
+}
+
 /** Usuario del directorio tal como lo devuelve /users. */
-export interface ApiUser extends ApiLoginResponse {
+export interface ApiUser extends ApiUserBase {
+  permissionsOverridden: number;
   createdAt: string;
   updatedAt: string;
+}
+
+/** Respuesta de GET/PUT /users/:id/permissions. */
+export interface ApiUserPermissions {
+  permissions: ApiUserPermission[];
 }
 
 /** Cuerpo de alta o edicion. La contrasena viaja solo cuando se define. */

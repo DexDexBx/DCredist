@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Patch, Post, Query } from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Post, Put, Query } from '@nestjs/common';
 import {
   ApiBadRequestResponse,
   ApiConflictResponse,
@@ -10,6 +10,7 @@ import {
 } from '@nestjs/swagger';
 import { CreateUserDto, UpdateUserDto, UserDto } from './dto/create-user.dto';
 import { QueryUsersDto } from './dto/query-users.dto';
+import { UpdateUserPermissionsDto, UserPermissionsDto } from './dto/user-permissions.dto';
 import { UsersService } from './users.service';
 
 @ApiTags('users')
@@ -55,6 +56,7 @@ export class UsersController {
     description: [
       'Solo se actualizan los campos enviados.',
       'Si se envia password, se reemplaza el hash: sirve para cuando la persona olvida su contraseña.',
+      'Si cambia el rol, la matriz de permisos se restablece al preset del nuevo rol.',
     ].join(' '),
   })
   @ApiOkResponse({ type: UserDto })
@@ -62,5 +64,33 @@ export class UsersController {
   @ApiConflictResponse({ description: 'El correo ya existe.' })
   update(@Param('id') id: string, @Body() dto: UpdateUserDto): Promise<UserDto> {
     return this.usersService.update(id, dto);
+  }
+
+  @Get(':id/permissions')
+  @ApiOperation({
+    summary: 'Matriz de permisos de un usuario.',
+    description:
+      'Devuelve una entrada por modulo. Si la cuenta aun no tiene filas, se responde con el preset de su rol.',
+  })
+  @ApiOkResponse({ type: UserPermissionsDto })
+  @ApiNotFoundResponse({ description: 'El usuario no existe.' })
+  findPermissions(@Param('id') id: string): Promise<UserPermissionsDto> {
+    return this.usersService.findPermissions(id);
+  }
+
+  @Put(':id/permissions')
+  @ApiOperation({
+    summary: 'Reemplaza la matriz de permisos de un usuario.',
+    description:
+      'Envia el conjunto completo de modulos. Lo que no venga se completa con el preset del rol.',
+  })
+  @ApiOkResponse({ type: UserPermissionsDto })
+  @ApiBadRequestResponse({ description: 'Modulo desconocido o nivel invalido.' })
+  @ApiNotFoundResponse({ description: 'El usuario no existe.' })
+  updatePermissions(
+    @Param('id') id: string,
+    @Body() dto: UpdateUserPermissionsDto
+  ): Promise<UserPermissionsDto> {
+    return this.usersService.updatePermissions(id, dto);
   }
 }

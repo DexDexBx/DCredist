@@ -74,13 +74,6 @@
         [required]="true"
         [invalid]="isInvalid('role')"
       />
-
-      <dc-select
-        formControlName="status"
-        label="Estado"
-        [options]="statusOptions"
-        hint="Solo los usuarios activos pueden usar el sistema."
-      />
     </div>
 
     @if (isInvalid('fullName')) {
@@ -96,6 +89,11 @@
     @if (isInvalid('password')) {
     <p class="mt-2 text-xs font-medium text-error-600 dark:text-error-500">
       La contraseña debe tener al menos {{ minPasswordLength }} caracteres.
+    </p>
+    }
+    @if (isInvalid('role')) {
+    <p class="mt-2 text-xs font-medium text-error-600 dark:text-error-500">
+      Selecciona un perfil de acceso.
     </p>
     }
 
@@ -126,10 +124,6 @@
       <li class="flex items-start gap-2">
         <dc-icon name="key" [size]="16" class="mt-0.5 text-brand-600 dark:text-brand-300" />
         <span>La contraseña definida aquí es la que usará para iniciar sesión. Si la olvida, un administrador puede restablecerla desde su ficha.</span>
-      </li>
-      <li class="flex items-start gap-2">
-        <dc-icon name="info" [size]="16" class="mt-0.5 text-brand-600 dark:text-brand-300" />
-        <span>Los datos se guardan en la base de datos de DCredits cuando el API está disponible.</span>
       </li>
     </ul>
   </dc-panel>

@@ -35,11 +35,11 @@ export class SigninFormComponent {
     const { email, password } = this.form.getRawValue();
 
     this.isSubmitting.set(true);
-    const authenticated = await this.auth.login(email, password);
+    const result = await this.auth.login(email, password);
     this.isSubmitting.set(false);
 
-    if (!authenticated) {
-      this.errorMessage.set('El correo o la contraseña no son correctos.');
+    if (!result.ok) {
+      this.errorMessage.set(result.message ?? 'El correo o la contraseña no son correctos.');
       return;
     }
 

@@ -7,10 +7,6 @@
     [attr.aria-expanded]="open()"
   >
     <dc-icon name="bell" [size]="19" />
-    <span
-      class="absolute end-2 top-2 size-1.5 rounded-full bg-accent-400"
-      aria-hidden="true"
-    ></span>
   </button>
 
   @if (open()) {
@@ -28,9 +24,6 @@
         class="text-gray-400 dark:text-gray-500"
       />
       <p class="text-sm text-gray-600 dark:text-gray-300">Sin novedades por mostrar</p>
-      <p class="text-xs text-gray-400 dark:text-gray-500">
-        Esta sección se completará cuando exista la API de DCredits.
-      </p>
     </div>
 
     <button

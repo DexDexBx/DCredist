@@ -5,8 +5,11 @@ import {
   EventModality,
   EventStatus,
   EventType,
+  MODULES,
+  ModuleKey,
   Participation,
   ParticipationDraft,
+  PermissionMap,
   ROLE_DESCRIPTIONS,
   Student,
   StudentDraft,
@@ -20,6 +23,7 @@ import {
   ApiEventModality,
   ApiEventPayload,
   ApiEventStatus,
+  ApiModule,
   ApiParticipation,
   ApiParticipationPayload,
   ApiStudent,
@@ -27,6 +31,8 @@ import {
   ApiStudentPayload,
   ApiUser,
   ApiUserCreatePayload,
+  ApiUserPermission,
+  ApiUserPermissions,
   ApiUserUpdatePayload,
 } from './api.types';
 import { initialsOf } from '../../shared/utils/text.utils';
@@ -94,7 +100,39 @@ export function mapApiUser(row: ApiUser): UserProfile {
     status: row.status,
     initials: initialsOf(row.fullName),
     description: ROLE_DESCRIPTIONS[row.role],
+    permissions: null,
+    permissionsOverridden: row.permissionsOverridden ?? 0,
   };
+}
+
+/** Convierte la matriz del API al mapa que consumen guards, menú y botones. */
+export function mapApiPermissions(rows: ApiUserPermission[]): PermissionMap {
+  const permissions = {} as PermissionMap;
+
+  for (const module of MODULES) {
+    permissions[module.key] = 'NONE';
+  }
+  for (const row of rows) {
+    if (isModuleKey(row.module)) {
+      permissions[row.module] = row.permission;
+    }
+  }
+
+  return permissions;
+}
+
+/** Envía la matriz completa: el API reemplaza todas las filas del usuario. */
+export function toApiPermissionsPayload(permissions: PermissionMap): ApiUserPermissions {
+  return {
+    permissions: MODULES.map((module) => ({
+      module: module.key,
+      permission: permissions[module.key],
+    })),
+  };
+}
+
+function isModuleKey(value: string): value is ModuleKey {
+  return MODULES.some((module) => module.key === value);
 }
 
 export function mapApiEvent(row: ApiEvent): AcademicEvent {

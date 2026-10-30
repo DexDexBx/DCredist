@@ -61,8 +61,10 @@ export function permissionAtLeast(
 export type PermissionMap = Record<ModuleKey, PermissionLevel>;
 
 /**
- * Acceso minimo por defecto de cada perfil. El administrador puede ajustarlos
- * por usuario desde el modulo de usuarios (ver AuthService.setPermission).
+ * Acceso minimo por defecto de cada perfil. Es el mismo preset que aplica el
+ * backend al crear un usuario (api/src/common/permissions.ts). A partir de ahi
+ * cada cuenta tiene su propia matriz en `user_module_permissions` y el
+ * administrador puede ajustarla desde la tuerca del modulo de usuarios.
  */
 export const ROLE_DEFAULT_PERMISSIONS: Record<UserRole, PermissionMap> = {
   ADMIN: {

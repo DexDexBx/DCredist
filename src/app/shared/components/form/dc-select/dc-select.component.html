@@ -24,7 +24,16 @@
     >
       <option value="" disabled>{{ placeholder() }}</option>
       @for (option of options(); track option.value) {
-      <option [value]="option.value">{{ option.label }}</option>
+      <!--
+        [selected] es necesario además de [value] en el <select>: Angular aplica
+        [value] antes de que el @for cree las opciones, así que en el primer
+        render el navegador termina marcando la primera opción aunque el
+        formulario tenga otro valor. Marcando la opción explícitamente, lo que
+        se ve y lo que se envía siempre coinciden.
+      -->
+      <option [value]="option.value" [selected]="option.value === value()">
+        {{ option.label }}
+      </option>
       }
     </select>
 

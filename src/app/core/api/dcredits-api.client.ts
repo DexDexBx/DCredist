@@ -13,8 +13,10 @@ import {
   ApiStudentImportResult,
   ApiStudentImportRow,
   ApiStudentPayload,
+  ApiModule,
   ApiUser,
   ApiUserCreatePayload,
+  ApiUserPermissions,
   ApiUserUpdatePayload,
 } from './api.types';
 
@@ -53,6 +55,23 @@ export class DcreditsApiClient {
 
   updateUser(id: string, payload: ApiUserUpdatePayload): Observable<ApiUser> {
     return this.http.patch<ApiUser>(API_ENDPOINTS.user(id), payload);
+  }
+
+  getUserPermissions(id: string): Observable<ApiUserPermissions> {
+    return this.http.get<ApiUserPermissions>(API_ENDPOINTS.userPermissions(id));
+  }
+
+  updateUserPermissions(
+    id: string,
+    payload: ApiUserPermissions
+  ): Observable<ApiUserPermissions> {
+    return this.http.put<ApiUserPermissions>(API_ENDPOINTS.userPermissions(id), payload);
+  }
+
+  // --- Modulos ---
+
+  listModules(): Observable<ApiModule[]> {
+    return this.http.get<ApiModule[]>(API_ENDPOINTS.modules);
   }
 
   // --- Eventos ---

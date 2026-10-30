@@ -214,6 +214,7 @@
               >
                 <dc-icon name="pencil" [size]="16" />
               </a>
+              @if (auth.can('users', 'MANAGE')) {
               <button
                 type="button"
                 (click)="openPermissions(user)"
@@ -222,6 +223,7 @@
               >
                 <dc-icon name="settings" [size]="16" />
               </button>
+              }
             </div>
           </td>
         </tr>
@@ -245,9 +247,7 @@
   }
 
   <p class="mt-4 text-xs leading-relaxed text-gray-500 dark:text-gray-400">
-    Los usuarios se gestionan desde este módulo (alta, edición y accesos). El listado y los
-    cambios viven en memoria durante la sesión hasta que la API exponga el mantenimiento de
-    usuarios; las credenciales se validan contra la base de datos en el inicio de sesión.
+    Los usuarios se gestionan desde este módulo (alta, edición y accesos).
   </p>
 </dc-panel>
 
@@ -276,7 +276,7 @@
         </tr>
       </thead>
       <tbody>
-        @for (module of modules; track module.key) {
+        @for (module of modules(); track module.key) {
         <tr class="border-b border-gray-100 last:border-0 dark:border-gray-800/60">
           <td class="py-3 pe-4 text-gray-700 dark:text-gray-200">{{ module.label }}</td>
           @for (role of roles; track role) {
@@ -336,8 +336,7 @@
   </div>
 
   <p class="mt-4 text-xs leading-relaxed text-gray-500 dark:text-gray-400">
-    El menú lateral, las rutas y los botones respetan estos permisos. Los ajustes por
-    usuario se guardan en la sesión (localStorage) y no viajan a ningún servidor.
+    El menú lateral, las rutas y los botones respetan estos permisos.
   </p>
 </dc-panel>
 
@@ -391,8 +390,25 @@
     </div>
 
     <div class="min-h-0 flex-1 overflow-y-auto px-5 py-4 sm:px-6">
+      @if (loadingPermissions()) {
+      <div
+        class="flex items-center justify-center gap-3 py-10 text-sm text-gray-500 dark:text-gray-400"
+      >
+        <span
+          class="size-4 animate-spin rounded-full border-2 border-brand-500 border-t-transparent"
+          aria-hidden="true"
+        ></span>
+        Cargando accesos…
+      </div>
+      } @else if (permissionsError()) {
+      <div
+        class="rounded-xl border border-error-200 bg-error-50 px-4 py-3 text-sm text-error-600 dark:border-error-500/30 dark:bg-error-500/10 dark:text-error-400"
+      >
+        {{ permissionsError() }}
+      </div>
+      } @else {
       <div class="grid gap-2 sm:grid-cols-2">
-        @for (module of modules; track module.key) {
+        @for (module of modules(); track module.key) {
         <div
           class="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-gray-200 px-3.5 py-3 dark:border-gray-800"
         >
@@ -401,7 +417,7 @@
               class="flex items-center gap-2 text-sm font-medium text-gray-900 dark:text-white/90"
             >
               {{ module.label }}
-              @if (isOverridden(user, module.key)) {
+              @if (isOverridden(module.key)) {
               <span
                 class="rounded-full bg-brand-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-brand-700 dark:bg-brand-500/15 dark:text-brand-300"
               >
@@ -434,6 +450,7 @@
         </div>
         }
       </div>
+      }
     </div>
 
     <div
@@ -442,7 +459,8 @@
       <button
         type="button"
         (click)="restoreRoleDefaults()"
-        class="inline-flex h-10 items-center gap-2 rounded-xl border border-gray-300 px-4 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-100 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-white/5"
+        [disabled]="loadingPermissions() || savingPermissions() || permissionsError() !== null"
+        class="inline-flex h-10 items-center gap-2 rounded-xl border border-gray-300 px-4 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-white/5"
       >
         <dc-icon name="refresh" [size]="16" />
         Restaurar predeterminados
@@ -452,18 +470,19 @@
         <button
           type="button"
           (click)="closePermissions()"
-          class="inline-flex h-10 items-center rounded-xl border border-gray-300 px-4 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-100 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-white/5"
+          [disabled]="savingPermissions()"
+          class="inline-flex h-10 items-center rounded-xl border border-gray-300 px-4 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-white/5"
         >
           Cancelar
         </button>
         <button
           type="button"
           (click)="savePermissions()"
-          [disabled]="!hasChanges()"
+          [disabled]="!hasChanges() || loadingPermissions() || savingPermissions()"
           class="inline-flex h-10 items-center gap-2 rounded-xl bg-brand-700 px-4 text-sm font-semibold text-white transition-colors hover:bg-brand-800 disabled:cursor-not-allowed disabled:opacity-50"
         >
           <dc-icon name="check" [size]="16" />
-          Guardar accesos
+          {{ savingPermissions() ? 'Guardando…' : 'Guardar accesos' }}
         </button>
       </div>
     </div>

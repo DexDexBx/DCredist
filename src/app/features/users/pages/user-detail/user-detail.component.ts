@@ -1,4 +1,5 @@
 import { Component, computed, effect, inject, input, signal } from '@angular/core';
+import { NgClass } from '@angular/common';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { AuthService } from '../../../../core/services/auth.service';
@@ -8,7 +9,6 @@ import {
   MIN_PASSWORD_LENGTH,
   ROLE_LABELS,
   USER_STATUS_LABEL,
-  UserStatus,
   UserRole,
 } from '../../../../models';
 import {
@@ -39,6 +39,7 @@ import { PanelComponent } from '../../../../shared/components/ui/panel/panel.com
     DcSelectComponent,
     EmptyStateComponent,
     IconComponent,
+    NgClass,
     PageHeaderComponent,
     PanelComponent,
     ReactiveFormsModule,
@@ -69,20 +70,45 @@ export class UserDetailComponent {
     label: ROLE_LABELS[role],
   }));
 
-  readonly statusOptions: DcSelectOption[] = (['ACTIVE', 'INACTIVE'] as UserStatus[]).map(
-    (status) => ({ value: status, label: USER_STATUS_LABEL[status] })
-  );
-
   readonly user = computed(() => this.userService.findById(this.id()));
 
   readonly canManage = computed(() => this.auth.can('users', 'MANAGE'));
 
+  /** true si la ficha abierta es la cuenta con la sesión activa. */
+  readonly isSelf = computed(() => {
+    const user = this.user();
+    return !!user && this.auth.currentUser()?.id === user.id;
+  });
+
+  /** Cuántas cuentas tienen el perfil de Administrador en todo el directorio. */
+  readonly adminCount = computed(
+    () => this.userService.users().filter((account) => account.role === 'ADMIN').length
+  );
+
+  /**
+   * Si esta ficha es la del administrador que tiene la sesión y es el único
+   * Administrador, no puede cambiarse el perfil: dejaría al sistema sin nadie
+   * que pueda revertirlo.
+   */
+  readonly roleLocked = computed(
+    () => this.isSelf() && this.user()?.role === 'ADMIN' && this.adminCount() <= 1
+  );
+
+  readonly roleHint = computed(() =>
+    this.roleLocked()
+      ? 'Eres el único administrador: asigna el perfil de Administrador a otra cuenta antes de cambiarte el tuyo.'
+      : 'Define qué módulos puede ver y gestionar.'
+  );
+
+  /**
+   * El estado no vive en el formulario: se gestiona con el interruptor de la
+   * cabecera. Aquí solo se editan los datos del perfil.
+   */
   readonly form = this.fb.nonNullable.group({
     fullName: ['', [Validators.required, Validators.minLength(3)]],
     email: ['', [Validators.required, Validators.email]],
     password: ['', [Validators.minLength(MIN_PASSWORD_LENGTH)]],
     role: ['OPERATOR' as UserRole, [Validators.required]],
-    status: ['ACTIVE' as UserStatus, [Validators.required]],
   });
 
   private formInitialized = false;
@@ -98,8 +124,18 @@ export class UserDetailComponent {
           fullName: user.fullName,
           email: user.email,
           role: user.role,
-          status: user.status,
         });
+      }
+    });
+
+    // Un administrador único no puede cambiarse el perfil: el selector queda
+    // deshabilitado y su valor actual se conserva al guardar.
+    effect(() => {
+      const control = this.form.controls.role;
+      if (this.roleLocked()) {
+        control.disable({ emitEvent: false });
+      } else {
+        control.enable({ emitEvent: false });
       }
     });
   }
@@ -121,13 +157,21 @@ export class UserDetailComponent {
     this.formError.set(null);
     this.saved.set(false);
 
-    if (this.form.invalid) {
+    const user = this.user();
+
+    if (!user || this.form.invalid) {
       return;
     }
 
     const value = this.form.getRawValue();
+    // El estado lo administra el interruptor de la cabecera: al guardar se
+    // conserva el que ya tiene el usuario.
     const draft = {
-      ...value,
+      fullName: value.fullName,
+      email: value.email,
+      // El perfil bloqueado no se puede alterar ni enviando otro valor.
+      role: this.roleLocked() ? user.role : value.role,
+      status: user.status,
       password: value.password || undefined,
     };
     const validation = this.userService.validate(draft, this.id());
@@ -142,6 +186,12 @@ export class UserDetailComponent {
     if (updated) {
       this.saved.set(true);
       this.form.controls.password.reset('');
+
+      // Si editaste tu propia cuenta, la sesión debe reflejar el nuevo perfil y
+      // la matriz que el API restableció si cambió el rol.
+      if (this.auth.currentUser()?.id === updated.id) {
+        await this.auth.applyUpdatedProfile(updated);
+      }
     } else {
       this.formError.set('No se pudo guardar los cambios. Intenta nuevamente.');
     }
@@ -149,13 +199,13 @@ export class UserDetailComponent {
 
   async toggleStatus(): Promise<void> {
     const user = this.user();
-    if (!user) {
+    // Nadie puede desactivar su propia cuenta: perdería el acceso.
+    if (!user || this.isSelf()) {
       return;
     }
 
     const next = user.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE';
     await this.userService.setStatus(user.id, next);
-    this.form.patchValue({ status: next });
   }
 
   isInvalid(control: 'fullName' | 'email' | 'password' | 'role'): boolean {

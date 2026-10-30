@@ -12,6 +12,10 @@
  *   GET    /users/:id
  *   POST   /users                            (contraseña inicial obligatoria)
  *   PATCH  /users/:id                        (datos, estado o contraseña)
+ *   GET    /users/:id/permissions            (matriz de accesos)
+ *   PUT    /users/:id/permissions            (reemplaza la matriz)
+ *
+ *   GET    /modules                          (catalogo de modulos)
  *
  *   GET    /students?search=&professionalSchool=&headquarters=&status=
  *   GET    /students/facets
@@ -48,6 +52,9 @@ export const API_ENDPOINTS = {
 
   users: `${API_BASE_URL}/users`,
   user: (id: string) => `${API_BASE_URL}/users/${id}`,
+  userPermissions: (id: string) => `${API_BASE_URL}/users/${id}/permissions`,
+
+  modules: `${API_BASE_URL}/modules`,
 
   students: `${API_BASE_URL}/students`,
   student: (id: string) => `${API_BASE_URL}/students/${id}`,

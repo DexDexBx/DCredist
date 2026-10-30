@@ -6,8 +6,7 @@ import {
   ALL_USER_ROLES,
   MIN_PASSWORD_LENGTH,
   ROLE_LABELS,
-  USER_STATUS_LABEL,
-  UserStatus,
+  UserCreateDraft,
   UserRole,
 } from '../../../../models';
 import { DcInputComponent } from '../../../../shared/components/form/dc-input/dc-input.component';
@@ -22,9 +21,8 @@ import { PanelComponent } from '../../../../shared/components/ui/panel/panel.com
 /**
  * ALTA DE USUARIOS.
  *
- * Registra un perfil en el directorio. La contraseña no se define aquí: el
- * mantenimiento de usuarios todavía no tiene API y el acceso se valida con las
- * credenciales de la tabla users.
+ * Registra un perfil activo en el directorio. La contraseña definida aquí es la
+ * que usará la persona para iniciar sesión.
  */
 @Component({
   selector: 'app-user-new',
@@ -53,16 +51,14 @@ export class UserNewComponent {
     label: ROLE_LABELS[role],
   }));
 
-  readonly statusOptions: DcSelectOption[] = (['ACTIVE', 'INACTIVE'] as UserStatus[]).map(
-    (status) => ({ value: status, label: USER_STATUS_LABEL[status] })
-  );
-
   readonly form = this.fb.nonNullable.group({
     fullName: ['', [Validators.required, Validators.minLength(3)]],
     email: ['', [Validators.required, Validators.email]],
     password: ['', [Validators.required, Validators.minLength(MIN_PASSWORD_LENGTH)]],
-    role: ['OPERATOR' as UserRole, [Validators.required]],
-    status: ['ACTIVE' as UserStatus, [Validators.required]],
+    // Arranca vacío para que el select muestre "Selecciona una opción". Al
+    // elegir un perfil, el placeholder queda deshabilitado y ya no se puede
+    // volver a seleccionar.
+    role: this.fb.nonNullable.control<UserRole | ''>('', Validators.required),
   });
 
   async onSubmit(): Promise<void> {
@@ -75,14 +71,30 @@ export class UserNewComponent {
     }
 
     const value = this.form.getRawValue();
-    const validation = this.userService.validate(value, undefined, true);
+
+    // El select de perfil arranca en el placeholder: no se puede guardar sin
+    // elegir uno.
+    if (!value.role) {
+      this.formError.set('Selecciona un perfil de acceso.');
+      return;
+    }
+
+    // Un usuario nuevo siempre nace activo: se crea justamente para usarlo.
+    const draft: UserCreateDraft = {
+      fullName: value.fullName,
+      email: value.email,
+      password: value.password,
+      role: value.role,
+      status: 'ACTIVE',
+    };
+    const validation = this.userService.validate(draft, undefined, true);
 
     if (!validation.valid) {
       this.formError.set(Object.values(validation.errors)[0] ?? 'Revisa los datos del usuario.');
       return;
     }
 
-    const user = await this.userService.create(value);
+    const user = await this.userService.create(draft);
 
     if (user) {
       this.createdName.set(user.fullName);
@@ -90,8 +102,7 @@ export class UserNewComponent {
         fullName: '',
         email: '',
         password: '',
-        role: 'OPERATOR',
-        status: 'ACTIVE',
+        role: '',
       });
       this.form.markAsUntouched();
     } else {

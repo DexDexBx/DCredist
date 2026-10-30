@@ -80,6 +80,14 @@ enum UserStatus {
   INACTIVE
 }
 
+/// Nivel de acceso de un usuario a un modulo.
+/// NONE: sin acceso. VIEW: solo consulta. MANAGE: crea, edita y elimina.
+enum PermissionLevel {
+  NONE
+  VIEW
+  MANAGE
+}
+
 // ---------------------------------------------------------------------------
 // ENTIDADES
 // ---------------------------------------------------------------------------
@@ -226,7 +234,41 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  /// Permisos por modulo. Cada usuario tiene su propia matriz, aunque comparta
+  /// rol con otras personas.
+  permissions UserModulePermission[]
+
   @@index([role])
   @@index([professionalSchool])
   @@map("users")
+}
+
+// ---------------------------------------------------------------------------
+// MODULOS Y PERMISOS
+// ---------------------------------------------------------------------------
+
+/// Catalogo de modulos del sistema. `name` es el identificador estable que usa
+/// el frontend (dashboard, calendar, events, ...).
+model Module {
+  id   String @id @default(uuid())
+  name String @unique
+
+  permissions UserModulePermission[]
+
+  @@map("modules")
+}
+
+/// Matriz de permisos: que puede hacer un usuario en cada modulo.
+/// La clave compuesta impide dos filas para el mismo usuario y modulo.
+model UserModulePermission {
+  userId     String
+  moduleId   String
+  permission PermissionLevel
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  module Module @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+
+  @@id([userId, moduleId])
+  @@index([moduleId])
+  @@map("user_module_permissions")
 }

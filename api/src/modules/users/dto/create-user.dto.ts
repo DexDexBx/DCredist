@@ -91,6 +91,13 @@ export class UserDto {
   @ApiProperty()
   mustChangePassword!: boolean;
 
+  @ApiProperty({
+    example: 2,
+    description:
+      'Cuantos modulos difieren del preset del rol. Evita enviar la matriz completa en el listado.',
+  })
+  permissionsOverridden!: number;
+
   @ApiProperty()
   createdAt!: Date;
 

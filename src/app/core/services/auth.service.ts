@@ -1,32 +1,38 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
+import { HttpErrorResponse } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
 
 import {
   ModuleKey,
   PermissionLevel,
   PermissionMap,
-  ROLE_DEFAULT_PERMISSIONS,
   permissionAtLeast,
 } from '../../models/permission.model';
 import { ROLE_DESCRIPTIONS, UserProfile } from '../../models/user.model';
 import { initialsOf } from '../../shared/utils/text.utils';
+import { mapApiPermissions } from '../api/api.mappers';
 import { ApiLoginResponse } from '../api/api.types';
 import { DcreditsApiClient } from '../api/dcredits-api.client';
 import { UserService } from './user.service';
 
 const SESSION_STORAGE_KEY = 'dcredits-session';
-const PERMISSIONS_STORAGE_KEY = 'dcredits-permissions';
 
-/** Sobrescrituras por usuario: `userId -> modulo -> nivel ajustado`. */
-type PermissionOverrides = Record<string, Partial<PermissionMap>>;
+/** Resultado del inicio de sesión. `message` es el texto que se muestra al fallar. */
+export interface LoginResult {
+  ok: boolean;
+  message?: string;
+}
 
 /**
- * Sesión y permisos.
+ * SESIÓN Y PERMISOS.
  *
- * El login valida correo + contraseña contra `POST /auth/login`, que compara la
- * contraseña con su hash scrypt en la tabla `users`. El perfil devuelto se
- * conserva en localStorage para restaurar la sesión al recargar. Los ajustes de
- * acceso por usuario también viven en localStorage mientras no exista su API.
+ * El login valida correo + contraseña contra `POST /auth/login`. El API devuelve
+ * el perfil y su matriz completa de permisos; esa matriz es la fuente de verdad
+ * (vive en `user_module_permissions`) y se conserva en localStorage para no
+ * consultar la base en cada navegación.
+ *
+ * Los permisos solo se vuelven a pedir cuando cambian: al editar los accesos del
+ * propio usuario o al modificar su perfil.
  */
 @Injectable({ providedIn: 'root' })
 export class AuthService {
@@ -34,27 +40,48 @@ export class AuthService {
   private readonly userService = inject(UserService);
 
   private readonly currentUserState = signal<UserProfile | null>(this.restoreSession());
-  private readonly overridesState = signal<PermissionOverrides>(this.restoreOverrides());
 
   readonly currentUser = this.currentUserState.asReadonly();
   readonly isAuthenticated = computed(() => this.currentUserState() !== null);
   readonly isAdmin = computed(() => this.currentUserState()?.role === 'ADMIN');
 
-  async login(email: string, password: string): Promise<boolean> {
+  async login(email: string, password: string): Promise<LoginResult> {
     try {
       const user = await firstValueFrom(
         this.api.login(email.trim().toLowerCase(), password)
       );
 
       if (user.status !== 'ACTIVE') {
-        return false;
+        return { ok: false, message: 'El usuario está inactivo.' };
       }
 
       this.setSession(this.toProfile(user));
-      return true;
-    } catch {
-      return false;
+      return { ok: true };
+    } catch (error) {
+      return { ok: false, message: this.loginErrorMessage(error) };
     }
+  }
+
+  /**
+   * Conserva el mensaje que devuelve el API. El backend distingue entre
+   * credenciales incorrectas y usuario inactivo; el formulario muestra ese
+   * texto en lugar de reemplazarlo por uno genérico.
+   */
+  private loginErrorMessage(error: unknown): string {
+    if (error instanceof HttpErrorResponse) {
+      const body = error.error as { message?: unknown } | null;
+      const message = body?.message;
+
+      if (typeof message === 'string' && message.trim()) {
+        return message;
+      }
+
+      if (Array.isArray(message) && typeof message[0] === 'string') {
+        return message[0];
+      }
+    }
+
+    return 'El correo o la contraseña no son correctos.';
   }
 
   logout(): void {
@@ -65,64 +92,37 @@ export class AuthService {
     }
   }
 
-  /** Nivel efectivo de un modulo para la sesion activa. */
+  /** Nivel efectivo de un módulo para la sesión activa. */
   permission(module: ModuleKey): PermissionLevel {
-    const user = this.currentUserState();
-    return user ? this.effectivePermissions(user)[module] : 'NONE';
+    return this.currentUserState()?.permissions?.[module] ?? 'NONE';
   }
 
-  /** true si la sesion activa alcanza el nivel minimo pedido en el modulo. */
+  /** true si la sesión activa alcanza el nivel mínimo pedido en el módulo. */
   can(module: ModuleKey, required: PermissionLevel = 'VIEW'): boolean {
     return permissionAtLeast(this.permission(module), required);
   }
 
-  /** Permisos efectivos de un perfil: valores por defecto + sobrescrituras. */
-  effectivePermissions(user: UserProfile): PermissionMap {
-    const defaults = ROLE_DEFAULT_PERMISSIONS[user.role];
-    const override = this.overridesState()[user.id];
-    return override ? { ...defaults, ...override } : defaults;
-  }
-
-  isOverridden(userId: string, module: ModuleKey): boolean {
-    return this.overridesState()[userId]?.[module] !== undefined;
-  }
-
-  setPermission(userId: string, module: ModuleKey, level: PermissionLevel): void {
-    const account = this.userService.findById(userId);
-    if (!account) {
+  /** Actualiza la matriz de la sesión (por ejemplo, tras editarla uno mismo). */
+  setPermissions(permissions: PermissionMap): void {
+    const user = this.currentUserState();
+    if (!user) {
       return;
     }
 
-    const defaults = ROLE_DEFAULT_PERMISSIONS[account.role];
-    const overrides = { ...this.overridesState() };
-    const userOverride = { ...(overrides[userId] ?? {}) };
-
-    if (defaults[module] === level) {
-      delete userOverride[module];
-    } else {
-      userOverride[module] = level;
-    }
-
-    if (Object.keys(userOverride).length === 0) {
-      delete overrides[userId];
-    } else {
-      overrides[userId] = userOverride;
-    }
-
-    this.overridesState.set(overrides);
-    this.persistOverrides(overrides);
+    this.setSession({ ...user, permissions });
   }
 
-  resetPermissions(userId: string): void {
-    const overrides = { ...this.overridesState() };
+  /**
+   * Refresca el perfil y los permisos de la sesión tras editar al propio
+   * usuario. Si el rol cambió, el API ya restableció su matriz.
+   */
+  async applyUpdatedProfile(profile: UserProfile): Promise<void> {
+    const permissions = await this.userService.getPermissions(profile.id);
 
-    if (!(userId in overrides)) {
-      return;
-    }
-
-    delete overrides[userId];
-    this.overridesState.set(overrides);
-    this.persistOverrides(overrides);
+    this.setSession({
+      ...profile,
+      permissions: permissions ?? this.currentUserState()?.permissions ?? null,
+    });
   }
 
   private setSession(profile: UserProfile): void {
@@ -133,6 +133,10 @@ export class AuthService {
     }
   }
 
+  /**
+   * Restaura la sesión guardada. Las sesiones anteriores a la matriz de
+   * permisos se descartan: sin ella el usuario no sabría qué puede abrir.
+   */
   private restoreSession(): UserProfile | null {
     if (typeof localStorage === 'undefined') {
       return null;
@@ -145,34 +149,20 @@ export class AuthService {
 
     try {
       const profile = JSON.parse(stored) as UserProfile;
-      return profile && typeof profile.id === 'string' && typeof profile.email === 'string'
-        ? profile
-        : null;
+
+      if (!profile || typeof profile.id !== 'string' || typeof profile.email !== 'string') {
+        return null;
+      }
+
+      if (!profile.permissions || typeof profile.permissions !== 'object') {
+        localStorage.removeItem(SESSION_STORAGE_KEY);
+        return null;
+      }
+
+      return profile;
     } catch {
       return null;
     }
-  }
-
-  private restoreOverrides(): PermissionOverrides {
-    if (typeof localStorage === 'undefined') {
-      return {};
-    }
-
-    try {
-      const stored = localStorage.getItem(PERMISSIONS_STORAGE_KEY);
-      const parsed: unknown = stored ? JSON.parse(stored) : {};
-      return parsed && typeof parsed === 'object' ? (parsed as PermissionOverrides) : {};
-    } catch {
-      return {};
-    }
-  }
-
-  private persistOverrides(overrides: PermissionOverrides): void {
-    if (typeof localStorage === 'undefined') {
-      return;
-    }
-
-    localStorage.setItem(PERMISSIONS_STORAGE_KEY, JSON.stringify(overrides));
   }
 
   private toProfile(account: ApiLoginResponse): UserProfile {
@@ -184,6 +174,8 @@ export class AuthService {
       status: account.status,
       initials: initialsOf(account.fullName),
       description: ROLE_DESCRIPTIONS[account.role],
+      permissions: mapApiPermissions(account.permissions ?? []),
+      permissionsOverridden: 0,
     };
   }
 }
