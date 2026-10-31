@@ -31,8 +31,9 @@ export interface LoginResult {
  * (vive en `user_module_permissions`) y se conserva en localStorage para no
  * consultar la base en cada navegación.
  *
- * Los permisos solo se vuelven a pedir cuando cambian: al editar los accesos del
- * propio usuario o al modificar su perfil.
+ * La caché se revalida al arrancar la aplicación y cuando se edita el propio
+ * usuario, de modo que un cambio de rol o de permisos hecho desde otra sesión
+ * se refleje al recargar sin obligar a cerrar sesión.
  */
 @Injectable({ providedIn: 'root' })
 export class AuthService {
@@ -44,6 +45,16 @@ export class AuthService {
   readonly currentUser = this.currentUserState.asReadonly();
   readonly isAuthenticated = computed(() => this.currentUserState() !== null);
   readonly isAdmin = computed(() => this.currentUserState()?.role === 'ADMIN');
+
+  /** true si la sesión tiene al menos un módulo con acceso (VIEW o MANAGE). */
+  readonly hasAnyAccess = computed(() => {
+    const permissions = this.currentUserState()?.permissions;
+    if (!permissions) {
+      return false;
+    }
+
+    return Object.values(permissions).some((level) => level !== 'NONE');
+  });
 
   async login(email: string, password: string): Promise<LoginResult> {
     try {
@@ -123,6 +134,35 @@ export class AuthService {
       ...profile,
       permissions: permissions ?? this.currentUserState()?.permissions ?? null,
     });
+  }
+
+  /**
+   * Revalida la sesión guardada contra el API al arrancar la aplicación.
+   *
+   * El perfil y la matriz pueden haber cambiado desde el último inicio de
+   * sesión (por ejemplo, porque otro administrador cambió el rol). Si la cuenta
+   * ya no existe o está inactiva se cierra la sesión; si el API no responde se
+   * conserva la caché para no expulsar a nadie por un fallo de red.
+   */
+  async revalidateSession(): Promise<void> {
+    const current = this.currentUserState();
+    if (!current) {
+      return;
+    }
+
+    const profile = this.userService.findById(current.id);
+
+    if (!profile || profile.status !== 'ACTIVE') {
+      this.logout();
+      return;
+    }
+
+    const permissions = await this.userService.getPermissions(current.id);
+    if (!permissions) {
+      return;
+    }
+
+    this.setSession({ ...profile, permissions });
   }
 
   private setSession(profile: UserProfile): void {

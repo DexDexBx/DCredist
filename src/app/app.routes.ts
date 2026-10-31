@@ -1,6 +1,7 @@
 import { Routes } from '@angular/router';
 
 import { AppLayoutComponent } from './layout/app-layout/app-layout.component';
+import { accessGuard } from './core/guards/access.guard';
 import { authGuard } from './core/guards/auth.guard';
 import { guestGuard } from './core/guards/guest.guard';
 import { permissionGuard } from './core/guards/permission.guard';
@@ -17,6 +18,9 @@ export const routes: Routes = [
     path: '',
     component: AppLayoutComponent,
     canActivate: [authGuard],
+    // Sin ningun modulo habilitado no se entra al panel: se muestra la pantalla
+    // de acceso pendiente.
+    canActivateChild: [accessGuard],
     children: [
       {
         path: '',
@@ -34,6 +38,7 @@ export const routes: Routes = [
             (module) => module.EventListComponent
           ),
         title: 'Eventos | DCredits',
+        canActivate: [permissionGuard('events', 'VIEW')],
       },
       {
         // events/new antes de events/:id para que "new" no se tome como id.
@@ -52,6 +57,7 @@ export const routes: Routes = [
             (module) => module.EventCalendarComponent
           ),
         title: 'Calendario | DCredits',
+        canActivate: [permissionGuard('calendar', 'VIEW')],
       },
       {
         path: 'events/:id',
@@ -60,6 +66,7 @@ export const routes: Routes = [
             (module) => module.EventDetailComponent
           ),
         title: 'Detalle del evento | DCredits',
+        canActivate: [permissionGuard('events', 'VIEW')],
       },
       {
         path: 'students',
@@ -68,6 +75,7 @@ export const routes: Routes = [
             (module) => module.StudentListComponent
           ),
         title: 'Padrón de estudiantes | DCredits',
+        canActivate: [permissionGuard('students', 'VIEW')],
       },
       {
         path: 'students/new',
@@ -85,6 +93,7 @@ export const routes: Routes = [
             (module) => module.StudentDetailComponent
           ),
         title: 'Ficha del estudiante | DCredits',
+        canActivate: [permissionGuard('students', 'VIEW')],
       },
       {
         path: 'students/:id/constancy',
@@ -93,6 +102,7 @@ export const routes: Routes = [
             (module) => module.StudentConstancyComponent
           ),
         title: 'Constancia de avance | DCredits',
+        canActivate: [permissionGuard('students', 'VIEW')],
       },
       {
         path: 'students/:id/certificate',
@@ -101,6 +111,7 @@ export const routes: Routes = [
             (module) => module.StudentCertificateComponent
           ),
         title: 'Constancia de créditos | DCredits',
+        canActivate: [permissionGuard('students', 'VIEW')],
       },
       {
         path: 'participations',
@@ -109,6 +120,7 @@ export const routes: Routes = [
             (module) => module.ParticipationListComponent
           ),
         title: 'Participaciones | DCredits',
+        canActivate: [permissionGuard('participations', 'VIEW')],
       },
       {
         path: 'certificates/codes',
@@ -135,6 +147,7 @@ export const routes: Routes = [
             (module) => module.VerificationComponent
           ),
         title: 'Verificar código | DCredits',
+        canActivate: [permissionGuard('verification', 'VIEW')],
       },
       {
         path: 'users',
@@ -197,6 +210,16 @@ export const routes: Routes = [
       ),
     title: 'Crear cuenta | DCredits',
     canActivate: [guestGuard],
+  },
+  {
+    // Fuera del layout: la cuenta esta autenticada pero sin modulos asignados.
+    path: 'no-access',
+    loadComponent: () =>
+      import('./features/auth/pages/no-access/no-access.component').then(
+        (module) => module.NoAccessComponent
+      ),
+    title: 'Sin acceso | DCredits',
+    canActivate: [authGuard],
   },
   {
     path: '**',

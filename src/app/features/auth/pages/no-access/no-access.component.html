@@ -1,0 +1,33 @@
+<auth-page-layout>
+  <span
+    class="flex size-12 items-center justify-center rounded-2xl bg-warning-50 text-warning-600 dark:bg-warning-500/15 dark:text-warning-400"
+    aria-hidden="true"
+  >
+    <dc-icon name="shield-check" [size]="24" />
+  </span>
+
+  <h1 class="mt-6 text-2xl font-semibold tracking-tight text-gray-900 dark:text-white/90">
+    No tienes acceso a ningún módulo
+  </h1>
+  <p class="mt-2 text-sm leading-relaxed text-gray-500 dark:text-gray-400">
+    Tu cuenta está activa, pero un administrador todavía no te ha habilitado ningún módulo.
+    Comunícate con el administrador de DCredits para que te asigne al menos un acceso.
+  </p>
+
+  @if (user(); as account) {
+  <p class="mt-4 text-xs text-gray-400 dark:text-gray-500">
+    Sesión iniciada como {{ account.email }}
+  </p>
+  }
+
+  <div class="mt-8">
+    <button
+      type="button"
+      (click)="logout()"
+      class="inline-flex h-11 items-center gap-2 rounded-xl bg-brand-700 px-5 text-sm font-semibold text-white transition-colors hover:bg-brand-800"
+    >
+      <dc-icon name="logout" [size]="18" />
+      Cerrar sesión
+    </button>
+  </div>
+</auth-page-layout>

@@ -45,14 +45,6 @@ export class AppSidebarComponent {
         { label: 'Estudiantes', path: '/students', icon: 'users', exact: true, module: 'students', level: 'VIEW' },
         { label: 'Participaciones', path: '/participations', icon: 'event', exact: true, module: 'participations', level: 'VIEW' },
         {
-          label: 'Registrar participación',
-          path: '/participations/register',
-          icon: 'user-plus',
-          exact: true,
-          module: 'participations',
-          level: 'MANAGE',
-        },
-        {
           label: 'Códigos de certificado',
           path: '/certificates/codes',
           icon: 'key',

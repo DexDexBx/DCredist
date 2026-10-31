@@ -1,3 +1,4 @@
+@if (auth.can('dashboard', 'VIEW')) {
 <dc-page-header
   title="Dashboard"
   description="Resumen de participación y créditos. El detalle está a un clic."
@@ -311,3 +312,28 @@
   </ul>
   }
 </app-modal>
+} @else {
+<div class="flex min-h-[60vh] items-center justify-center">
+  <div
+    class="w-full max-w-lg rounded-2xl border border-gray-200 bg-white px-6 py-10 text-center shadow-theme-xs dark:border-gray-800 dark:bg-white/[0.03]"
+  >
+    <span
+      class="mx-auto flex size-14 items-center justify-center rounded-2xl bg-brand-50 text-brand-700 dark:bg-brand-500/15 dark:text-brand-300"
+      aria-hidden="true"
+    >
+      <dc-icon name="dashboard" [size]="26" />
+    </span>
+
+    <h1 class="mt-5 text-xl font-semibold text-gray-900 dark:text-white/90">
+      Bienvenido a DCredits
+    </h1>
+    <p class="mt-2 text-sm leading-relaxed text-gray-500 dark:text-gray-400">
+      Hola, {{ auth.currentUser()?.fullName }}. Tu cuenta no tiene acceso al dashboard.
+      Puedes seguir trabajando desde los módulos habilitados en el menú lateral.
+    </p>
+    <p class="mt-4 text-xs text-gray-400 dark:text-gray-500">
+      Si necesitas el resumen de participación y créditos, comunícate con el administrador.
+    </p>
+  </div>
+</div>
+}
