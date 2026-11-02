@@ -107,6 +107,15 @@
         [required]="true"
         [invalid]="isInvalid('role')"
       />
+
+      <dc-select
+        formControlName="professionalSchoolId"
+        label="Escuela profesional"
+        [options]="schoolOptions()"
+        hint="Define el alcance de datos de la cuenta. «General» es acceso global."
+        [required]="true"
+        [invalid]="isInvalid('professionalSchoolId')"
+      />
     </div>
 
     @if (isInvalid('fullName')) {
@@ -122,6 +131,11 @@
     @if (isInvalid('password')) {
     <p class="mt-2 text-xs font-medium text-error-600 dark:text-error-500">
       La contraseña debe tener al menos {{ minPasswordLength }} caracteres.
+    </p>
+    }
+    @if (isInvalid('professionalSchoolId')) {
+    <p class="mt-2 text-xs font-medium text-error-600 dark:text-error-500">
+      Selecciona la escuela profesional de la cuenta.
     </p>
     }
 
@@ -161,6 +175,14 @@
       </div>
       <div>
         <dt class="text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500">
+          Escuela profesional
+        </dt>
+        <dd class="mt-1 leading-relaxed text-gray-600 dark:text-gray-300">
+          {{ user.professionalSchoolName }}
+        </dd>
+      </div>
+      <div>
+        <dt class="text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500">
           Acceso
         </dt>
         <dd class="mt-1 leading-relaxed text-gray-600 dark:text-gray-300">
@@ -193,6 +215,12 @@
       <dd class="mt-1">
         <app-badge size="sm" [color]="badgeColor(user.role)">{{ roleLabels[user.role] }}</app-badge>
       </dd>
+    </div>
+    <div>
+      <dt class="text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500">
+        Escuela profesional
+      </dt>
+      <dd class="mt-1 text-sm text-gray-900 dark:text-white/90">{{ user.professionalSchoolName }}</dd>
     </div>
     <div>
       <dt class="text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500">

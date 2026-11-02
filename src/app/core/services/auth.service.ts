@@ -13,9 +13,8 @@ import { initialsOf } from '../../shared/utils/text.utils';
 import { mapApiPermissions } from '../api/api.mappers';
 import { ApiLoginResponse } from '../api/api.types';
 import { DcreditsApiClient } from '../api/dcredits-api.client';
+import { SESSION_STORAGE_KEY } from '../auth/session-storage';
 import { UserService } from './user.service';
-
-const SESSION_STORAGE_KEY = 'dcredits-session';
 
 /** Resultado del inicio de sesión. `message` es el texto que se muestra al fallar. */
 export interface LoginResult {
@@ -212,6 +211,8 @@ export class AuthService {
       email: account.email,
       role: account.role,
       status: account.status,
+      professionalSchoolId: account.professionalSchoolId,
+      professionalSchoolName: account.professionalSchoolName,
       initials: initialsOf(account.fullName),
       description: ROLE_DESCRIPTIONS[account.role],
       permissions: mapApiPermissions(account.permissions ?? []),

@@ -10,6 +10,7 @@ import {
   StudentSortKey,
   StudentStatus,
 } from '../../../../models';
+import { CatalogKind, CatalogOption } from '../../../../models/catalog.model';
 import { CreditService } from '../../../../core/services/credit.service';
 import { AuthService } from '../../../../core/services/auth.service';
 import { CatalogService } from '../../../../core/services/catalog.service';
@@ -112,37 +113,57 @@ export class StudentListComponent {
   });
 
   /**
-   * Opciones de filtro: los nombres activos del catalogo mas los que ya aparecen
-   * en el padron. Si un valor queda inactivo en el catalogo se sigue pudiendo
-   * filtrar mientras haya estudiantes con ese valor.
+   * Opciones de filtro: las entradas del catalogo mas los valores que ya
+   * aparecen en el padron. Si una entrada quedo inactiva se sigue pudiendo
+   * filtrar mientras haya estudiantes con ese valor. Un actor de escuela solo
+   * ve su propia escuela.
    */
-  readonly schools = computed(() =>
-    this.mergeWithCatalog('schools', this.studentService.countBySchool()),
+  readonly schools = computed<CatalogOption[]>(() =>
+    this.mergeWithCatalog('professionalSchools', this.studentService.countBySchool()),
   );
 
-  readonly sites = computed(() =>
-    this.mergeWithCatalog('headquarters', this.studentService.countByHeadquarters()),
+  readonly sites = computed<CatalogOption[]>(() =>
+    this.mergeWithCatalog('locations', this.studentService.countByLocation()),
   );
 
   private mergeWithCatalog(
-    kind: 'schools' | 'headquarters',
-    inUse: Map<string, number>,
-  ): string[] {
-    const names = new Set(this.catalogService.names(kind));
-    for (const name of inUse.keys()) {
-      if (name.trim()) {
-        names.add(name);
+    kind: 'professionalSchools' | 'locations',
+    inUse: Map<number, number>,
+  ): CatalogOption[] {
+    const options = new Map<number, CatalogOption>();
+    const user = this.auth.currentUser();
+    const global =
+      !user || (user.professionalSchoolName ?? '').trim().toLowerCase() === 'general';
+
+    for (const entry of this.catalogService.entries(kind)) {
+      if (
+        kind === 'professionalSchools' &&
+        !global &&
+        entry.id !== user?.professionalSchoolId
+      ) {
+        continue;
+      }
+      options.set(entry.id, { id: entry.id, name: entry.name });
+    }
+
+    for (const id of inUse.keys()) {
+      if (!options.has(id)) {
+        const entry = this.catalogService.findById(kind as CatalogKind, id);
+        if (entry) {
+          options.set(id, { id, name: entry.name });
+        }
       }
     }
-    return [...names].sort((a, b) => a.localeCompare(b, 'es'));
+
+    return [...options.values()].sort((a, b) => a.name.localeCompare(b.name, 'es'));
   }
 
   readonly query = computed<StudentQuery>(() => {
     const currentStatus = this.status();
     return {
       search: this.search(),
-      professionalSchool: this.school() || undefined,
-      headquarters: this.site() || undefined,
+      professionalSchoolId: this.school() ? Number(this.school()) : undefined,
+      locationId: this.site() ? Number(this.site()) : undefined,
       status: currentStatus === 'Todos' ? undefined : currentStatus,
       sort: this.sort(),
       page: this.page(),
@@ -212,11 +233,11 @@ export class StudentListComponent {
 
   /** El padron se exporta por escuela: es el corte institucional. */
   exportPadron(): void {
-    const professionalSchool = this.school();
-    if (!professionalSchool) {
+    const professionalSchoolId = Number(this.school());
+    if (!professionalSchoolId) {
       return;
     }
-    this.exportService.downloadSchoolStudents(professionalSchool);
+    this.exportService.downloadSchoolStudents(professionalSchoolId);
   }
 
   hasFilters(): boolean {

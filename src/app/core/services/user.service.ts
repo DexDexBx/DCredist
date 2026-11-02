@@ -22,6 +22,7 @@ import {
   toApiUserUpdatePayload,
 } from '../api/api.mappers';
 import { DcreditsApiClient } from '../api/dcredits-api.client';
+import { CatalogService } from './catalog.service';
 import { DataModeService } from './data-mode.service';
 
 /**
@@ -50,6 +51,7 @@ import { DataModeService } from './data-mode.service';
 export class UserService {
   private readonly api = inject(DcreditsApiClient);
   private readonly dataMode = inject(DataModeService);
+  private readonly catalogService = inject(CatalogService);
   private readonly usersState = signal<UserProfile[]>([]);
 
   /** Solo se usa sin API: matriz por usuario en memoria durante la sesión. */
@@ -273,6 +275,10 @@ export class UserService {
    */
   private normalizeDraft(draft: UserDraft, id: string): UserProfile {
     const fullName = draft.fullName.trim().replace(/\s+/g, ' ');
+    const professionalSchoolId = draft.professionalSchoolId ?? 0;
+    const professionalSchoolName =
+      this.catalogService.nameOf('professionalSchools', professionalSchoolId) ||
+      (professionalSchoolId === this.catalogService.generalSchool()?.id ? 'general' : '');
 
     return {
       id,
@@ -280,6 +286,8 @@ export class UserService {
       email: draft.email.trim().toLowerCase(),
       role: draft.role,
       status: draft.status,
+      professionalSchoolId,
+      professionalSchoolName,
       initials: initialsOf(fullName),
       description: ROLE_DESCRIPTIONS[draft.role],
       permissions: null,

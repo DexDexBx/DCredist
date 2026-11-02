@@ -1,6 +1,20 @@
-import { ConflictException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  ForbiddenException,
+  Injectable,
+  Logger,
+  NotFoundException,
+} from '@nestjs/common';
 import type { Prisma } from '../../generated/prisma/client';
-import { ParticipationStatus, StudentStatus } from '../../generated/prisma/client';
+import {
+  CatalogStatus,
+  ParticipationStatus,
+  StudentStatus,
+} from '../../generated/prisma/client';
+import type { Actor } from '../../common/actor/actor.types';
+import { isGeneralSchool } from '../../common/actor/actor.guard';
+import { assertCanReadSchool, assertCanWriteSchool } from '../../common/actor/school-scope';
 import { isUniqueViolation } from '../../common/prisma/prisma-errors';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { creditsProgress, creditsTarget } from '../../common/domain';
@@ -16,7 +30,13 @@ import { StudentCreditSummaryDto } from './dto/student-credit-summary.dto';
 import { StudentDetail } from './dto/student-detail.dto';
 import { StudentFacetsDto, StudentListItemDto } from './dto/student-list-item.dto';
 
-type StudentRow = Prisma.StudentGetPayload<object>;
+/** El estudiante siempre viaja con los nombres de su escuela y su sede. */
+const studentInclude = {
+  professionalSchool: { select: { id: true, name: true } },
+  location: { select: { id: true, name: true } },
+} satisfies Prisma.StudentInclude;
+
+type StudentRow = Prisma.StudentGetPayload<{ include: typeof studentInclude }>;
 
 @Injectable()
 export class StudentsService {
@@ -29,11 +49,15 @@ export class StudentsService {
    *
    * Cada fila trae su resumen de creditos: el padron siempre se consulta con
    * "creditos acumulados" y calcularlo aqui evita una peticion por estudiante.
+   *
+   * Un usuario de escuela solo ve el padron de su propia escuela; `general`
+   * (cuenta global) ve todas.
    */
-  async findAll(query: QueryStudentsDto): Promise<StudentListItemDto[]> {
+  async findAll(query: QueryStudentsDto, actor: Actor): Promise<StudentListItemDto[]> {
     const rows = await this.prisma.student.findMany({
-      where: this.buildWhere(query),
+      where: this.buildWhere(query, actor),
       include: {
+        ...studentInclude,
         participations: {
           select: {
             status: true,
@@ -55,41 +79,54 @@ export class StudentsService {
         academicDegree: row.academicDegree,
         lastName: row.lastName,
         firstName: row.firstName,
-        professionalSchool: row.professionalSchool,
-        headquarters: row.headquarters,
+        professionalSchoolId: row.professionalSchoolId,
+        professionalSchool: row.professionalSchool.name,
+        locationId: row.locationId,
+        location: row.location.name,
         status: row.status,
         ...summary,
       };
     });
   }
 
-  /** Escuelas profesionales y sedes que ya existen: alimentan los filtros. */
-  async findFacets(): Promise<StudentFacetsDto> {
-    const [schools, headquarters] = await Promise.all([
-      this.prisma.student.findMany({
-        distinct: ['professionalSchool'],
-        select: { professionalSchool: true },
-        orderBy: { professionalSchool: 'asc' },
-      }),
-      this.prisma.student.findMany({
-        distinct: ['headquarters'],
-        select: { headquarters: true },
-        orderBy: { headquarters: 'asc' },
-      }),
-    ]);
+  /**
+   * Catalogos que alimentan los filtros del padron.
+   *
+   * Salen de las tablas reales, no de los valores que hoy usan los estudiantes,
+   * para que una entrada recien creada aparezca aunque todavia no tenga filas.
+   * La escuela `general` nunca se ofrece: no es una escuela real.
+   */
+  async findFacets(actor: Actor): Promise<StudentFacetsDto> {
+    const schools = await this.prisma.professionalSchool.findMany({
+      where: {
+        status: CatalogStatus.ACTIVE,
+        NOT: { name: { equals: 'general', mode: 'insensitive' } },
+        ...(actor.isGlobal ? {} : { id: actor.professionalSchoolId }),
+      },
+      select: { id: true, name: true },
+      orderBy: { name: 'asc' },
+    });
 
-    return {
-      professionalSchools: schools.map((row) => row.professionalSchool).filter(Boolean),
-      headquarters: headquarters.map((row) => row.headquarters).filter(Boolean),
-    };
+    const locations = await this.prisma.location.findMany({
+      where: { status: CatalogStatus.ACTIVE },
+      select: { id: true, name: true },
+      orderBy: { name: 'asc' },
+    });
+
+    return { professionalSchools: schools, locations };
   }
 
-  async findOne(id: string): Promise<StudentRow> {
-    const student = await this.prisma.student.findUnique({ where: { id } });
+  async findOne(id: string, actor: Actor): Promise<StudentRow> {
+    const student = await this.prisma.student.findUnique({
+      where: { id },
+      include: studentInclude,
+    });
 
     if (!student) {
       throw new NotFoundException(`No existe un estudiante con id "${id}".`);
     }
+
+    assertCanReadSchool(actor, student.professionalSchoolId);
 
     return student;
   }
@@ -98,17 +135,19 @@ export class StudentsService {
    * Ficha completa: datos del estudiante + participaciones + creditos.
    * Los creditos se derivan de las participaciones, no de una columna.
    */
-  async findDetail(id: string): Promise<StudentDetail> {
+  async findDetail(id: string, actor: Actor): Promise<StudentDetail> {
     const student = await this.prisma.student.findUnique({
       where: { id },
-      include: { participations: { select: { id: true } } },
+      include: { ...studentInclude, participations: { select: { id: true } } },
     });
 
     if (!student) {
       throw new NotFoundException(`No existe un estudiante con id "${id}".`);
     }
 
-    const summary = await this.getCreditSummary(id);
+    assertCanReadSchool(actor, student.professionalSchoolId);
+
+    const summary = await this.getCreditSummary(id, actor);
 
     return {
       id: student.id,
@@ -116,8 +155,10 @@ export class StudentsService {
       academicDegree: student.academicDegree,
       lastName: student.lastName,
       firstName: student.firstName,
-      professionalSchool: student.professionalSchool,
-      headquarters: student.headquarters,
+      professionalSchoolId: student.professionalSchoolId,
+      professionalSchool: student.professionalSchool.name,
+      locationId: student.locationId,
+      location: student.location.name,
       status: student.status,
       totalCredits: summary.totalCredits,
       totalParticipations: summary.totalParticipations,
@@ -136,12 +177,20 @@ export class StudentsService {
    * Solo suma participaciones VALID: las PENDING y CANCELLED quedan fuera.
    * Los creditos nunca se guardan en students.
    */
-  async getCreditSummary(studentId: string): Promise<StudentCreditSummaryDto> {
-    const exists = await this.prisma.student.count({ where: { id: studentId } });
+  async getCreditSummary(
+    studentId: string,
+    actor: Actor
+  ): Promise<StudentCreditSummaryDto> {
+    const student = await this.prisma.student.findUnique({
+      where: { id: studentId },
+      select: { professionalSchoolId: true },
+    });
 
-    if (exists === 0) {
+    if (!student) {
       throw new NotFoundException(`No existe un estudiante con id "${studentId}".`);
     }
+
+    assertCanReadSchool(actor, student.professionalSchoolId);
 
     const grouped = await this.prisma.participation.groupBy({
       by: ['status'],
@@ -173,7 +222,10 @@ export class StudentsService {
     };
   }
 
-  async create(dto: CreateStudentDto): Promise<StudentRow> {
+  async create(dto: CreateStudentDto, actor: Actor): Promise<StudentRow> {
+    await this.assertSchoolAssignable(dto.professionalSchoolId, actor);
+    await this.assertLocationAssignable(dto.locationId);
+
     const universityCode = dto.universityCode.trim();
 
     const existing = await this.prisma.student.findUnique({ where: { universityCode } });
@@ -191,10 +243,11 @@ export class StudentsService {
           academicDegree: dto.academicDegree?.trim() ?? '',
           lastName: dto.lastName.trim(),
           firstName: dto.firstName.trim(),
-          professionalSchool: dto.professionalSchool.trim(),
-          headquarters: dto.headquarters.trim(),
+          professionalSchoolId: dto.professionalSchoolId,
+          locationId: dto.locationId,
           status: dto.status ?? StudentStatus.ACTIVE,
         },
+        include: studentInclude,
       });
     } catch (error) {
       // La constraint UNIQUE de PostgreSQL es la garantia real.
@@ -208,9 +261,21 @@ export class StudentsService {
     }
   }
 
-  async update(id: string, dto: UpdateStudentDto): Promise<StudentRow> {
-    const current = await this.findOne(id);
+  async update(id: string, dto: UpdateStudentDto, actor: Actor): Promise<StudentRow> {
+    const current = await this.findOne(id, actor);
     const universityCode = dto.universityCode?.trim() ?? current.universityCode;
+
+    if (dto.professionalSchoolId !== undefined) {
+      // Un usuario de escuela no puede mover a nadie a otra escuela, ni sacar
+      // registros de la suya.
+      assertCanWriteSchool(actor, current.professionalSchoolId);
+      await this.assertSchoolAssignable(dto.professionalSchoolId, actor);
+    }
+
+    if (dto.locationId !== undefined) {
+      assertCanWriteSchool(actor, current.professionalSchoolId);
+      await this.assertLocationAssignable(dto.locationId);
+    }
 
     if (universityCode !== current.universityCode) {
       const taken = await this.prisma.student.findUnique({ where: { universityCode } });
@@ -230,12 +295,13 @@ export class StudentsService {
           ...(dto.academicDegree !== undefined ? { academicDegree: dto.academicDegree.trim() } : {}),
           ...(dto.lastName !== undefined ? { lastName: dto.lastName.trim() } : {}),
           ...(dto.firstName !== undefined ? { firstName: dto.firstName.trim() } : {}),
-          ...(dto.professionalSchool !== undefined
-            ? { professionalSchool: dto.professionalSchool.trim() }
+          ...(dto.professionalSchoolId !== undefined
+            ? { professionalSchoolId: dto.professionalSchoolId }
             : {}),
-          ...(dto.headquarters !== undefined ? { headquarters: dto.headquarters.trim() } : {}),
+          ...(dto.locationId !== undefined ? { locationId: dto.locationId } : {}),
           ...(dto.status !== undefined ? { status: dto.status } : {}),
         },
+        include: studentInclude,
       });
     } catch (error) {
       if (isUniqueViolation(error, 'universityCode')) {
@@ -251,15 +317,20 @@ export class StudentsService {
   /**
    * CARGA INCREMENTAL DEL PADRON.
    *
-   * Nunca es destructiva:
-   *  - codigo nuevo -> se crea,
-   *  - codigo existente -> se completan SOLO los campos que estan vacios,
-   *  - fila incompleta -> se reporta en `issues`, no se crea.
+   * El archivo trae NOMBRES de escuela y sede (no ids). El backend los resuelve
+   * contra el catalogo. La carga es estricta y atomica:
+   *  - si una fila referencia una escuela o sede inexistente, no se escribe nada;
+   *  - si un usuario de escuela intenta cargar otra escuela, no se escribe nada;
+   *  - si todo es valido, crea los codigos nuevos y completa solo los datos
+   *    vacios de los existentes.
    *
-   * Si la institucion envia el mismo archivo dos veces, el resultado es el
-   * mismo: es idempotente.
+   * Los errores se devuelven juntos y con el numero de fila, para que la
+   * institucion corrija el archivo de una sola vez.
    */
-  async importStudents(dto: ImportStudentsDto): Promise<StudentImportResultDto> {
+  async importStudents(
+    dto: ImportStudentsDto,
+    actor: Actor
+  ): Promise<StudentImportResultDto> {
     const issues: StudentImportIssueDto[] = [];
     const seen = new Set<string>();
     const candidates: { index: number; code: string; row: (typeof dto.rows)[number] }[] = [];
@@ -291,39 +362,47 @@ export class StudentsService {
       candidates.push({ index, code, row });
     });
 
+    // Catalogos completos: se resuelven por nombre sin distinguir mayusculas.
+    const [schools, locations] = await Promise.all([
+      this.prisma.professionalSchool.findMany({
+        select: { id: true, name: true, status: true },
+      }),
+      this.prisma.location.findMany({
+        select: { id: true, name: true, status: true },
+      }),
+    ]);
+
+    const schoolByName = new Map(
+      schools.map((row) => [row.name.trim().toLowerCase(), row])
+    );
+    const locationByName = new Map(
+      locations.map((row) => [row.name.trim().toLowerCase(), row])
+    );
+
     const existing = await this.prisma.student.findMany({
       where: { universityCode: { in: candidates.map((item) => item.code) } },
     });
     const byCode = new Map(existing.map((student) => [student.universityCode, student]));
 
-    let created = 0;
-    let enriched = 0;
+    /** Datos ya resueltos de cada fila, listos para escribir. */
+    const resolved: {
+      index: number;
+      code: string;
+      schoolId: number;
+      locationId: number;
+      academicDegree: string;
+      lastName: string;
+      firstName: string;
+      current: (typeof existing)[number] | undefined;
+      schoolName: string;
+      locationName: string;
+    }[] = [];
 
     for (const item of candidates) {
       const row = item.row;
       const current = byCode.get(item.code);
-
-      if (current) {
-        // Solo se completa lo que falta: la carga nunca pisa datos existentes.
-        const patch: Prisma.StudentUpdateInput = {};
-
-        if (!current.academicDegree && row.academicDegree?.trim()) {
-          patch.academicDegree = row.academicDegree.trim();
-        }
-        if (!current.professionalSchool && row.professionalSchool?.trim()) {
-          patch.professionalSchool = row.professionalSchool.trim();
-        }
-        if (!current.headquarters && row.headquarters?.trim()) {
-          patch.headquarters = row.headquarters.trim();
-        }
-
-        if (Object.keys(patch).length > 0) {
-          await this.prisma.student.update({ where: { id: current.id }, data: patch });
-        }
-
-        enriched++;
-        continue;
-      }
+      const schoolName = row.professionalSchool?.trim() ?? '';
+      const locationName = row.location?.trim() ?? '';
 
       if (!row.lastName?.trim() || !row.firstName?.trim()) {
         issues.push({
@@ -335,53 +414,183 @@ export class StudentsService {
         continue;
       }
 
-      if (!row.professionalSchool?.trim() || !row.headquarters?.trim()) {
+      if (!schoolName) {
         issues.push({
           row: item.index + 1,
           universityCode: item.code,
-          code: 'MISSING_SCHOOL',
-          message: 'La fila no trae escuela profesional ni sede: no se puede crear el estudiante.',
+          code: 'MISSING_PROFESSIONAL_SCHOOL',
+          message: 'La fila no trae escuela profesional.',
         });
         continue;
       }
 
-      try {
-        await this.prisma.student.create({
-          data: {
-            universityCode: item.code,
-            academicDegree: row.academicDegree?.trim() ?? '',
-            lastName: row.lastName.trim(),
-            firstName: row.firstName.trim(),
-            professionalSchool: row.professionalSchool.trim(),
-            headquarters: row.headquarters.trim(),
-            status: StudentStatus.ACTIVE,
-          },
-        });
-        created++;
-      } catch (error) {
-        this.logger.error(`No se pudo crear al estudiante "${item.code}".`, error);
+      if (!locationName) {
         issues.push({
           row: item.index + 1,
           universityCode: item.code,
-          code: 'DB_ERROR',
-          message: `No se pudo guardar al estudiante ${item.code}.`,
+          code: 'MISSING_LOCATION',
+          message: 'La fila no trae sede.',
         });
+        continue;
       }
+
+      const school = schoolByName.get(schoolName.toLowerCase());
+
+      if (!school) {
+        issues.push({
+          row: item.index + 1,
+          universityCode: item.code,
+          code: 'UNKNOWN_PROFESSIONAL_SCHOOL',
+          message: `La escuela profesional "${schoolName}" no existe en el catalogo.`,
+        });
+        continue;
+      }
+
+      if (school.status !== CatalogStatus.ACTIVE) {
+        issues.push({
+          row: item.index + 1,
+          universityCode: item.code,
+          code: 'INACTIVE_PROFESSIONAL_SCHOOL',
+          message: `La escuela profesional "${school.name}" esta inactiva.`,
+        });
+        continue;
+      }
+
+      if (isGeneralSchool(school.name)) {
+        issues.push({
+          row: item.index + 1,
+          universityCode: item.code,
+          code: 'UNKNOWN_PROFESSIONAL_SCHOOL',
+          message: 'La escuela "general" no admite estudiantes: no es una escuela real.',
+        });
+        continue;
+      }
+
+      if (!actor.isGlobal && school.id !== actor.professionalSchoolId) {
+        issues.push({
+          row: item.index + 1,
+          universityCode: item.code,
+          code: 'FOREIGN_PROFESSIONAL_SCHOOL',
+          message: `Solo puedes cargar estudiantes de tu escuela (${actor.professionalSchoolName}). La fila indica "${school.name}".`,
+        });
+        continue;
+      }
+
+      if (current && current.professionalSchoolId !== school.id) {
+        issues.push({
+          row: item.index + 1,
+          universityCode: item.code,
+          code: 'SCHOOL_MISMATCH',
+          message: `El estudiante ya existe en otra escuela profesional; no se puede reasignar desde la importacion.`,
+        });
+        continue;
+      }
+
+      const location = locationByName.get(locationName.toLowerCase());
+
+      if (!location) {
+        issues.push({
+          row: item.index + 1,
+          universityCode: item.code,
+          code: 'UNKNOWN_LOCATION',
+          message: `La sede "${locationName}" no existe en el catalogo.`,
+        });
+        continue;
+      }
+
+      if (location.status !== CatalogStatus.ACTIVE) {
+        issues.push({
+          row: item.index + 1,
+          universityCode: item.code,
+          code: 'INACTIVE_LOCATION',
+          message: `La sede "${location.name}" esta inactiva.`,
+        });
+        continue;
+      }
+
+      if (current && current.locationId !== location.id) {
+        issues.push({
+          row: item.index + 1,
+          universityCode: item.code,
+          code: 'LOCATION_MISMATCH',
+          message: 'El estudiante ya existe con otra sede; no se puede reasignar desde la importacion.',
+        });
+        continue;
+      }
+
+      resolved.push({
+        index: item.index,
+        code: item.code,
+        schoolId: school.id,
+        locationId: location.id,
+        schoolName: school.name,
+        locationName: location.name,
+        academicDegree: row.academicDegree?.trim() ?? '',
+        lastName: row.lastName.trim(),
+        firstName: row.firstName.trim(),
+        current,
+      });
     }
 
-    issues.sort((a, b) => a.row - b.row);
+    if (issues.length > 0) {
+      issues.sort((a, b) => a.row - b.row);
 
-    return { total: candidates.length, created, enriched, issues };
+      throw new BadRequestException({
+        statusCode: 400,
+        message: `La importacion no se aplico: ${issues.length} fila(s) con errores. No se creo ni modifico ningun estudiante.`,
+        issues,
+      });
+    }
+
+    let created = 0;
+    let enriched = 0;
+
+    await this.prisma.$transaction(async (tx) => {
+      for (const item of resolved) {
+        if (item.current) {
+          // Solo se completa lo que falta: la carga nunca pisa datos existentes.
+          if (!item.current.academicDegree && item.academicDegree) {
+            await tx.student.update({
+              where: { id: item.current.id },
+              data: { academicDegree: item.academicDegree },
+            });
+          }
+
+          enriched++;
+          continue;
+        }
+
+        await tx.student.create({
+          data: {
+            universityCode: item.code,
+            academicDegree: item.academicDegree,
+            lastName: item.lastName,
+            firstName: item.firstName,
+            professionalSchoolId: item.schoolId,
+            locationId: item.locationId,
+            status: StudentStatus.ACTIVE,
+          },
+        });
+
+        created++;
+      }
+    });
+
+    return { total: candidates.length, created, enriched, issues: [] };
   }
 
   /** Coincidencia parcial por codigo, apellidos o nombres. */
-  private buildWhere(query: QueryStudentsDto): Prisma.StudentWhereInput {
+  private buildWhere(query: QueryStudentsDto, actor: Actor): Prisma.StudentWhereInput {
     const search = query.search?.trim();
 
     return {
+      // Alcance por escuela: un usuario de escuela solo ve su padron.
+      ...(actor.isGlobal ? {} : { professionalSchoolId: actor.professionalSchoolId }),
       ...(query.universityCode ? { universityCode: query.universityCode.trim() } : {}),
-      ...(query.professionalSchool ? { professionalSchool: query.professionalSchool.trim() } : {}),
-      ...(query.headquarters ? { headquarters: query.headquarters.trim() } : {}),
+      ...(query.professionalSchoolId
+        ? { professionalSchoolId: query.professionalSchoolId }
+        : {}),
+      ...(query.locationId ? { locationId: query.locationId } : {}),
       ...(query.status ? { status: query.status } : {}),
       ...(search
         ? {
@@ -393,6 +602,44 @@ export class StudentsService {
           }
         : {}),
     };
+  }
+
+  /**
+   * Valida que la escuela exista, este activa, no sea `general` y que el actor
+   * pueda asignarla. Solo un usuario global puede crear estudiantes en otra
+   * escuela; uno de escuela queda atado a la suya.
+   */
+  private async assertSchoolAssignable(schoolId: number, actor: Actor): Promise<void> {
+    const school = await this.prisma.professionalSchool.findUnique({
+      where: { id: schoolId },
+      select: { name: true, status: true },
+    });
+
+    if (!school || school.status !== CatalogStatus.ACTIVE) {
+      throw new BadRequestException('La escuela profesional no existe o esta inactiva.');
+    }
+
+    if (isGeneralSchool(school.name)) {
+      throw new BadRequestException(
+        'La escuela "general" no admite estudiantes: no es una escuela real.'
+      );
+    }
+
+    if (!actor.isGlobal && schoolId !== actor.professionalSchoolId) {
+      throw new ForbiddenException('Solo puedes registrar estudiantes de tu propia escuela.');
+    }
+  }
+
+  /** Valida que la sede exista y este activa. */
+  private async assertLocationAssignable(locationId: number): Promise<void> {
+    const location = await this.prisma.location.findUnique({
+      where: { id: locationId },
+      select: { status: true },
+    });
+
+    if (!location || location.status !== CatalogStatus.ACTIVE) {
+      throw new BadRequestException('La sede no existe o esta inactiva.');
+    }
   }
 }
 

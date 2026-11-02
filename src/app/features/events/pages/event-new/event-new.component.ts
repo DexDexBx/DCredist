@@ -14,10 +14,12 @@ import {
   EVENT_MODALITIES,
   EVENT_STATUSES,
   EVENT_TYPES,
+  EventDraft,
   EventModality,
   EventStatus,
   EventType,
 } from '../../../../models';
+import { CatalogOption } from '../../../../models/catalog.model';
 import { DcInputComponent } from '../../../../shared/components/form/dc-input/dc-input.component';
 import { DcComboboxComponent } from '../../../../shared/components/form/dc-combobox/dc-combobox.component';
 import {
@@ -74,11 +76,25 @@ export class EventNewComponent {
 
   /** Los organizadores salen del catalogo administrable. */
   readonly organizerOptions = computed<DcSelectOption[]>(() =>
-    this.catalogService.names('organizers').map((organizer) => ({
-      value: organizer,
-      label: organizer,
+    this.catalogService.options('organizers').map((organizer) => ({
+      value: String(organizer.id),
+      label: organizer.name,
     })),
   );
+
+  /** Escuelas reales: un actor de escuela solo puede crear eventos de la suya. */
+  readonly schoolOptions = computed<DcSelectOption[]>(() => {
+    const user = this.auth.currentUser();
+    const global =
+      !user || (user.professionalSchoolName ?? '').trim().toLowerCase() === 'general';
+    const options: CatalogOption[] = this.catalogService.options('professionalSchools');
+
+    return options
+      .filter(
+        (option) => global || option.id === user?.professionalSchoolId,
+      )
+      .map((option) => ({ value: String(option.id), label: option.name }));
+  });
 
   readonly form = this.fb.nonNullable.group(
     {
@@ -92,7 +108,8 @@ export class EventNewComponent {
       status: ['Programado' as EventStatus, [Validators.required]],
       capacity: ['0', [Validators.pattern(/^(\d{1,9})?$/)]],
       credits: ['1', [Validators.required, Validators.pattern(/^\d{1,7}(\.\d{1,2})?$/)]],
-      organizer: ['', [Validators.required, Validators.minLength(3)]],
+      organizerId: ['', [Validators.required]],
+      professionalSchoolId: ['', [Validators.required]],
       tags: ['', [Validators.pattern(/^[a-zA-ZáéíóúñÁÉÍÓÚÑüÜ\s,]*$/)]],
     },
     { validators: [endAfterStartDate] }
@@ -116,7 +133,7 @@ export class EventNewComponent {
     this.submitting.set(true);
     const value = this.form.getRawValue();
 
-    const validation = this.eventService.validate({
+    const draft: EventDraft = {
       name: value.name,
       description: value.description,
       eventType: value.eventType,
@@ -127,12 +144,15 @@ export class EventNewComponent {
       status: value.status,
       capacity: value.capacity ? Number(value.capacity) : null,
       credits: Number(value.credits),
-      organizer: value.organizer,
+      organizerId: Number(value.organizerId),
+      professionalSchoolId: Number(value.professionalSchoolId),
       tags: value.tags
         .split(',')
         .map((tag) => tag.trim())
         .filter(Boolean),
-    });
+    };
+
+    const validation = this.eventService.validate(draft);
 
     if (!validation.valid) {
       this.submitting.set(false);
@@ -140,23 +160,7 @@ export class EventNewComponent {
       return;
     }
 
-    const event = await this.eventService.create({
-      name: value.name,
-      description: value.description,
-      eventType: value.eventType,
-      startDate: value.startDate,
-      endDate: value.endDate,
-      modality: value.modality,
-      location: value.location,
-      status: value.status,
-      capacity: value.capacity ? Number(value.capacity) : null,
-      credits: Number(value.credits),
-      organizer: value.organizer,
-      tags: value.tags
-        .split(',')
-        .map((tag) => tag.trim())
-        .filter(Boolean),
-    });
+    const event = await this.eventService.create(draft);
 
     if (event) {
       this.createdCode.set(event.code);
@@ -179,7 +183,8 @@ export class EventNewComponent {
       | 'startDate'
       | 'endDate'
       | 'location'
-      | 'organizer'
+      | 'organizerId'
+      | 'professionalSchoolId'
       | 'credits'
       | 'capacity'
       | 'tags'

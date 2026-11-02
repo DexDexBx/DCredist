@@ -1,7 +1,9 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, computed, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
 import { UserService } from '../../../../core/services/user.service';
+import { AuthService } from '../../../../core/services/auth.service';
+import { CatalogService } from '../../../../core/services/catalog.service';
 import {
   ALL_USER_ROLES,
   MIN_PASSWORD_LENGTH,
@@ -9,6 +11,7 @@ import {
   UserCreateDraft,
   UserRole,
 } from '../../../../models';
+import { CatalogOption } from '../../../../models/catalog.model';
 import { DcInputComponent } from '../../../../shared/components/form/dc-input/dc-input.component';
 import {
   DcSelectComponent,
@@ -38,6 +41,8 @@ import { PanelComponent } from '../../../../shared/components/ui/panel/panel.com
 })
 export class UserNewComponent {
   private readonly userService = inject(UserService);
+  private readonly catalogService = inject(CatalogService);
+  private readonly auth = inject(AuthService);
   private readonly fb = inject(FormBuilder);
   private readonly router = inject(Router);
 
@@ -51,6 +56,24 @@ export class UserNewComponent {
     label: ROLE_LABELS[role],
   }));
 
+  /**
+   * Escuelas asignables. `general` solo la ofrece un actor global; un actor de
+   * escuela unicamente puede crear cuentas de su propia escuela.
+   */
+  readonly schoolOptions = computed<DcSelectOption[]>(() => {
+    const user = this.auth.currentUser();
+    const global =
+      !user || (user.professionalSchoolName ?? '').trim().toLowerCase() === 'general';
+    const options: CatalogOption[] = this.catalogService.options(
+      'professionalSchools',
+      global,
+    );
+
+    return options
+      .filter((option) => global || option.id === user?.professionalSchoolId)
+      .map((option) => ({ value: String(option.id), label: option.name }));
+  });
+
   readonly form = this.fb.nonNullable.group({
     fullName: ['', [Validators.required, Validators.minLength(3)]],
     email: ['', [Validators.required, Validators.email]],
@@ -59,6 +82,7 @@ export class UserNewComponent {
     // elegir un perfil, el placeholder queda deshabilitado y ya no se puede
     // volver a seleccionar.
     role: this.fb.nonNullable.control<UserRole | ''>('', Validators.required),
+    professionalSchoolId: ['', [Validators.required]],
   });
 
   async onSubmit(): Promise<void> {
@@ -86,6 +110,7 @@ export class UserNewComponent {
       password: value.password,
       role: value.role,
       status: 'ACTIVE',
+      professionalSchoolId: Number(value.professionalSchoolId),
     };
     const validation = this.userService.validate(draft, undefined, true);
 
@@ -103,6 +128,7 @@ export class UserNewComponent {
         email: '',
         password: '',
         role: '',
+        professionalSchoolId: '',
       });
       this.form.markAsUntouched();
     } else {
@@ -114,7 +140,9 @@ export class UserNewComponent {
     void this.router.navigate(['/users']);
   }
 
-  isInvalid(control: 'fullName' | 'email' | 'password' | 'role'): boolean {
+  isInvalid(
+    control: 'fullName' | 'email' | 'password' | 'role' | 'professionalSchoolId',
+  ): boolean {
     const field = this.form.controls[control];
     return field.touched && field.invalid;
   }

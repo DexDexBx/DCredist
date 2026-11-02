@@ -1,5 +1,7 @@
 import {
   AcademicEvent,
+  CatalogEntry,
+  CatalogStatus,
   EVENT_TYPES,
   EventDraft,
   EventModality,
@@ -19,6 +21,7 @@ import {
 } from '../../models';
 import type { StudentImportRow } from '../services/student.service';
 import {
+  ApiCatalogEntry,
   ApiEvent,
   ApiEventModality,
   ApiEventPayload,
@@ -85,8 +88,10 @@ export function mapApiStudent(row: ApiStudent): Student {
     academicDegree: row.academicDegree,
     lastName: row.lastName,
     firstName: row.firstName,
+    professionalSchoolId: row.professionalSchoolId,
     professionalSchool: row.professionalSchool,
-    headquarters: row.headquarters,
+    locationId: row.locationId,
+    location: row.location,
     status: row.status,
   };
 }
@@ -98,6 +103,8 @@ export function mapApiUser(row: ApiUser): UserProfile {
     email: row.email,
     role: row.role,
     status: row.status,
+    professionalSchoolId: row.professionalSchoolId,
+    professionalSchoolName: row.professionalSchoolName,
     initials: initialsOf(row.fullName),
     description: ROLE_DESCRIPTIONS[row.role],
     permissions: null,
@@ -135,6 +142,17 @@ function isModuleKey(value: string): value is ModuleKey {
   return MODULES.some((module) => module.key === value);
 }
 
+export function mapApiCatalogEntry(row: ApiCatalogEntry): CatalogEntry {
+  return {
+    id: row.id,
+    name: row.name,
+    status: row.status as CatalogStatus,
+    usageCount: row.usageCount,
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
+  };
+}
+
 export function mapApiEvent(row: ApiEvent): AcademicEvent {
   return {
     id: row.id,
@@ -148,7 +166,10 @@ export function mapApiEvent(row: ApiEvent): AcademicEvent {
     location: row.location,
     status: STATUS_FROM_API[row.status] ?? 'Programado',
     capacity: row.capacity,
+    organizerId: row.organizerId,
     organizer: row.organizer,
+    professionalSchoolId: row.professionalSchoolId,
+    professionalSchool: row.professionalSchool,
     credits: row.credits,
     tags: [],
   };
@@ -180,7 +201,8 @@ export function toApiEventPayload(draft: EventDraft): ApiEventPayload {
     modality: MODALITY_TO_API[draft.modality],
     location: draft.location.trim(),
     capacity: draft.capacity,
-    organizer: draft.organizer.trim(),
+    organizerId: draft.organizerId ?? undefined,
+    professionalSchoolId: draft.professionalSchoolId ?? undefined,
     credits: draft.credits,
     status: STATUS_TO_API[draft.status],
   };
@@ -192,8 +214,8 @@ export function toApiStudentPayload(draft: StudentDraft): ApiStudentPayload {
     academicDegree: draft.academicDegree.trim(),
     lastName: draft.lastName.trim(),
     firstName: draft.firstName.trim(),
-    professionalSchool: draft.professionalSchool.trim(),
-    headquarters: draft.headquarters.trim(),
+    professionalSchoolId: draft.professionalSchoolId,
+    locationId: draft.locationId,
     status: draft.status,
   };
 }
@@ -205,7 +227,7 @@ export function toApiStudentImportRows(rows: StudentImportRow[]): ApiStudentImpo
     lastName: row.lastName?.trim() || undefined,
     firstName: row.firstName?.trim() || undefined,
     professionalSchool: row.professionalSchool?.trim() || undefined,
-    headquarters: row.headquarters?.trim() || undefined,
+    location: row.location?.trim() || undefined,
   }));
 }
 
@@ -226,6 +248,7 @@ export function toApiUserCreatePayload(draft: UserCreateDraft): ApiUserCreatePay
     role: draft.role,
     status: draft.status,
     password: draft.password,
+    professionalSchoolId: draft.professionalSchoolId ?? 0,
   };
 }
 
@@ -237,5 +260,8 @@ export function toApiUserUpdatePayload(draft: UserUpdateDraft): ApiUserUpdatePay
     role: draft.role,
     status: draft.status,
     ...(draft.password ? { password: draft.password } : {}),
+    ...(draft.professionalSchoolId !== null
+      ? { professionalSchoolId: draft.professionalSchoolId }
+      : {}),
   };
 }

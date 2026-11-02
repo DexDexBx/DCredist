@@ -1,7 +1,7 @@
 @if (event(); as currentEvent) {
 <dc-page-header
   [title]="currentEvent.name"
-  [description]="currentEvent.organizer ?? ''"
+  [description]="currentEvent.organizer"
   [breadcrumbs]="[
     { label: 'Eventos', link: '/events' },
     { label: currentEvent.code }
@@ -270,7 +270,7 @@
                 >{{ studentName(row) }}</a
               >
               <p class="text-xs text-gray-500 dark:text-gray-400">
-                {{ row.student.professionalSchool }} · {{ row.student.headquarters }}
+                {{ row.student.professionalSchool }} · {{ row.student.location }}
               </p>
               } @else {
               <span class="text-gray-400">Estudiante no encontrado</span>

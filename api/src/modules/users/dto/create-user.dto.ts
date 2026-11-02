@@ -1,10 +1,13 @@
 import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
+import { Type } from 'class-transformer';
 import {
   IsEmail,
   IsEnum,
+  IsInt,
   IsOptional,
   IsString,
   MaxLength,
+  Min,
   MinLength,
 } from 'class-validator';
 import { UserRole, UserStatus } from '../../../generated/prisma/client';
@@ -18,6 +21,9 @@ export const MIN_PASSWORD_LENGTH = 8;
  * La contraseña la define quien crea la cuenta y se guarda como hash scrypt.
  * `mustChangePassword` queda en false: la persona conoce la contraseña desde el
  * primer inicio de sesión.
+ *
+ * `professionalSchoolId` es obligatorio: la escuela define el alcance del
+ * usuario. La escuela `general` identifica a las cuentas globales.
  */
 export class CreateUserDto {
   @ApiProperty({ example: 'Ana Torres', description: 'Nombre y apellidos.' })
@@ -49,14 +55,14 @@ export class CreateUserDto {
   @IsEnum(UserStatus)
   status?: UserStatus;
 
-  @ApiPropertyOptional({
-    example: 'CIENCIAS FARMACEUTICAS Y BIOQUIMICA',
-    description: 'Escuela profesional. Vacio para cuentas globales.',
+  @ApiProperty({
+    example: 1,
+    description: 'Escuela profesional del usuario. General = acceso global.',
   })
-  @IsOptional()
-  @IsString()
-  @MaxLength(160)
-  professionalSchool?: string;
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  professionalSchoolId!: number;
 }
 
 /**
@@ -85,8 +91,11 @@ export class UserDto {
   @ApiProperty({ enum: UserStatus })
   status!: UserStatus;
 
-  @ApiProperty()
-  professionalSchool!: string;
+  @ApiProperty({ example: 1 })
+  professionalSchoolId!: number;
+
+  @ApiProperty({ example: 'Ingenieria de Sistemas' })
+  professionalSchoolName!: string;
 
   @ApiProperty()
   mustChangePassword!: boolean;

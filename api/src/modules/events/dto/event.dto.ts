@@ -1,0 +1,46 @@
+import { ApiProperty } from '@nestjs/swagger';
+import {
+  EventModality,
+  EventStatus,
+  EventType,
+} from '../../../generated/prisma/client';
+
+/**
+ * Evento academico tal como lo devuelve el API.
+ *
+ * La escuela y el organizador viajan con su id (para editar) y con su nombre
+ * (para listados, calendario, exportaciones y constancias), de modo que ninguna
+ * pantalla tenga que resolver la relacion por su cuenta.
+ */
+export class EventDto {
+  @ApiProperty() id!: string;
+  @ApiProperty({ example: 'EVT-2026-001' }) code!: string;
+  @ApiProperty() name!: string;
+  @ApiProperty() description!: string;
+  @ApiProperty({ example: 'Congreso' }) category!: string;
+  @ApiProperty({ enum: EventType }) eventType!: EventType;
+  @ApiProperty() startDate!: Date;
+  @ApiProperty() endDate!: Date;
+  @ApiProperty({ nullable: true, example: '08:30' }) startTime!: string | null;
+  @ApiProperty({ nullable: true, example: '18:00' }) endTime!: string | null;
+  @ApiProperty({ enum: EventModality }) modality!: EventModality;
+
+  @ApiProperty({
+    example: 'Auditorio Central, Sede Central',
+    description: 'Lugar fisico del evento. No es la sede del estudiante.',
+  })
+  location!: string;
+
+  @ApiProperty({ nullable: true, example: 400 }) capacity!: number | null;
+
+  @ApiProperty({ example: 1 }) organizerId!: number;
+  @ApiProperty({ example: 'VICERRECTORIA ACADEMICA' }) organizer!: string;
+
+  @ApiProperty({ example: 1 }) professionalSchoolId!: number;
+  @ApiProperty({ example: 'INGENIERIA DE SISTEMAS' }) professionalSchool!: string;
+
+  @ApiProperty({ example: 2 }) credits!: number;
+  @ApiProperty({ enum: EventStatus }) status!: EventStatus;
+  @ApiProperty() createdAt!: Date;
+  @ApiProperty() updatedAt!: Date;
+}

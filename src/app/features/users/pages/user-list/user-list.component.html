@@ -114,13 +114,18 @@
   </dc-empty-state>
   } @else {
   <div class="overflow-x-auto">
-    <table class="w-full min-w-[900px] border-collapse text-sm">
+    <table class="w-full min-w-[1040px] border-collapse text-sm">
       <thead>
         <tr class="border-b border-gray-200 dark:border-gray-800">
           <th
             class="py-2.5 pe-4 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500"
           >
             Usuario
+          </th>
+          <th
+            class="px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500"
+          >
+            Escuela
           </th>
           <th
             class="px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500"
@@ -175,6 +180,9 @@
                 </p>
               </div>
             </div>
+          </td>
+          <td class="px-3 py-3">
+            <span class="text-gray-700 dark:text-gray-200">{{ user.professionalSchoolName }}</span>
           </td>
           <td class="px-3 py-3">
             <app-badge size="sm" [color]="badgeColor(user.role)">

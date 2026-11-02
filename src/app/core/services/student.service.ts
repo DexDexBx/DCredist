@@ -1,4 +1,5 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
+import { HttpErrorResponse } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
 import {
   DEFAULT_STUDENT_PAGE_SIZE,
@@ -17,16 +18,21 @@ import {
 import { CODE_COLLATOR, NAME_COLLATOR } from '../../shared/utils/text.utils';
 import { mapApiStudent, toApiStudentImportRows, toApiStudentPayload } from '../api/api.mappers';
 import { DcreditsApiClient } from '../api/dcredits-api.client';
+import { CatalogService } from './catalog.service';
 import { DataModeService } from './data-mode.service';
 
 /**
- /** Fila de importacion del padron. Acepta CSV o pegado desde una hoja de calculo. */
+ * Fila de importacion del padron. Acepta CSV o pegado desde una hoja de calculo.
+ *
+ * La importacion referencia la escuela y la sede por NOMBRE: el archivo lo
+ * prepara la institucion y el backend resuelve el nombre contra el catalogo.
+ */
 export interface StudentImportRow {
   universityCode: string;
   lastName: string;
   firstName: string;
   professionalSchool: string;
-  headquarters: string;
+  location: string;
   academicDegree?: string;
 }
 
@@ -36,14 +42,20 @@ export interface StudentImportSummary {
   updated: number;
   duplicates: string[];
   invalid: string[];
+  /**
+   * Motivo por el que la importacion no se aplico. El API es atomico: si una
+   * fila falla, no se crea ninguna y aqui llega el detalle exacto.
+   */
+  message?: string;
+  issues?: { row: number; universityCode: string; message: string }[];
 }
 
 /**
  * SERVICE - PADRON MAESTRO DE ESTUDIANTES.
  *
  * Lee del API (hidratado al arrancar) y escribe contra el backend cuando esta
- * disponible; sin API opera en memoria como antes. Contrato:
- *   GET   /students?professionalSchool=&headquarters=&status=&search=&page=&pageSize=&sort=
+ * disponible; sin API opera en memoria. Contrato:
+ *   GET   /students?professionalSchoolId=&locationId=&status=&search=&page=&pageSize=&sort=
  *   POST  /students
  *   PATCH /students/:id
  *   POST  /students/import   (carga incremental, nunca destructiva)
@@ -60,6 +72,7 @@ export interface StudentImportSummary {
 export class StudentService {
   private readonly api = inject(DcreditsApiClient);
   private readonly dataMode = inject(DataModeService);
+  private readonly catalogService = inject(CatalogService);
   private readonly studentsState = signal<Student[]>([]);
 
   readonly students = this.studentsState.asReadonly();
@@ -71,9 +84,7 @@ export class StudentService {
 
   /**
    * Texto buscable de cada estudiante, ya normalizado y en el MISMO orden que
-   * `studentsState`. Se recalcula una sola vez por cambio del padron: filtrar
-   * 260 000 estudiantes pasa de "5 concatenaciones por pulsacion" a "un
-   * includes por pulsacion".
+   * `studentsState`. Se recalcula una sola vez por cambio del padron.
    */
   private readonly searchIndex = computed(() =>
     this.studentsState().map((student) => studentSearchHaystack(student))
@@ -85,13 +96,7 @@ export class StudentService {
     () => this.studentsState().filter((student) => student.status === 'ACTIVE').length
   );
 
-  /**
-   * Escuelas y sedes del padron vigente.
-   *
-   * Se derivan de los estudiantes cargados (del API o del estado local) para que los
-   * filtros muestren lo que existe de verdad; si el padron esta vacio, se cae a
-   * las listas base.
-   */
+  /** Nombres de escuela presentes en el padron (para etiquetas y exportes). */
   readonly professionalSchools = computed<readonly string[]>(() => {
     const schools = new Set<string>();
     for (const student of this.studentsState()) {
@@ -102,11 +107,12 @@ export class StudentService {
     return schools.size > 0 ? [...schools].sort() : [];
   });
 
-  readonly headquarters = computed<readonly string[]>(() => {
+  /** Nombres de sede presentes en el padron. */
+  readonly locations = computed<readonly string[]>(() => {
     const sites = new Set<string>();
     for (const student of this.studentsState()) {
-      if (student.headquarters) {
-        sites.add(student.headquarters);
+      if (student.location) {
+        sites.add(student.location);
       }
     }
     return sites.size > 0 ? [...sites].sort() : [];
@@ -151,39 +157,26 @@ export class StudentService {
   /**
    * Posiciones del padron que cumplen los filtros, ya ordenadas.
    *
-   * Es la base de `getStudents()` y de las agregaciones de creditos: filtrar y
-   * ordenar sobre indices evita crear 260 000 objetos intermedios para, alfinal,
-   * mostrar 25.
-   *
-   * Los tres órdenes se precomputan en vez de ordenarse en cada consulta. Escribir
-   * en el buscador no debe pagar un `sort` de 260 000 filas: los órdenes solo
-   * cambian cuando cambia el padron, y filtrar sobre una lista ya ordenada es un
-   * recorrido lineal.
+   * Los tres ordenes se precomputan en vez de ordenarse en cada consulta:
+   * escribir en el buscador no debe pagar un `sort` de 260 000 filas.
    */
   matchIndices(query: StudentQuery = {}, order?: readonly number[]): number[] {
-    // Los tokens se separan una vez por consulta. Normalizar el termino dentro
-    // del recorrido seria hacerlo 260 000 veces por pulsacion.
     const tokens = searchTokens(query.search ?? '');
-    const school = query.professionalSchool?.trim() ?? '';
-    const site = query.headquarters?.trim() ?? '';
+    const schoolId = query.professionalSchoolId ?? 0;
+    const locationId = query.locationId ?? 0;
     const students = this.studentsState();
     const haystacks = this.searchIndex();
 
-    // El orden por defecto es por apellidos: es como la institucion busca a una
-    // persona. 'code' para buscar por codigo y 'recent' para el padron recien
-    // cargado, que es lo que se mira al terminar una importacion.
-    // Un llamador con su propio orden (por creditos) lo pasa y asi se ahorra
-    // tambien el `sort` de 260 000 filas.
     const positions = order ?? this.orderFor(query.sort ?? 'name');
     const matches: number[] = [];
 
     for (const index of positions) {
       const student = students[index];
 
-      if (school && student.professionalSchool !== school) {
+      if (schoolId && student.professionalSchoolId !== schoolId) {
         continue;
       }
-      if (site && student.headquarters !== site) {
+      if (locationId && student.locationId !== locationId) {
         continue;
       }
       if (query.status && student.status !== query.status) {
@@ -202,10 +195,7 @@ export class StudentService {
   /**
    * Estudiantes que coinciden con un texto libre.
    *
-   * Es lavia que usan las busquedas de participacion y el modulo de codigos:
-   * en vez de recorrer participaciones recomponiendo el nombre de cada
-   * estudiante, se resuelve primero a estudiantes y de ahi se toman sus
-   * participaciones del indice.
+   * Es la via que usan las busquedas de participacion y el modulo de codigos.
    */
   matchStudents(search: string): Student[] {
     const indices = this.matchIndices({ search });
@@ -213,13 +203,6 @@ export class StudentService {
     return indices.map((index) => students[index]);
   }
 
-  /**
-   * Orden del padron para un criterio, ya calculado y cacheado.
-   *
-   * Vive en un `computed` justamente para que no se repita: ordenar 260 000 filas
-   * por apellidos cuesta cientos de milisegundos, y eso solo hace falta cuando el
-   * padron cambia, no cada vez que se escribe una letra en el buscador.
-   */
   private orderFor(sort: StudentSortKey): readonly number[] {
     switch (sort) {
       case 'code':
@@ -231,17 +214,6 @@ export class StudentService {
     }
   }
 
-/**
-   * ORDENES PRECOMPUTADOS DEL PADRON.
-   *
-   * Ordenar el padron completo es la parte mas cara de una consulta: con260 000
-   * filas son cientos de milisegundos. Estos tres computed se recalculan solo
-   * cuando el padron cambia (carga o importacion), no al escribir en el buscador.
-   *
-   * El orden por defecto es por apellidos, que es como la institucion busca a una
-   * persona. 'code' para buscar por codigo y 'recent' para el padron recien
-   * cargado, que es lo que se mira al terminar una importacion.
-   */
   private readonly nameOrder = computed(() =>
     this.sortIndices(this.allIndices(), this.studentsState(), 'name')
   );
@@ -254,12 +226,10 @@ export class StudentService {
     this.sortIndices(this.allIndices(), this.studentsState(), 'recent')
   );
 
-  /** Posiciones 0..n-1 del padron, en su orden natural. */
   private allIndices(): number[] {
     return this.studentsState().map((_, index) => index);
   }
 
-  /** Aplica un criterio de orden a una lista de posiciones del padron. */
   private sortIndices(indices: number[], students: Student[], key: StudentSortKey): number[] {
     switch (key) {
       case 'code':
@@ -277,67 +247,26 @@ export class StudentService {
     }
   }
 
-
   private resolvePageSize(pageSize: number | undefined): number {
     return pageSize && pageSize > 0 ? Math.trunc(pageSize) : DEFAULT_STUDENT_PAGE_SIZE;
   }
 
   /** Estudiantes por escuela profesional, en una sola pasada. */
-  countBySchool(): Map<string, number> {
-    const counts = new Map<string, number>();
+  countBySchool(): Map<number, number> {
+    const counts = new Map<number, number>();
     for (const student of this.studentsState()) {
-      counts.set(student.professionalSchool, (counts.get(student.professionalSchool) ?? 0) + 1);
+      counts.set(student.professionalSchoolId, (counts.get(student.professionalSchoolId) ?? 0) + 1);
     }
     return counts;
   }
 
   /** Estudiantes por sede, en una sola pasada. */
-  countByHeadquarters(): Map<string, number> {
-    const counts = new Map<string, number>();
+  countByLocation(): Map<number, number> {
+    const counts = new Map<number, number>();
     for (const student of this.studentsState()) {
-      counts.set(student.headquarters, (counts.get(student.headquarters) ?? 0) + 1);
+      counts.set(student.locationId, (counts.get(student.locationId) ?? 0) + 1);
     }
     return counts;
-  }
-
-  /**
-   * Renombra una escuela profesional en el padron.
-   *
-   * Lo usa el catalogo de escuelas: al corregir el nombre, los estudiantes ya
-   * registrados pasan a la escuela nueva. Devuelve cuantos cambiaron.
-   */
-  renameProfessionalSchool(previous: string, next: string): number {
-    return this.renameField(previous, next, 'professionalSchool');
-  }
-
-  /** Renombra una sede en el padron. Devuelve cuantos estudiantes cambiaron. */
-  renameHeadquarters(previous: string, next: string): number {
-    return this.renameField(previous, next, 'headquarters');
-  }
-
-  private renameField(
-    previous: string,
-    next: string,
-    field: 'professionalSchool' | 'headquarters',
-  ): number {
-    if (previous === next) {
-      return 0;
-    }
-
-    let changed = 0;
-    const updated = this.studentsState().map((student) => {
-      if (student[field] !== previous) {
-        return student;
-      }
-      changed++;
-      return { ...student, [field]: next };
-    });
-
-    if (changed > 0) {
-      this.studentsState.set(updated);
-    }
-
-    return changed;
   }
 
   /**
@@ -361,14 +290,6 @@ export class StudentService {
     return index;
   });
 
-  /**
-   * Ultimo correlativo usado en los ids (`stu-NNNNNN`).
-   *
-   * Se toma del mayor id existente y no de la cantidad de estudiantes: el padron
-   * puede traer huecos, y un id repetido hace que dos estudiantes distintos
-   * compartan ficha. Es un `computed`, asi que recorrer el padron para calcularlo
-   * pasa una sola vez por cambio, no en cada alta.
-   */
   private readonly lastSequence = computed(() => {
     let max = 0;
 
@@ -412,12 +333,12 @@ export class StudentService {
       errors.firstName = 'Los nombres son obligatorios.';
     }
 
-    if (!draft.professionalSchool.trim()) {
-      errors.professionalSchool = 'La escuela profesional es obligatoria.';
+    if (!draft.professionalSchoolId) {
+      errors.professionalSchoolId = 'La escuela profesional es obligatoria.';
     }
 
-    if (!draft.headquarters.trim()) {
-      errors.headquarters = 'La sede es obligatoria.';
+    if (!draft.locationId) {
+      errors.locationId = 'La sede es obligatoria.';
     }
 
     return { valid: Object.keys(errors).length === 0, errors };
@@ -483,7 +404,7 @@ export class StudentService {
         this.replaceById(id, mapApiStudent(updated));
         return;
       } catch {
-        // Si el API falla, no se toca el estado local (evita mostrar un cambio que no persiste).
+        // Si el API falla, no se toca el estado local.
         return;
       }
     }
@@ -492,9 +413,8 @@ export class StudentService {
   }
 
   /**
-   * Normaliza como llega del formulario o de una importacion: el padron guarda
-   * texto en mayusculas y sin espacios sobrantes, para que "jose maria" y
-   * "JOSE  MARIA " no creen dos registros distintos.
+   * Normaliza como llega del formulario. Los nombres de escuela y sede se
+   * resuelven contra el catalogo para no guardar etiquetas inventadas.
    */
   private normalizeDraft(draft: StudentDraft, id: string): Student {
     return {
@@ -503,8 +423,11 @@ export class StudentService {
       universityCode: draft.universityCode.trim(),
       lastName: draft.lastName.trim().toUpperCase(),
       firstName: draft.firstName.trim().toUpperCase(),
-      professionalSchool: draft.professionalSchool.trim().toUpperCase(),
-      headquarters: draft.headquarters.trim().toUpperCase(),
+      professionalSchool:
+        draft.professionalSchool.trim() ||
+        this.catalogService.nameOf('professionalSchools', draft.professionalSchoolId),
+      location:
+        draft.location.trim() || this.catalogService.nameOf('locations', draft.locationId),
       academicDegree: draft.academicDegree.trim(),
     };
   }
@@ -536,12 +459,6 @@ export class StudentService {
    *  - codigo nuevo        -> se crea,
    *  - codigo existente    -> se completa/enriquece solo los campos vacios,
    *  - fila incompleta     -> se reporta en `invalid`, no se crea.
-   *
-   * Si la institucion envia repetidamente el mismo archivo, el resultado es
-   * idempotente. Esto es lo que exige un maestro real.
-   *
-   * El padron se escribe UNA sola vez al final: con 260 000 estudiantes, actualizar
-   * el estado fila por fila seria copiar el array entero por cada fila.
    */
   async importStudents(rows: StudentImportRow[]): Promise<StudentImportSummary> {
     if (this.dataMode.isApi) {
@@ -551,12 +468,52 @@ export class StudentService {
         );
         await this.refreshFromApi();
         return this.mapImportResult(result.total, result.created, result.enriched, result.issues);
-      } catch {
-        return this.importStudentsLocal(rows);
+      } catch (error) {
+        // El API valida de forma atomica: un 400 significa que no se creo ni
+        // modifico ningun estudiante. No se cae al modo local (eso simularia
+        // una importacion que el backend rechazo).
+        return this.failedImportSummary(rows.length, error);
       }
     }
 
     return this.importStudentsLocal(rows);
+  }
+
+  /** Resumen de una importacion rechazada, con los mensajes del API por fila. */
+  private failedImportSummary(total: number, error: unknown): StudentImportSummary {
+    const body =
+      error instanceof HttpErrorResponse
+        ? (error.error as { message?: unknown; issues?: unknown } | null)
+        : null;
+
+    const rawIssues = Array.isArray(body?.issues) ? body.issues : [];
+    const issues = rawIssues
+      .filter(
+        (item): item is { row: number; universityCode: string; message: string } =>
+          typeof item === 'object' &&
+          item !== null &&
+          typeof (item as { message?: unknown }).message === 'string',
+      )
+      .map((item) => ({
+        row: typeof item.row === 'number' ? item.row : 0,
+        universityCode: typeof item.universityCode === 'string' ? item.universityCode : '',
+        message: item.message,
+      }));
+
+    const message =
+      typeof body?.message === 'string' && body.message.trim()
+        ? body.message
+        : 'No se pudo completar la importación. No se creó ni modificó ningún estudiante.';
+
+    return {
+      total,
+      created: 0,
+      updated: 0,
+      duplicates: [],
+      invalid: issues.map((issue) => issue.universityCode).filter(Boolean),
+      issues,
+      message,
+    };
   }
 
   /** Traduce el resultado del API (issues tipados) al resumen que usa la vista. */
@@ -588,98 +545,190 @@ export class StudentService {
   }
 
   private importStudentsLocal(rows: StudentImportRow[]): StudentImportSummary {
-    const duplicates: string[] = [];
-    const invalid: string[] = [];
+    const issues: { row: number; universityCode: string; message: string }[] = [];
     const seen = new Set<string>();
-
-    // Copia de trabajo indexada: crear y enriquecer sin tocar el signal.
     const working = new Map<string, Student>(this.byUniversityCodeIndex());
     let nextSequence = this.lastSequence() + 1;
-    let created = 0;
-    let updated = 0;
 
-    for (const row of rows) {
+    /** Filas ya validadas: no se escriben hasta saber que todo el archivo pasa. */
+    const resolved: {
+      code: string;
+      schoolId: number;
+      locationId: number;
+      academicDegree: string;
+      lastName: string;
+      firstName: string;
+    }[] = [];
+
+    rows.forEach((row, index) => {
       const universityCode = row.universityCode?.trim() ?? '';
+      const schoolId = this.catalogIdByName('professionalSchools', row.professionalSchool);
+      const locationId = this.catalogIdByName('locations', row.location);
+      const issue = this.importRowIssue(row, universityCode, schoolId, locationId);
 
-      if (this.importRowIssue(row, universityCode)) {
-        invalid.push(universityCode || '(sin código)');
-        continue;
+      if (issue) {
+        issues.push({ row: index + 1, universityCode, message: issue });
+        return;
       }
 
       if (seen.has(universityCode)) {
-        duplicates.push(universityCode);
-        continue;
+        issues.push({
+          row: index + 1,
+          universityCode,
+          message: 'El código ya aparece en una fila anterior del archivo.',
+        });
+        return;
       }
       seen.add(universityCode);
 
       const existing = working.get(universityCode);
 
-      if (!existing) {
-        const student: Student = this.normalizeDraft({
+      if (existing && existing.professionalSchoolId !== schoolId) {
+        issues.push({
+          row: index + 1,
           universityCode,
-          academicDegree: row.academicDegree?.trim() ?? '',
-          lastName: row.lastName,
-          firstName: row.firstName,
-          professionalSchool: row.professionalSchool,
-          headquarters: row.headquarters,
-          status: 'ACTIVE',
-        }, `stu-${String(nextSequence).padStart(6, '0')}`);
+          message:
+            'El estudiante ya existe en otra escuela profesional; no se puede reasignar desde la importación.',
+        });
+        return;
+      }
 
-        working.set(universityCode, student);
+      if (existing && existing.locationId !== locationId) {
+        issues.push({
+          row: index + 1,
+          universityCode,
+          message:
+            'El estudiante ya existe con otra sede; no se puede reasignar desde la importación.',
+        });
+        return;
+      }
+
+      resolved.push({
+        code: universityCode,
+        schoolId: schoolId as number,
+        locationId: locationId as number,
+        academicDegree: row.academicDegree?.trim() ?? '',
+        lastName: row.lastName,
+        firstName: row.firstName,
+      });
+    });
+
+    // Importacion atomica: una sola fila invalida impide escribir el archivo.
+    if (issues.length > 0) {
+      issues.sort((a, b) => a.row - b.row);
+
+      return {
+        total: rows.length,
+        created: 0,
+        updated: 0,
+        duplicates: [],
+        invalid: issues.map((issue) => issue.universityCode || '(sin código)'),
+        issues,
+        message: `La importación no se aplicó: ${issues.length} fila(s) con errores. No se creó ni modificó ningún estudiante.`,
+      };
+    }
+
+    let created = 0;
+    let updated = 0;
+
+    for (const item of resolved) {
+      const existing = working.get(item.code);
+
+      if (!existing) {
+        const student = this.normalizeDraft(
+          {
+            universityCode: item.code,
+            academicDegree: item.academicDegree,
+            lastName: item.lastName,
+            firstName: item.firstName,
+            professionalSchoolId: item.schoolId,
+            professionalSchool: this.catalogService.nameOf('professionalSchools', item.schoolId),
+            locationId: item.locationId,
+            location: this.catalogService.nameOf('locations', item.locationId),
+            status: 'ACTIVE',
+          },
+          `stu-${String(nextSequence).padStart(6, '0')}`,
+        );
+
+        working.set(item.code, student);
         nextSequence++;
         created++;
         continue;
       }
 
-      working.set(universityCode, {
+      // Solo se completa lo que falta: la carga nunca pisa datos existentes.
+      working.set(item.code, {
         ...existing,
-        academicDegree: existing.academicDegree || row.academicDegree?.trim() || '',
-        professionalSchool: existing.professionalSchool || row.professionalSchool,
-        headquarters: existing.headquarters || row.headquarters,
+        academicDegree: existing.academicDegree || item.academicDegree,
       });
       updated++;
     }
 
     if (created > 0 || updated > 0) {
-      const next = Array.from(working.values());
-      this.studentsState.set(next);
+      this.studentsState.set(Array.from(working.values()));
     }
 
     return {
       total: rows.length,
       created,
       updated,
-      duplicates,
-      invalid,
+      duplicates: [],
+      invalid: [],
     };
+  }
+
+  /** Id del catalogo a partir del nombre escrito en el archivo. */
+  private catalogIdByName(kind: 'professionalSchools' | 'locations', name: string): number | null {
+    const key = name?.trim().toLowerCase() ?? '';
+    if (!key) {
+      return null;
+    }
+
+    return (
+      this.catalogService
+        .options(kind)
+        .find((option) => option.name.trim().toLowerCase() === key)?.id ?? null
+    );
   }
 
   /**
    * Motivo por el que una fila del padron no puede cargarse.
    *
    * El codigo debe ser numerico (es la clave funcional del padron), los nombres
-   * solo letras y escuela/sede son obligatorios: una fila que no cumpla esto
-   * crearia un estudiante erroneo.
+   * solo letras y escuela/sede deben existir en el catalogo.
    */
-  private importRowIssue(row: StudentImportRow, universityCode: string): string | null {
+  private importRowIssue(
+    row: StudentImportRow,
+    universityCode: string,
+    schoolId: number | null,
+    locationId: number | null,
+  ): string | null {
     if (!universityCode) {
-      return 'MISSING_CODE';
+      return 'La fila no tiene código universitario.';
     }
 
     if (!/^\d{4,15}$/.test(universityCode)) {
-      return 'INVALID_CODE';
+      return 'El código universitario debe ser numérico (entre 4 y 15 dígitos).';
     }
 
     if (!this.isPersonName(row.lastName) || !this.isPersonName(row.firstName)) {
-      return 'INVALID_NAME';
+      return 'Los apellidos y nombres solo admiten letras, espacios, puntos, guiones o apóstrofes.';
     }
 
     if (!row.professionalSchool?.trim()) {
-      return 'MISSING_SCHOOL';
+      return 'La fila no trae escuela profesional.';
     }
 
-    if (!row.headquarters?.trim()) {
-      return 'MISSING_HEADQUARTERS';
+    if (!schoolId) {
+      return `La escuela profesional "${row.professionalSchool}" no existe en el catálogo.`;
+    }
+
+    if (!row.location?.trim()) {
+      return 'La fila no trae sede.';
+    }
+
+    if (!locationId) {
+      return `La sede "${row.location}" no existe en el catálogo.`;
     }
 
     return null;
@@ -692,13 +741,6 @@ export class StudentService {
     );
   }
 
-  /**
-   * Siguiente id libre del padron.
-   *
-   * Se toma del ultimo `stu-NNNNNN`, no de la cantidad de estudiantes: el padron
-   * puede traer huecos y, con el codigo como clave funcional, un id repetido
-   * hace que dos estudiantes distintos compartan ficha.
-   */
   private nextId(): string {
     return `stu-${String(this.lastSequence() + 1).padStart(6, '0')}`;
   }

@@ -1,7 +1,8 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { StudentStatus } from '../../../generated/prisma/client';
-import { IsEnum, IsOptional, IsString } from 'class-validator';
+import { Type } from 'class-transformer';
+import { IsEnum, IsInt, IsOptional, IsString, Min } from 'class-validator';
 import { blankToUndefined } from '../../../common/dto/blank-query';
+import { StudentStatus } from '../../../generated/prisma/client';
 
 /**
  * Filtros del padron de estudiantes. Todos se combinan con AND y todos son
@@ -20,17 +21,19 @@ export class QueryStudentsDto {
   @blankToUndefined()
   search?: string;
 
-  @ApiPropertyOptional({ example: 'CIENCIAS FARMACEUTICAS Y BIOQUIMICA' })
+  @ApiPropertyOptional({ example: 1 })
   @IsOptional()
-  @IsString()
-  @blankToUndefined()
-  professionalSchool?: string;
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  professionalSchoolId?: number;
 
-  @ApiPropertyOptional({ example: 'FILIAL LIMA' })
+  @ApiPropertyOptional({ example: 1 })
   @IsOptional()
-  @IsString()
-  @blankToUndefined()
-  headquarters?: string;
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  locationId?: number;
 
   @ApiPropertyOptional({ enum: StudentStatus })
   @IsOptional()

@@ -1,7 +1,7 @@
 import 'dotenv/config';
 import { hashPassword } from '../src/common/password';
 import { defaultPermission, MODULE_NAMES } from '../src/common/permissions';
-import { UserRole, UserStatus } from '../src/generated/prisma/client';
+import { CatalogStatus, UserRole, UserStatus } from '../src/generated/prisma/client';
 import { createPrismaClient } from '../src/common/prisma/prisma-client-factory';
 
 /**
@@ -41,6 +41,18 @@ async function main(): Promise<void> {
     orderBy: { name: 'asc' },
   });
 
+  // --- Escuela general ------------------------------------------------------
+  // `general` identifica a las cuentas globales: pueden operar sobre todas las
+  // escuelas. Es la primera fila del catalogo y se crea antes que el usuario.
+  const generalSchool = await prisma.professionalSchool.upsert({
+    where: { name: 'general' },
+    create: {
+      name: 'general',
+      status: CatalogStatus.ACTIVE,
+    },
+    update: {},
+  });
+
   // --- Usuario demo ---------------------------------------------------------
   // `upsert` por correo: si ya existe no se toca su contrasena ni su rol.
   const admin = await prisma.user.upsert({
@@ -52,7 +64,7 @@ async function main(): Promise<void> {
       mustChangePassword: false,
       role: UserRole.ADMIN,
       status: UserStatus.ACTIVE,
-      professionalSchool: '',
+      professionalSchoolId: generalSchool.id,
     },
     update: {},
   });

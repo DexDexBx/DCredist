@@ -153,7 +153,9 @@ export class UserListComponent {
         return true;
       }
       return (
-        user.fullName.toLowerCase().includes(term) || user.email.toLowerCase().includes(term)
+        user.fullName.toLowerCase().includes(term) ||
+        user.email.toLowerCase().includes(term) ||
+        user.professionalSchoolName.toLowerCase().includes(term)
       );
     });
   });

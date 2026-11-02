@@ -1,5 +1,7 @@
 import { Controller, Get } from '@nestjs/common';
 import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
+import type { Actor } from '../../common/actor/actor.types';
+import { CurrentActor } from '../../common/actor/current-actor.decorator';
 import {
   CreditsProgressDto,
   DashboardSummaryDto,
@@ -18,8 +20,8 @@ export class ReportsController {
     description: 'Calculado con GROUP BY sobre students x participations. Solo suma participaciones VALID.',
   })
   @ApiOkResponse({ type: [SchoolCreditSummaryDto] })
-  schoolCredits(): Promise<SchoolCreditSummaryDto[]> {
-    return this.reportsService.schoolCredits();
+  schoolCredits(@CurrentActor() actor: Actor): Promise<SchoolCreditSummaryDto[]> {
+    return this.reportsService.schoolCredits(actor);
   }
 
   @Get('credits/progress')
@@ -29,8 +31,8 @@ export class ReportsController {
       'Meta institucional (21 por defecto), creditos vigentes, promedio de avance y cuantos estudiantes ya la alcanzaron. Todo se calcula al vuelo.',
   })
   @ApiOkResponse({ type: CreditsProgressDto })
-  creditsProgress(): Promise<CreditsProgressDto> {
-    return this.reportsService.creditsProgress();
+  creditsProgress(@CurrentActor() actor: Actor): Promise<CreditsProgressDto> {
+    return this.reportsService.creditsProgress(actor);
   }
 
   @Get('dashboard')
@@ -40,7 +42,7 @@ export class ReportsController {
       'Conteos de eventos y estudiantes, creditos vigentes del sistema, eventos de hoy, proximos eventos, top de estudiantes y resumen por escuela.',
   })
   @ApiOkResponse({ type: DashboardSummaryDto })
-  dashboard(): Promise<DashboardSummaryDto> {
-    return this.reportsService.dashboard();
+  dashboard(@CurrentActor() actor: Actor): Promise<DashboardSummaryDto> {
+    return this.reportsService.dashboard(actor);
   }
 }

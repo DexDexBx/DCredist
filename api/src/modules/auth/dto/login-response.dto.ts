@@ -19,8 +19,11 @@ export class LoginResponseDto {
   @ApiProperty({ enum: UserStatus })
   status!: UserStatus;
 
-  @ApiProperty()
-  professionalSchool!: string;
+  @ApiProperty({ example: 1 })
+  professionalSchoolId!: number;
+
+  @ApiProperty({ example: 'Ingenieria de Sistemas' })
+  professionalSchoolName!: string;
 
   @ApiProperty()
   mustChangePassword!: boolean;

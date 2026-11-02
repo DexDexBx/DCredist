@@ -1,4 +1,5 @@
 import {
+  CatalogStatus,
   EventModality,
   EventStatus,
   EventType,
@@ -12,10 +13,11 @@ import { createPrismaClient } from '../src/common/prisma/prisma-client-factory';
  * SEED MINIMO DE DCREDITS.
  *
  * Solo sirve para comprobar que las relaciones funcionan:
+ *  - catalogos de escuelas, sedes y organizadores
  *  - 5 estudiantes
- *  - 3 eventos (se necesitan 3 para verificar creditos 1.5 + 2 + 1 = 4.5,
- *    porque un estudiante solo puede participar una vez por evento)
- *  - 6 participaciones
+ *  - 4 eventos: cada participacion relaciona un estudiante y un evento de su
+ *    misma escuela profesional (regla del dominio)
+ *  - 6 participaciones; Marisol suma 1.5 + 2 + 1 = 4.5 creditos
  *
  * Es idempotente: se puede volver a ejecutar sin duplicar nada.
  * NO borra datos existentes.
@@ -24,14 +26,59 @@ import { createPrismaClient } from '../src/common/prisma/prisma-client-factory';
 const prisma = createPrismaClient();
 
 async function main(): Promise<void> {
+  // --- Catalogos ------------------------------------------------------------
+  const schoolNames = [
+    'CIENCIAS FARMACEUTICAS Y BIOQUIMICA',
+    'INGENIERIA DE SISTEMAS',
+    'DERECHO',
+  ];
+  const locationNames = ['FILIAL LIMA', 'SEDE CENTRAL', 'TRUJILLO'];
+  const organizerNames = [
+    'VICERRECTORIA ACADEMICA',
+    'DIRECCION DE ESCUELA',
+    'COMITE DE EVENTOS ACADEMICOS',
+  ];
+
+  const schools = new Map<string, number>();
+  const locations = new Map<string, number>();
+  const organizers = new Map<string, number>();
+
+  for (const name of schoolNames) {
+    const row = await prisma.professionalSchool.upsert({
+      where: { name },
+      create: { name, status: CatalogStatus.ACTIVE },
+      update: {},
+    });
+    schools.set(name, row.id);
+  }
+
+  for (const name of locationNames) {
+    const row = await prisma.location.upsert({
+      where: { name },
+      create: { name, status: CatalogStatus.ACTIVE },
+      update: {},
+    });
+    locations.set(name, row.id);
+  }
+
+  for (const name of organizerNames) {
+    const row = await prisma.organizer.upsert({
+      where: { name },
+      create: { name, status: CatalogStatus.ACTIVE },
+      update: {},
+    });
+    organizers.set(name, row.id);
+  }
+
+  // --- Estudiantes ----------------------------------------------------------
   const students = [
     {
       universityCode: '2213271',
       academicDegree: 'QUINTO',
       lastName: 'AGUILAR PEREZ',
       firstName: 'MARISOL SONIA',
-      professionalSchool: 'CIENCIAS FARMACEUTICAS Y BIOQUIMICA',
-      headquarters: 'FILIAL LIMA',
+      professionalSchoolId: schools.get('CIENCIAS FARMACEUTICAS Y BIOQUIMICA')!,
+      locationId: locations.get('FILIAL LIMA')!,
       status: StudentStatus.ACTIVE,
     },
     {
@@ -39,8 +86,8 @@ async function main(): Promise<void> {
       academicDegree: 'CUARTO',
       lastName: 'ALLCCAHUAMAN HUAMAN',
       firstName: 'JESUS',
-      professionalSchool: 'CIENCIAS FARMACEUTICAS Y BIOQUIMICA',
-      headquarters: 'SEDE CENTRAL',
+      professionalSchoolId: schools.get('CIENCIAS FARMACEUTICAS Y BIOQUIMICA')!,
+      locationId: locations.get('SEDE CENTRAL')!,
       status: StudentStatus.ACTIVE,
     },
     {
@@ -48,8 +95,8 @@ async function main(): Promise<void> {
       academicDegree: 'TERCER',
       lastName: 'RAMIREZ',
       firstName: 'CAMILA',
-      professionalSchool: 'INGENIERIA DE SISTEMAS',
-      headquarters: 'TRUJILLO',
+      professionalSchoolId: schools.get('INGENIERIA DE SISTEMAS')!,
+      locationId: locations.get('TRUJILLO')!,
       status: StudentStatus.ACTIVE,
     },
     {
@@ -57,8 +104,8 @@ async function main(): Promise<void> {
       academicDegree: 'SEXTO',
       lastName: 'QUISPE MONTES',
       firstName: 'ANDRES',
-      professionalSchool: 'INGENIERIA DE SISTEMAS',
-      headquarters: 'SEDE CENTRAL',
+      professionalSchoolId: schools.get('INGENIERIA DE SISTEMAS')!,
+      locationId: locations.get('SEDE CENTRAL')!,
       status: StudentStatus.ACTIVE,
     },
     {
@@ -66,12 +113,13 @@ async function main(): Promise<void> {
       academicDegree: 'PRIMER',
       lastName: 'TORRES VILLA',
       firstName: 'LUCIA',
-      professionalSchool: 'DERECHO',
-      headquarters: 'FILIAL LIMA',
+      professionalSchoolId: schools.get('DERECHO')!,
+      locationId: locations.get('FILIAL LIMA')!,
       status: StudentStatus.INACTIVE,
     },
   ];
 
+  // --- Eventos --------------------------------------------------------------
   const events = [
     {
       code: 'EVT-2026-001',
@@ -86,7 +134,8 @@ async function main(): Promise<void> {
       modality: EventModality.HYBRID,
       location: 'Auditorio Central, Sede Central',
       capacity: 400,
-      organizer: 'Vicerrectoria Academica',
+      organizerId: organizers.get('VICERRECTORIA ACADEMICA')!,
+      professionalSchoolId: schools.get('CIENCIAS FARMACEUTICAS Y BIOQUIMICA')!,
       credits: 2,
       status: EventStatus.IN_PROGRESS,
     },
@@ -94,7 +143,7 @@ async function main(): Promise<void> {
       code: 'EVT-2026-002',
       name: 'Taller de Bioseguridad en Laboratorios',
       description: 'Taller practico sobre protocolos de bioseguridad en laboratorios de salud.',
-eventType: EventType.SINGLE_DAY,
+      eventType: EventType.SINGLE_DAY,
       category: 'Taller',
       startDate: new Date('2026-09-15T00:00:00.000Z'),
       endDate: new Date('2026-09-15T00:00:00.000Z'),
@@ -103,7 +152,8 @@ eventType: EventType.SINGLE_DAY,
       modality: EventModality.PRESENTIAL,
       location: 'Laboratorio 3, Facultad de Ciencias Farmaceuticas y Bioquimica',
       capacity: 60,
-      organizer: 'Direccion de Escuela',
+      organizerId: organizers.get('DIRECCION DE ESCUELA')!,
+      professionalSchoolId: schools.get('CIENCIAS FARMACEUTICAS Y BIOQUIMICA')!,
       credits: 1,
       status: EventStatus.SCHEDULED,
     },
@@ -111,7 +161,7 @@ eventType: EventType.SINGLE_DAY,
       code: 'EVT-2026-003',
       name: 'Seminario de Biotecnologia Aplicada',
       description: 'Seminario virtual sobre aplicaciones de la biotecnologia en salud y agroindustria.',
-eventType: EventType.SINGLE_DAY,
+      eventType: EventType.SINGLE_DAY,
       category: 'Seminario',
       startDate: new Date('2026-07-20T00:00:00.000Z'),
       endDate: new Date('2026-07-20T00:00:00.000Z'),
@@ -120,8 +170,27 @@ eventType: EventType.SINGLE_DAY,
       modality: EventModality.VIRTUAL,
       location: 'Plataforma virtual institucional',
       capacity: null,
-      organizer: 'Comite de Eventos Academicos',
+      organizerId: organizers.get('COMITE DE EVENTOS ACADEMICOS')!,
+      professionalSchoolId: schools.get('INGENIERIA DE SISTEMAS')!,
       credits: 1.5,
+      status: EventStatus.COMPLETED,
+    },
+    {
+      code: 'EVT-2026-004',
+      name: 'Foro de Innovacion Farmaceutica',
+      description: 'Foro academico sobre innovacion y gestion en ciencias farmaceuticas.',
+      eventType: EventType.SINGLE_DAY,
+      category: 'Foro',
+      startDate: new Date('2026-06-12T00:00:00.000Z'),
+      endDate: new Date('2026-06-12T00:00:00.000Z'),
+      startTime: '10:00',
+      endTime: '13:00',
+      modality: EventModality.PRESENTIAL,
+      location: 'Auditorio de la Facultad de Ciencias Farmaceuticas y Bioquimica',
+      capacity: 120,
+      organizerId: organizers.get('DIRECCION DE ESCUELA')!,
+      professionalSchoolId: schools.get('CIENCIAS FARMACEUTICAS Y BIOQUIMICA')!,
+      credits: 1,
       status: EventStatus.COMPLETED,
     },
   ];
@@ -171,10 +240,10 @@ eventType: EventType.SINGLE_DAY,
       status: ParticipationStatus.VALID,
     },
     {
-      eventCode: 'EVT-2026-003',
+      eventCode: 'EVT-2026-004',
       universityCode: '2213271',
       participationType: ParticipationType.ASISTENTE,
-      participationDate: new Date('2026-07-20T16:00:00.000Z'),
+      participationDate: new Date('2026-06-12T10:00:00.000Z'),
       credits: 1,
       verificationCode: 'DC-2026-7T2B5X',
       grade: 18,
@@ -192,10 +261,10 @@ eventType: EventType.SINGLE_DAY,
       status: ParticipationStatus.PENDING,
     },
     {
-      eventCode: 'EVT-2026-001',
+      eventCode: 'EVT-2026-003',
       universityCode: '2213099',
       participationType: ParticipationType.PANELISTA,
-      participationDate: new Date('2026-10-06T11:00:00.000Z'),
+      participationDate: new Date('2026-07-20T17:00:00.000Z'),
       credits: 2,
       verificationCode: 'DC-2026-2H6C4V',
       grade: 14,
@@ -239,12 +308,18 @@ eventType: EventType.SINGLE_DAY,
   }
 
   const totals = {
+    escuelas: await prisma.professionalSchool.count(),
+    sedes: await prisma.location.count(),
+    organizadores: await prisma.organizer.count(),
     estudiantes: await prisma.student.count(),
     eventos: await prisma.event.count(),
     participaciones: await prisma.participation.count(),
   };
 
   console.log('Seed de DCredits completado:');
+  console.log(`  escuelas      : ${totals.escuelas}`);
+  console.log(`  sedes         : ${totals.sedes}`);
+  console.log(`  organizadores : ${totals.organizadores}`);
   console.log(`  estudiantes   : ${totals.estudiantes}`);
   console.log(`  eventos       : ${totals.eventos}`);
   console.log(`  participaciones: ${totals.participaciones}`);

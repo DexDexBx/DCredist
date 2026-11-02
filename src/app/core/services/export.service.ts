@@ -14,6 +14,7 @@ import {
 import { EventService } from './event.service';
 import { ParticipationService } from './participation.service';
 import { StudentService } from './student.service';
+import { CatalogService } from './catalog.service';
 import { collateCodes } from '../../shared/utils/text.utils';
 import {
   buildCsv,
@@ -48,6 +49,7 @@ export class ExportService {
   private readonly eventService = inject(EventService);
   private readonly participationService = inject(ParticipationService);
   private readonly studentService = inject(StudentService);
+  private readonly catalogService = inject(CatalogService);
 
   /**
    * Nombre definitivo del reporte: el archivo que se descarga es .xlsx,
@@ -109,10 +111,14 @@ export class ExportService {
   }
 
   /** Padron completo de una escuela: base de la consulta institucional. */
-  exportSchoolStudents(professionalSchool: string): ExportResult {
+  exportSchoolStudents(professionalSchoolId: number): ExportResult {
     const students = this.studentService
-      .getStudents({ professionalSchool })
+      .getStudents({ professionalSchoolId })
       .filter((student) => student.status === 'ACTIVE');
+    const professionalSchool = this.catalogService.nameOf(
+      'professionalSchools',
+      professionalSchoolId,
+    );
 
     const header = [
       'CÓDIGO UNIVERSITARIO',
@@ -137,7 +143,7 @@ export class ExportService {
         student.lastName,
         student.firstName,
         student.professionalSchool,
-        student.headquarters,
+        student.location,
         student.status,
       ]),
     ];
@@ -248,8 +254,8 @@ export class ExportService {
   }
 
   /** Exporta y descarga el padron de una escuela. */
-  downloadSchoolStudents(professionalSchool: string): ExportResult {
-    const result = this.exportSchoolStudents(professionalSchool);
+  downloadSchoolStudents(professionalSchoolId: number): ExportResult {
+    const result = this.exportSchoolStudents(professionalSchoolId);
     this.download(result);
     return result;
   }
@@ -358,7 +364,7 @@ export class ExportService {
       primaryCertificateCode(participation) ?? '',
       formatCredits(participation.credits),
       formatGrade(participation.grade),
-      student?.headquarters ?? '',
+      student?.location ?? '',
     ];
   }
 

@@ -219,7 +219,7 @@ export class ParticipationImportIssueDto {
 
   @ApiProperty({
     example: 'STUDENT_NOT_FOUND',
-    description: 'STUDENT_NOT_FOUND | DUPLICATE_IN_FILE | ALREADY_REGISTERED | EVENT_FULL | INVALID_ROW',
+    description: 'STUDENT_NOT_FOUND | STUDENT_OTHER_SCHOOL | STUDENT_INACTIVE | DUPLICATE_IN_FILE | ALREADY_REGISTERED | EVENT_FULL | INVALID_ROW | DB_ERROR',
   })
   code!: string;
 

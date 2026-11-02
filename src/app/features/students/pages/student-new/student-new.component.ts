@@ -7,7 +7,9 @@ import {
   StudentService,
 } from '../../../../core/services/student.service';
 import { CatalogService } from '../../../../core/services/catalog.service';
-import { StudentStatus } from '../../../../models';
+import { AuthService } from '../../../../core/services/auth.service';
+import { CatalogOption } from '../../../../models/catalog.model';
+import { StudentDraft, StudentStatus } from '../../../../models';
 import { DcInputComponent } from '../../../../shared/components/form/dc-input/dc-input.component';
 import { DcSelectComponent, DcSelectOption } from '../../../../shared/components/form/dc-select/dc-select.component';
 import { IconComponent } from '../../../../shared/components/ui/icon/icon.component';
@@ -53,6 +55,7 @@ const IMPORT_COLUMNS = [
 export class StudentNewComponent {
   private readonly studentService = inject(StudentService);
   private readonly catalogService = inject(CatalogService);
+  private readonly auth = inject(AuthService);
   private readonly fb = inject(FormBuilder);
   private readonly router = inject(Router);
 
@@ -70,8 +73,12 @@ export class StudentNewComponent {
   readonly importSummary = signal<StudentImportSummary | null>(null);
 
   /** Las escuelas y sedes salen del catalogo administrable. */
-  readonly schools = computed(() => this.catalogService.names('schools'));
-  readonly sites = computed(() => this.catalogService.names('headquarters'));
+  readonly schools = computed<CatalogOption[]>(() =>
+    this.scopedSchools(this.catalogService.options('professionalSchools')),
+  );
+  readonly sites = computed<CatalogOption[]>(() =>
+    this.catalogService.options('locations'),
+  );
 
   readonly statusOptions: DcSelectOption[] = (
     ['ACTIVE', 'INACTIVE'] as StudentStatus[]
@@ -81,11 +88,11 @@ export class StudentNewComponent {
   }));
 
   readonly schoolOptions = computed<DcSelectOption[]>(() =>
-    this.schools().map((school) => ({ value: school, label: school }))
+    this.schools().map((school) => ({ value: String(school.id), label: school.name }))
   );
 
   readonly siteOptions = computed<DcSelectOption[]>(() =>
-    this.sites().map((site) => ({ value: site, label: site }))
+    this.sites().map((site) => ({ value: String(site.id), label: site.name }))
   );
 
   readonly form = this.fb.nonNullable.group({
@@ -93,10 +100,19 @@ export class StudentNewComponent {
     academicDegree: [''],
     lastName: ['', [Validators.required]],
     firstName: ['', [Validators.required]],
-    professionalSchool: ['', [Validators.required]],
-    headquarters: ['', [Validators.required]],
+    professionalSchoolId: ['', [Validators.required]],
+    locationId: ['', [Validators.required]],
     status: ['ACTIVE' as StudentStatus, [Validators.required]],
   });
+
+  /** Un actor de escuela solo puede registrar estudiantes de su escuela. */
+  private scopedSchools(options: CatalogOption[]): CatalogOption[] {
+    const user = this.auth.currentUser();
+    if (!user || isGeneralSchool(user.professionalSchoolName)) {
+      return options;
+    }
+    return options.filter((option) => option.id === user.professionalSchoolId);
+  }
 
   async onSubmit(): Promise<void> {
     this.form.markAllAsTouched();
@@ -113,7 +129,24 @@ export class StudentNewComponent {
       return;
     }
 
-    const student = await this.studentService.create(value);
+    const professionalSchoolId = Number(value.professionalSchoolId);
+    const locationId = Number(value.locationId);
+    const draft: StudentDraft = {
+      universityCode: value.universityCode,
+      academicDegree: value.academicDegree,
+      lastName: value.lastName,
+      firstName: value.firstName,
+      professionalSchoolId,
+      professionalSchool: this.catalogService.nameOf(
+        'professionalSchools',
+        professionalSchoolId,
+      ),
+      locationId,
+      location: this.catalogService.nameOf('locations', locationId),
+      status: value.status,
+    };
+
+    const student = await this.studentService.create(draft);
 
     if (student) {
       this.createdCode.set(student.universityCode);
@@ -122,8 +155,8 @@ export class StudentNewComponent {
         academicDegree: '',
         lastName: '',
         firstName: '',
-        professionalSchool: '',
-        headquarters: '',
+        professionalSchoolId: '',
+        locationId: '',
         status: 'ACTIVE',
       });
     }
@@ -144,7 +177,7 @@ export class StudentNewComponent {
       lastName: cells[1] ?? '',
       firstName: cells[2] ?? '',
       professionalSchool: cells[3] ?? '',
-      headquarters: cells[4] ?? '',
+      location: cells[4] ?? '',
       academicDegree: cells[5] ?? '',
     }));
 
@@ -156,8 +189,8 @@ export class StudentNewComponent {
       | 'universityCode'
       | 'lastName'
       | 'firstName'
-      | 'professionalSchool'
-      | 'headquarters'
+      | 'professionalSchoolId'
+      | 'locationId'
   ): boolean {
     const field = this.form.controls[control];
     return field.touched && field.invalid;
@@ -234,4 +267,9 @@ export class StudentNewComponent {
       rows: [[...IMPORT_COLUMNS, 'GRADO ACADÉMICO (opcional)']],
     });
   }
+}
+
+/** `general` es la escuela de las cuentas globales, no una escuela real. */
+function isGeneralSchool(name: string | undefined): boolean {
+  return (name ?? '').trim().toLowerCase() === 'general';
 }

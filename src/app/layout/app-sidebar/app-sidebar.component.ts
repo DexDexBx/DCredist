@@ -70,7 +70,7 @@ export class AppSidebarComponent {
           label: 'Catálogos',
           path: '/catalogs/organizers',
           icon: 'building',
-          exact: true,
+          exact: false,
           module: 'catalogs',
           level: 'VIEW',
         },

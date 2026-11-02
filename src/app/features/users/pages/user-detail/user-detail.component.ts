@@ -4,6 +4,8 @@ import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { AuthService } from '../../../../core/services/auth.service';
 import { UserService } from '../../../../core/services/user.service';
+import { CatalogService } from '../../../../core/services/catalog.service';
+import { CatalogOption } from '../../../../models/catalog.model';
 import {
   ALL_USER_ROLES,
   MIN_PASSWORD_LENGTH,
@@ -49,6 +51,7 @@ import { PanelComponent } from '../../../../shared/components/ui/panel/panel.com
 })
 export class UserDetailComponent {
   private readonly userService = inject(UserService);
+  private readonly catalogService = inject(CatalogService);
   private readonly fb = inject(FormBuilder);
   private readonly router = inject(Router);
 
@@ -69,6 +72,22 @@ export class UserDetailComponent {
     value: role,
     label: ROLE_LABELS[role],
   }));
+
+  /** Escuelas asignables. `general` solo la ve un actor global. */
+  readonly schoolOptions = computed<DcSelectOption[]>(() => {
+    const current = this.auth.currentUser();
+    const global =
+      !current ||
+      (current.professionalSchoolName ?? '').trim().toLowerCase() === 'general';
+    const options: CatalogOption[] = this.catalogService.options(
+      'professionalSchools',
+      global,
+    );
+
+    return options
+      .filter((option) => global || option.id === current?.professionalSchoolId)
+      .map((option) => ({ value: String(option.id), label: option.name }));
+  });
 
   readonly user = computed(() => this.userService.findById(this.id()));
 
@@ -109,6 +128,7 @@ export class UserDetailComponent {
     email: ['', [Validators.required, Validators.email]],
     password: ['', [Validators.minLength(MIN_PASSWORD_LENGTH)]],
     role: ['OPERATOR' as UserRole, [Validators.required]],
+    professionalSchoolId: ['', [Validators.required]],
   });
 
   private formInitialized = false;
@@ -124,6 +144,7 @@ export class UserDetailComponent {
           fullName: user.fullName,
           email: user.email,
           role: user.role,
+          professionalSchoolId: String(user.professionalSchoolId),
         });
       }
     });
@@ -133,6 +154,17 @@ export class UserDetailComponent {
     effect(() => {
       const control = this.form.controls.role;
       if (this.roleLocked()) {
+        control.disable({ emitEvent: false });
+      } else {
+        control.enable({ emitEvent: false });
+      }
+    });
+
+    // Nadie puede cambiarse su propia escuela: el alcance de la sesión quedaría
+    // desincronizado de los datos que ya tiene cargados.
+    effect(() => {
+      const control = this.form.controls.professionalSchoolId;
+      if (this.isSelf()) {
         control.disable({ emitEvent: false });
       } else {
         control.enable({ emitEvent: false });
@@ -173,6 +205,9 @@ export class UserDetailComponent {
       role: this.roleLocked() ? user.role : value.role,
       status: user.status,
       password: value.password || undefined,
+      professionalSchoolId: this.isSelf()
+        ? user.professionalSchoolId
+        : Number(value.professionalSchoolId),
     };
     const validation = this.userService.validate(draft, this.id());
 
@@ -208,7 +243,9 @@ export class UserDetailComponent {
     await this.userService.setStatus(user.id, next);
   }
 
-  isInvalid(control: 'fullName' | 'email' | 'password' | 'role'): boolean {
+  isInvalid(
+    control: 'fullName' | 'email' | 'password' | 'role' | 'professionalSchoolId',
+  ): boolean {
     const field = this.form.controls[control];
     return field.touched && field.invalid;
   }

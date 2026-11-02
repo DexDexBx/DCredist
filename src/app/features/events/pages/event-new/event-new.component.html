@@ -149,13 +149,13 @@
           }
         </div>
         <dc-combobox
-          formControlName="organizer"
+          formControlName="organizerId"
           label="Organizador"
           [options]="organizerOptions()"
           placeholder="Buscar organizador..."
           hint="Se administra desde Catálogos."
           [required]="true"
-          [invalid]="isInvalid('organizer')"
+          [invalid]="isInvalid('organizerId')"
         />
       </div>
 
@@ -179,6 +179,16 @@
   <div class="flex flex-col gap-6">
     <dc-panel title="Configuración">
       <div class="flex flex-col gap-5">
+        <dc-select
+          formControlName="professionalSchoolId"
+          label="Escuela profesional"
+          [options]="schoolOptions()"
+          placeholder="Selecciona la escuela"
+          hint="Define el alcance del evento."
+          [required]="true"
+          [invalid]="isInvalid('professionalSchoolId')"
+        />
+
         <dc-select
           formControlName="status"
           label="Estado inicial"

@@ -32,7 +32,7 @@
 >
   @for (catalog of catalogs; track catalog.kind) {
   <a
-    [routerLink]="['/catalogs', catalog.kind]"
+    [routerLink]="['/catalogs', catalog.slug]"
     routerLinkActive="bg-white text-gray-900 shadow-theme-xs dark:bg-gray-900 dark:text-white"
     [routerLinkActiveOptions]="{ exact: true }"
     class="inline-flex items-center gap-2 rounded-xl px-3.5 py-2 text-sm font-medium text-gray-600 transition-colors hover:text-gray-900 dark:text-gray-300 dark:hover:text-white"
@@ -80,6 +80,15 @@
   </div>
   }
 
+  @if (mutationError()) {
+  <div
+    class="mb-4 flex items-start gap-2 rounded-xl border border-error-200 bg-error-50 px-3.5 py-2.5 text-xs text-error-700 dark:border-error-500/30 dark:bg-error-500/10 dark:text-error-400"
+  >
+    <dc-icon name="info" [size]="15" class="mt-0.5 shrink-0" />
+    <p>{{ mutationError() }}</p>
+  </div>
+  }
+
   <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
     <div class="relative w-full max-w-sm">
       <dc-icon
@@ -98,11 +107,11 @@
       />
     </div>
     <p class="text-xs text-gray-500 dark:text-gray-400">
-      {{ rows().length }} de {{ total() }} entrada(s)
+      {{ pageData().total }} de {{ total() }} entrada(s)
     </p>
   </div>
 
-  @if (rows().length === 0) {
+  @if (pageData().items.length === 0) {
   <dc-empty-state
     title="Sin entradas"
     [description]="
@@ -127,8 +136,8 @@
         </tr>
       </thead>
       <tbody class="divide-y divide-gray-200 dark:divide-gray-800">
-        @for (row of rows(); track row.entry.id) {
-        <tr [class.opacity-60]="!row.entry.active">
+        @for (row of pageData().items; track row.entry.id) {
+        <tr [class.opacity-60]="row.entry.status !== 'ACTIVE'">
           <td class="px-3 py-3.5">
             @if (editingId() === row.entry.id) {
             <div class="flex flex-wrap items-center gap-2">
@@ -186,8 +195,8 @@
             }
           </td>
           <td class="px-3 py-3.5">
-            <app-badge size="sm" [color]="row.entry.active ? 'success' : 'light'">
-              {{ row.entry.active ? 'Activo' : 'Inactivo' }}
+            <app-badge size="sm" [color]="row.entry.status === 'ACTIVE' ? 'success' : 'light'">
+              {{ statusLabel[row.entry.status] }}
             </app-badge>
           </td>
           <td class="px-3 py-3.5 text-end">
@@ -222,14 +231,15 @@
                 <button
                   type="button"
                   (click)="toggleActive(row.entry)"
-                  class="rounded-lg border border-gray-200 px-2.5 py-1.5 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-100 dark:border-gray-800 dark:text-gray-200 dark:hover:bg-white/5"
+                  [disabled]="busyId() === row.entry.id"
+                  class="rounded-lg border border-gray-200 px-2.5 py-1.5 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-40 dark:border-gray-800 dark:text-gray-200 dark:hover:bg-white/5"
                 >
-                  {{ row.entry.active ? 'Desactivar' : 'Activar' }}
+                  {{ row.entry.status === 'ACTIVE' ? 'Desactivar' : 'Activar' }}
                 </button>
                 <button
                   type="button"
                   (click)="requestDelete(row.entry, row.usage)"
-                  [disabled]="row.usage > 0"
+                  [disabled]="row.usage > 0 || busyId() === row.entry.id"
                   [attr.title]="
                     row.usage > 0
                       ? 'No se puede eliminar: tiene registros asociados. Desactívalo.'
@@ -250,11 +260,23 @@
       </tbody>
     </table>
   </div>
+
+  <div class="mt-4">
+    <dc-pagination
+      [page]="pageData().page"
+      [pageCount]="pageData().pageCount"
+      [total]="pageData().total"
+      [from]="pageData().from"
+      [to]="pageData().to"
+      [pageSize]="pageData().pageSize"
+      (pageChange)="goToPage($event)"
+      (pageSizeChange)="onPageSizeChange($event)"
+    />
+  </div>
   }
 
   <p class="mt-4 text-xs leading-relaxed text-gray-500 dark:text-gray-400">
-    Al renombrar, los eventos y estudiantes que usaban el nombre anterior se actualizan
-    automáticamente. Las entradas se derivan de los datos cargados y los cambios viven en
-    memoria hasta que exista la API de catálogos.
+    Las entradas en uso no se pueden eliminar: desactívalas para dejar de ofrecerlas en los
+    formularios sin perder el histórico.
   </p>
 </dc-panel>

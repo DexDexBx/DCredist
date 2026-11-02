@@ -9,7 +9,10 @@ import {
   ApiQuery,
   ApiTags,
 } from '@nestjs/swagger';
+import type { Actor } from '../../common/actor/actor.types';
+import { CurrentActor } from '../../common/actor/current-actor.decorator';
 import { CreateEventDto } from './dto/create-event.dto';
+import { EventDto } from './dto/event.dto';
 import { EventParticipantDto, EventSummaryDto } from './dto/event-participant.dto';
 import { QueryEventsDto } from './dto/query-events.dto';
 import { UpdateEventDto } from './dto/update-event.dto';
@@ -21,18 +24,24 @@ export class EventsController {
   constructor(private readonly eventsService: EventsService) {}
 
   @Get()
-  @ApiOperation({ summary: 'Lista los eventos ordenados por fecha de inicio.' })
-  @ApiOkResponse({ description: 'Eventos academicos.' })
-  findAll(@Query() query: QueryEventsDto) {
-    return this.eventsService.findAll(query);
+  @ApiOperation({
+    summary: 'Lista los eventos ordenados por fecha de inicio.',
+    description: 'Un usuario de escuela solo ve los eventos de su escuela.',
+  })
+  @ApiOkResponse({ type: [EventDto] })
+  findAll(
+    @Query() query: QueryEventsDto,
+    @CurrentActor() actor: Actor
+  ): Promise<EventDto[]> {
+    return this.eventsService.findAll(query, actor);
   }
 
   @Get(':id')
   @ApiOperation({ summary: 'Detalle de un evento.' })
-  @ApiOkResponse({ description: 'Evento academico.' })
+  @ApiOkResponse({ type: EventDto })
   @ApiNotFoundResponse({ description: 'El evento no existe.' })
-  findOne(@Param('id') id: string) {
-    return this.eventsService.findOne(id);
+  findOne(@Param('id') id: string, @CurrentActor() actor: Actor): Promise<EventDto> {
+    return this.eventsService.findOneDto(id, actor);
   }
 
   @Get(':id/summary')
@@ -42,15 +51,18 @@ export class EventsController {
   })
   @ApiOkResponse({ type: EventSummaryDto })
   @ApiNotFoundResponse({ description: 'El evento no existe.' })
-  findSummary(@Param('id') id: string): Promise<EventSummaryDto> {
-    return this.eventsService.findSummary(id);
+  findSummary(
+    @Param('id') id: string,
+    @CurrentActor() actor: Actor
+  ): Promise<EventSummaryDto> {
+    return this.eventsService.findSummary(id, actor);
   }
 
   @Get(':id/participations')
   @ApiOperation({
     summary: 'Participaciones del evento con los datos del estudiante.',
     description:
-      'Datos preparados para la revision de participantes y el exporte institucional: codigo, grado, apellidos, nombres, escuela, sede, tipo, codigo DCredits, certificado, creditos, nota y estado.',
+      'Datos preparados para la revision de participantes y el exporte institucional: codigo, grado, apellidos, nombres, escuela, sede, tipo, codigo DCredits, creditos, nota y estado.',
   })
   @ApiQuery({
     name: 'includeCancelled',
@@ -61,31 +73,36 @@ export class EventsController {
   @ApiNotFoundResponse({ description: 'El evento no existe.' })
   findParticipants(
     @Param('id') id: string,
-    @Query('includeCancelled') includeCancelled?: string
+    @Query('includeCancelled') includeCancelled: string | undefined,
+    @CurrentActor() actor: Actor
   ): Promise<EventParticipantDto[]> {
-    return this.eventsService.findParticipants(id, includeCancelled !== 'false');
+    return this.eventsService.findParticipants(id, includeCancelled !== 'false', actor);
   }
 
   @Post()
   @ApiOperation({
     summary: 'Registra un evento.',
     description:
-      'Valida endDate >= startDate y credits >= 0. El codigo y el tipo de duracion (SINGLE_DAY/MULTI_DAY) se generan en el servidor cuando se omiten.',
+      'Valida endDate >= startDate y credits >= 0. El codigo y el tipo de duracion (SINGLE_DAY/MULTI_DAY) se generan en el servidor cuando se omiten. Un usuario de escuela solo crea eventos de su escuela.',
   })
-  @ApiCreatedResponse({ description: 'Evento creado.' })
-  @ApiBadRequestResponse({ description: 'Fechas, categoria o creditos invalidos.' })
+  @ApiCreatedResponse({ type: EventDto })
+  @ApiBadRequestResponse({ description: 'Fechas, categoria, organizador o creditos invalidos.' })
   @ApiConflictResponse({ description: 'El codigo del evento ya existe.' })
-  create(@Body() dto: CreateEventDto) {
-    return this.eventsService.create(dto);
+  create(@Body() dto: CreateEventDto, @CurrentActor() actor: Actor): Promise<EventDto> {
+    return this.eventsService.create(dto, actor);
   }
 
   @Patch(':id')
   @ApiOperation({ summary: 'Edita un evento.', description: 'Solo se actualizan los campos enviados.' })
-  @ApiOkResponse({ description: 'Evento actualizado.' })
+  @ApiOkResponse({ type: EventDto })
   @ApiNotFoundResponse({ description: 'El evento no existe.' })
   @ApiBadRequestResponse({ description: 'Fechas o creditos invalidos.' })
   @ApiConflictResponse({ description: 'El codigo del evento ya existe.' })
-  update(@Param('id') id: string, @Body() dto: UpdateEventDto) {
-    return this.eventsService.update(id, dto);
+  update(
+    @Param('id') id: string,
+    @Body() dto: UpdateEventDto,
+    @CurrentActor() actor: Actor
+  ): Promise<EventDto> {
+    return this.eventsService.update(id, dto, actor);
   }
 }

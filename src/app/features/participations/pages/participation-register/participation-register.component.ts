@@ -251,18 +251,27 @@ export class ParticipationRegisterComponent {
     }))
   );
 
-  readonly studentOptions = computed<DcSelectOption[]>(() =>
-    this.studentService
-      .getStudents({ status: 'ACTIVE' })
+  /**
+   * Estudiantes ofrecidos al registrar: solo los activos de la escuela del
+   * evento. El API rechaza mezclar escuelas, asi que ni siquiera se listan.
+   */
+  readonly studentOptions = computed<DcSelectOption[]>(() => {
+    const event = this.selectedEvent();
+
+    return this.studentService
+      .getStudents({
+        status: 'ACTIVE',
+        ...(event ? { professionalSchoolId: event.professionalSchoolId } : {}),
+      })
       .map((student) => ({
         value: student.id,
         label: `${student.universityCode} · ${student.lastName}, ${student.firstName}`,
         search: `${student.universityCode} ${student.lastName} ${student.firstName}`,
         description: student.professionalSchool
-          ? `${student.professionalSchool}${student.headquarters ? ' · ' + student.headquarters : ''}`
-          : student.headquarters,
-      }))
-  );
+          ? `${student.professionalSchool}${student.location ? ' · ' + student.location : ''}`
+          : student.location,
+      }));
+  });
 
   readonly typeOptions: DcSelectOption[] = (
     Object.keys(PARTICIPATION_TYPE_LABEL) as ParticipationType[]
@@ -358,6 +367,13 @@ export class ParticipationRegisterComponent {
     }
     if (student.status !== 'ACTIVE') {
       this.studentSearchError.set('El estudiante se encuentra inactivo');
+      return;
+    }
+    const event = this.selectedEvent();
+    if (event && student.professionalSchoolId !== event.professionalSchoolId) {
+      this.studentSearchError.set(
+        'El estudiante pertenece a otra escuela profesional que el evento.',
+      );
       return;
     }
     this.foundStudent.set(student);

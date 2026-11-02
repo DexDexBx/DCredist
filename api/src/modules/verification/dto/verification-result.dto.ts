@@ -46,7 +46,10 @@ export class VerificationResultDto {
     endDate: Date;
     modality: EventModality;
     location: string;
+    organizerId: number;
     organizer: string;
+    professionalSchoolId: number;
+    professionalSchool: string;
     credits: number;
     status: EventStatus;
   } | null;
@@ -58,8 +61,10 @@ export class VerificationResultDto {
     academicDegree: string;
     lastName: string;
     firstName: string;
+    professionalSchoolId: number;
     professionalSchool: string;
-    headquarters: string;
+    locationId: number;
+    location: string;
     status: StudentStatus;
   } | null;
 

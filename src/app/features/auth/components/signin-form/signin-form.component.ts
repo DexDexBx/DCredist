@@ -2,6 +2,7 @@ import { Component, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { AuthService } from '../../../../core/services/auth.service';
+import { ApiHydrationService } from '../../../../core/services/api-hydration.service';
 import { DcInputComponent } from '../../../../shared/components/form/dc-input/dc-input.component';
 import { IconComponent } from '../../../../shared/components/ui/icon/icon.component';
 
@@ -13,6 +14,7 @@ import { IconComponent } from '../../../../shared/components/ui/icon/icon.compon
 export class SigninFormComponent {
   private readonly fb = inject(FormBuilder);
   private readonly auth = inject(AuthService);
+  private readonly hydration = inject(ApiHydrationService);
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
 
@@ -43,6 +45,8 @@ export class SigninFormComponent {
       return;
     }
 
+    // El API exige X-User-Id: los datos se cargan despues del login.
+    await this.hydration.refresh();
     this.redirectAfterLogin();
   }
 

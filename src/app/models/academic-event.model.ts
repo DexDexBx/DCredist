@@ -34,7 +34,14 @@ export interface AcademicEvent {
   location?: string;
   status: EventStatus;
   capacity?: number | null;
-  organizer?: string;
+
+  /** Id y nombre del organizador en el catalogo. */
+  organizerId: number;
+  organizer: string;
+
+  /** Escuela profesional duena del evento: delimita su alcance. */
+  professionalSchoolId: number;
+  professionalSchool: string;
 
   /** Creditos que otorga el evento a cada participante. */
   credits: number;
@@ -93,7 +100,8 @@ export interface EventDraft {
   location: string;
   status: EventStatus;
   capacity: number | null;
-  organizer: string;
+  organizerId: number | null;
+  professionalSchoolId: number | null;
   credits: number;
   tags: string[];
 }

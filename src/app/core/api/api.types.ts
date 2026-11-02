@@ -29,7 +29,9 @@ export interface ApiUserBase {
   email: string;
   role: ApiUserRole;
   status: ApiUserStatus;
-  professionalSchool: string;
+  /** Id de la escuela profesional del usuario. `general` = acceso global. */
+  professionalSchoolId: number;
+  professionalSchoolName: string;
   mustChangePassword: boolean;
 }
 
@@ -57,22 +59,61 @@ export interface ApiUserPayload {
   role: ApiUserRole;
   status: ApiUserStatus;
   password?: string;
-  professionalSchool?: string;
+  professionalSchoolId?: number;
 }
 
 /** El alta exige contrasena inicial. */
 export interface ApiUserCreatePayload extends ApiUserPayload {
   password: string;
+  professionalSchoolId: number;
 }
 
 /** La edicion solo envia los campos que cambian. */
 export type ApiUserUpdatePayload = Partial<ApiUserPayload>;
 
+// -----------------------------------------------------------------------------
+// Catalogos
+// -----------------------------------------------------------------------------
+
+export type ApiCatalogStatus = 'ACTIVE' | 'INACTIVE';
+
+export type ApiCatalogKind = 'organizers' | 'professionalSchools' | 'locations';
+
+/** Entrada de catalogo con el conteo de registros que la usan. */
+export interface ApiCatalogEntry {
+  id: number;
+  name: string;
+  status: ApiCatalogStatus;
+  usageCount: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** Cuerpo de alta/edicion de una entrada de catalogo. */
+export interface ApiCatalogPayload {
+  name: string;
+  status?: ApiCatalogStatus;
+}
+
+// -----------------------------------------------------------------------------
+// Estudiantes
+// -----------------------------------------------------------------------------
+
 export type ApiStudentStatus = 'ACTIVE' | 'INACTIVE';
+
 export type ApiStudentImportIssueCode =
   | 'MISSING_CODE'
   | 'DUPLICATE_IN_FILE'
   | 'MISSING_NAMES'
+  | 'MISSING_PROFESSIONAL_SCHOOL'
+  | 'MISSING_LOCATION'
+  | 'UNKNOWN_PROFESSIONAL_SCHOOL'
+  | 'UNKNOWN_LOCATION'
+  | 'INACTIVE_PROFESSIONAL_SCHOOL'
+  | 'INACTIVE_LOCATION'
+  | 'FOREIGN_PROFESSIONAL_SCHOOL'
+  | 'SCHOOL_MISMATCH'
+  | 'LOCATION_MISMATCH'
   | 'DB_ERROR';
 
 export interface ApiStudent {
@@ -81,8 +122,10 @@ export interface ApiStudent {
   academicDegree: string;
   lastName: string;
   firstName: string;
+  professionalSchoolId: number;
   professionalSchool: string;
-  headquarters: string;
+  locationId: number;
+  location: string;
   status: ApiStudentStatus;
   totalCredits: number;
   creditsTarget: number;
@@ -97,9 +140,14 @@ export interface ApiStudent {
   pendingGrades: number;
 }
 
+export interface ApiCatalogFacet {
+  id: number;
+  name: string;
+}
+
 export interface ApiStudentFacets {
-  professionalSchools: string[];
-  headquarters: string[];
+  professionalSchools: ApiCatalogFacet[];
+  locations: ApiCatalogFacet[];
 }
 
 export interface ApiStudentImportIssue {
@@ -134,7 +182,10 @@ export interface ApiEvent {
   modality: ApiEventModality;
   location: string;
   capacity: number | null;
+  organizerId: number;
   organizer: string;
+  professionalSchoolId: number;
+  professionalSchool: string;
   credits: number;
   status: ApiEventStatus;
   createdAt?: string;
@@ -177,7 +228,8 @@ export interface ApiEventPayload {
   modality?: ApiEventModality;
   location?: string;
   capacity?: number | null;
-  organizer?: string;
+  organizerId?: number;
+  professionalSchoolId?: number;
   credits?: number;
   status?: ApiEventStatus;
 }
@@ -187,8 +239,8 @@ export interface ApiStudentPayload {
   academicDegree?: string;
   lastName: string;
   firstName: string;
-  professionalSchool: string;
-  headquarters: string;
+  professionalSchoolId: number;
+  locationId: number;
   status?: ApiStudentStatus;
 }
 
@@ -198,7 +250,7 @@ export interface ApiStudentImportRow {
   lastName?: string;
   firstName?: string;
   professionalSchool?: string;
-  headquarters?: string;
+  location?: string;
 }
 
 export interface ApiParticipationPayload {

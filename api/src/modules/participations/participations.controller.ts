@@ -9,6 +9,8 @@ import {
   ApiOperation,
   ApiTags,
 } from '@nestjs/swagger';
+import type { Actor } from '../../common/actor/actor.types';
+import { CurrentActor } from '../../common/actor/current-actor.decorator';
 import {
   CreateParticipationDto,
   ImportParticipationsDto,
@@ -28,16 +30,19 @@ export class ParticipationsController {
     summary: 'Lista participaciones con el evento y el estudiante resueltos.',
   })
   @ApiOkResponse({ description: 'Participaciones registradas.' })
-  findAll(@Query() query: QueryParticipationsDto) {
-    return this.participationsService.findAll(query);
+  findAll(
+    @Query() query: QueryParticipationsDto,
+    @CurrentActor() actor: Actor
+  ) {
+    return this.participationsService.findAll(query, actor);
   }
 
   @Get(':id')
   @ApiOperation({ summary: 'Detalle de una participacion.' })
   @ApiOkResponse({ description: 'Participacion con su evento.' })
   @ApiNotFoundResponse({ description: 'La participacion no existe.' })
-  findOne(@Param('id') id: string) {
-    return this.participationsService.findOne(id);
+  findOne(@Param('id') id: string, @CurrentActor() actor: Actor) {
+    return this.participationsService.findOne(id, actor);
   }
 
   @Post()
@@ -56,8 +61,8 @@ export class ParticipationsController {
   @ApiBadRequestResponse({ description: 'Creditos invalidos o evento cancelado.' })
   @ApiNotFoundResponse({ description: 'El evento o el estudiante no existen.' })
   @ApiConflictResponse({ description: 'El estudiante ya participa en ese evento.' })
-  create(@Body() dto: CreateParticipationDto) {
-    return this.participationsService.create(dto);
+  create(@Body() dto: CreateParticipationDto, @CurrentActor() actor: Actor) {
+    return this.participationsService.create(dto, actor);
   }
 
   @Patch(':id')
@@ -69,8 +74,12 @@ export class ParticipationsController {
   @ApiOkResponse({ description: 'Participacion actualizada.' })
   @ApiNotFoundResponse({ description: 'La participacion no existe.' })
   @ApiBadRequestResponse({ description: 'Creditos o nota invalidos.' })
-  update(@Param('id') id: string, @Body() dto: UpdateParticipationDto) {
-    return this.participationsService.update(id, dto);
+  update(
+    @Param('id') id: string,
+    @Body() dto: UpdateParticipationDto,
+    @CurrentActor() actor: Actor
+  ) {
+    return this.participationsService.update(id, dto, actor);
   }
 
   @Post('import')
@@ -88,7 +97,7 @@ export class ParticipationsController {
   @ApiCreatedResponse({ type: ParticipationImportResultDto })
   @ApiBadRequestResponse({ description: 'Archivo vacio o evento cancelado.' })
   @ApiNotFoundResponse({ description: 'El evento no existe.' })
-  import(@Body() dto: ImportParticipationsDto) {
-    return this.participationsService.importParticipations(dto);
+  import(@Body() dto: ImportParticipationsDto, @CurrentActor() actor: Actor) {
+    return this.participationsService.importParticipations(dto, actor);
   }
 }

@@ -76,21 +76,21 @@
       />
 
       <dc-select
-        formControlName="professionalSchool"
+        formControlName="professionalSchoolId"
         label="Escuela profesional"
         [options]="schoolOptions()"
         [placeholder]="'Selecciona la escuela'"
         [required]="true"
-        [invalid]="isInvalid('professionalSchool')"
+        [invalid]="isInvalid('professionalSchoolId')"
       />
 
       <dc-select
-        formControlName="headquarters"
+        formControlName="locationId"
         label="Sede"
         [options]="siteOptions()"
         [placeholder]="'Selecciona la sede'"
         [required]="true"
-        [invalid]="isInvalid('headquarters')"
+        [invalid]="isInvalid('locationId')"
       />
 
       <dc-select
@@ -250,9 +250,33 @@
 
     @if (importSummary(); as summary) {
     <div
-      class="mt-5 rounded-xl border border-gray-200 bg-gray-50 p-4 text-sm dark:border-gray-800 dark:bg-white/[0.03]"
+      class="mt-5 rounded-xl border p-4 text-sm"
+      [class]="
+        summary.message
+          ? 'border-error-200 bg-error-50 dark:border-error-500/30 dark:bg-error-500/10'
+          : 'border-gray-200 bg-gray-50 dark:border-gray-800 dark:bg-white/[0.03]'
+      "
     >
-      <p class="font-medium text-gray-900 dark:text-white/90">Resultado de la importación</p>
+      <p class="font-medium text-gray-900 dark:text-white/90">
+        {{ summary.message ? 'La importación no se aplicó' : 'Resultado de la importación' }}
+      </p>
+
+      @if (summary.message) {
+      <p class="mt-1 text-error-700 dark:text-error-400">{{ summary.message }}</p>
+      @if (summary.issues?.length) {
+      <ul class="mt-2 max-h-64 space-y-1 overflow-y-auto text-error-700 dark:text-error-400">
+        @for (issue of summary.issues; track issue.row + issue.message) {
+        <li>
+          <span class="font-medium">Fila {{ issue.row }}</span>
+          @if (issue.universityCode) {
+          <span class="font-mono">({{ issue.universityCode }})</span>
+          }
+          — {{ issue.message }}
+        </li>
+        }
+      </ul>
+      }
+      } @else {
       <ul class="mt-2 space-y-1 text-gray-600 dark:text-gray-300">
         <li>{{ summary.total }} fila(s) leída(s)</li>
         <li>{{ summary.created }} estudiante(s) nuevo(s)</li>
@@ -274,6 +298,7 @@
         Ver el padrón completo
         <dc-icon name="chevron-right" [size]="16" />
       </a>
+      }
     </div>
     }
   </dc-panel>

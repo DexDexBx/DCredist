@@ -3,6 +3,9 @@ import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import { API_ENDPOINTS } from './api-endpoints';
 import {
+  ApiCatalogEntry,
+  ApiCatalogKind,
+  ApiCatalogPayload,
   ApiEvent,
   ApiEventPayload,
   ApiLoginResponse,
@@ -72,6 +75,50 @@ export class DcreditsApiClient {
 
   listModules(): Observable<ApiModule[]> {
     return this.http.get<ApiModule[]>(API_ENDPOINTS.modules);
+  }
+
+  // --- Catalogos ---
+
+  /**
+   * Lista las entradas de un catalogo. `includeGeneral` solo aplica a escuelas
+   * y solo lo respeta el API para usuarios globales.
+   */
+  listCatalog(
+    kind: ApiCatalogKind,
+    options: { search?: string; status?: string; includeGeneral?: boolean } = {}
+  ): Observable<ApiCatalogEntry[]> {
+    let params = new HttpParams();
+
+    if (options.search?.trim()) {
+      params = params.set('search', options.search.trim());
+    }
+    if (options.status) {
+      params = params.set('status', options.status);
+    }
+    if (options.includeGeneral) {
+      params = params.set('includeGeneral', 'true');
+    }
+
+    return this.http.get<ApiCatalogEntry[]>(catalogBase(kind), { params });
+  }
+
+  createCatalogEntry(
+    kind: ApiCatalogKind,
+    payload: ApiCatalogPayload
+  ): Observable<ApiCatalogEntry> {
+    return this.http.post<ApiCatalogEntry>(catalogBase(kind), payload);
+  }
+
+  updateCatalogEntry(
+    kind: ApiCatalogKind,
+    id: number,
+    payload: Partial<ApiCatalogPayload>
+  ): Observable<ApiCatalogEntry> {
+    return this.http.patch<ApiCatalogEntry>(catalogItem(kind, id), payload);
+  }
+
+  deleteCatalogEntry(kind: ApiCatalogKind, id: number): Observable<void> {
+    return this.http.delete<void>(catalogItem(kind, id));
   }
 
   // --- Eventos ---
@@ -156,4 +203,27 @@ export interface ApiParticipationImportResult {
   found: number;
   skipped: number;
   issues: { row: number; universityCode: string; code: string; message: string }[];
+}
+
+/** URL base de cada catalogo. */
+function catalogBase(kind: ApiCatalogKind): string {
+  switch (kind) {
+    case 'professionalSchools':
+      return API_ENDPOINTS.professionalSchools;
+    case 'locations':
+      return API_ENDPOINTS.locations;
+    case 'organizers':
+      return API_ENDPOINTS.organizers;
+  }
+}
+
+function catalogItem(kind: ApiCatalogKind, id: number): string {
+  switch (kind) {
+    case 'professionalSchools':
+      return API_ENDPOINTS.professionalSchool(id);
+    case 'locations':
+      return API_ENDPOINTS.location(id);
+    case 'organizers':
+      return API_ENDPOINTS.organizer(id);
+  }
 }

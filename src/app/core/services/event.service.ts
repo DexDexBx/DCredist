@@ -16,6 +16,7 @@ import {
 } from '../../models';
 import { mapApiEvent, toApiEventPayload } from '../api/api.mappers';
 import { DcreditsApiClient } from '../api/dcredits-api.client';
+import { CatalogService } from './catalog.service';
 import { DataModeService } from './data-mode.service';
 
 /**
@@ -37,6 +38,7 @@ import { DataModeService } from './data-mode.service';
 export class EventService {
   private readonly api = inject(DcreditsApiClient);
   private readonly dataMode = inject(DataModeService);
+  private readonly catalogService = inject(CatalogService);
   private readonly eventsState = signal<AcademicEvent[]>([]);
 
   readonly events = this.eventsState.asReadonly();
@@ -74,13 +76,9 @@ export class EventService {
     modality?: EventModality | 'Todas';
     search?: string;
     code?: string;
-    school?: string;
-    faculty?: string;
-    professionalSchool?: string;
   }): AcademicEvent[] {
     const search = options.search?.trim().toLowerCase() ?? '';
     const code = options.code?.trim().toLowerCase() ?? '';
-    const school = options.school?.trim().toLowerCase() ?? options.faculty?.trim().toLowerCase() ?? options.professionalSchool?.trim().toLowerCase() ?? '';
 
     return this.eventsState()
       .filter((event) => {
@@ -93,20 +91,16 @@ export class EventService {
             ? true
             : event.modality === options.modality;
         const matchesCode = !code || event.code.toLowerCase().includes(code);
-        const matchesSchool =
-          !school ||
-          (event.organizer?.toLowerCase().includes(school) ?? false) ||
-          (event.location?.toLowerCase().includes(school) ?? false) ||
-          (event.description?.toLowerCase().includes(school) ?? false);
         const matchesSearch =
           !search ||
           event.name.toLowerCase().includes(search) ||
           event.code.toLowerCase().includes(search) ||
           event.eventType.toLowerCase().includes(search) ||
-          (event.organizer?.toLowerCase().includes(search) ?? false) ||
+          event.organizer.toLowerCase().includes(search) ||
+          event.professionalSchool.toLowerCase().includes(search) ||
           (event.description?.toLowerCase().includes(search) ?? false);
 
-        return matchesStatus && matchesModality && matchesCode && matchesSchool && matchesSearch;
+        return matchesStatus && matchesModality && matchesCode && matchesSearch;
       })
       .sort((a, b) => a.startDate.localeCompare(b.startDate));
   }
@@ -118,7 +112,8 @@ export class EventService {
       return (
         event.name.toLowerCase().includes(term) ||
         event.code.toLowerCase().includes(term) ||
-        (event.organizer?.toLowerCase().includes(term) ?? false) ||
+        event.organizer.toLowerCase().includes(term) ||
+        event.professionalSchool.toLowerCase().includes(term) ||
         (event.description?.toLowerCase().includes(term) ?? false) ||
         (event.location?.toLowerCase().includes(term) ?? false)
       );
@@ -166,8 +161,12 @@ export class EventService {
       errors.location = 'El lugar es obligatorio.';
     }
 
-    if (!draft.organizer.trim()) {
-      errors.organizer = 'El organizador es obligatorio.';
+    if (!draft.organizerId) {
+      errors.organizerId = 'El organizador es obligatorio.';
+    }
+
+    if (!draft.professionalSchoolId) {
+      errors.professionalSchoolId = 'La escuela profesional del evento es obligatoria.';
     }
 
     if (draft.credits === null || draft.credits === undefined || draft.credits < 0) {
@@ -214,7 +213,13 @@ export class EventService {
       location: draft.location.trim(),
       status: draft.status,
       capacity: draft.capacity,
-      organizer: draft.organizer.trim(),
+      organizerId: draft.organizerId ?? 0,
+      organizer: this.catalogService.nameOf('organizers', draft.organizerId ?? 0),
+      professionalSchoolId: draft.professionalSchoolId ?? 0,
+      professionalSchool: this.catalogService.nameOf(
+        'professionalSchools',
+        draft.professionalSchoolId ?? 0,
+      ),
       credits: draft.credits,
       tags: draft.tags,
     };
@@ -258,7 +263,13 @@ export class EventService {
       location: draft.location.trim(),
       status: draft.status,
       capacity: draft.capacity,
-      organizer: draft.organizer.trim(),
+      organizerId: draft.organizerId ?? 0,
+      organizer: this.catalogService.nameOf('organizers', draft.organizerId ?? 0),
+      professionalSchoolId: draft.professionalSchoolId ?? 0,
+      professionalSchool: this.catalogService.nameOf(
+        'professionalSchools',
+        draft.professionalSchoolId ?? 0,
+      ),
       credits: draft.credits,
       tags: draft.tags,
     };
@@ -384,35 +395,9 @@ export class EventService {
     return this.patchEvent(eventId, patch);
   }
 
-  /**
-   * Renombra el organizador en todo el historico.
-   *
-   * Lo usa el catalogo de organizadores: al corregir el nombre, los eventos ya
-   * registrados tienen que apuntar al nombre nuevo. Devuelve cuantos cambiaron.
-   */
-  renameOrganizer(previous: string, next: string): number {
-    if (previous === next) {
-      return 0;
-    }
-
-    let changed = 0;
-    const updated = this.eventsState().map((event) => {
-      if (event.organizer !== previous) {
-        return event;
-      }
-      changed++;
-      return { ...event, organizer: next };
-    });
-
-    if (changed > 0) {
-      this.eventsState.set(updated);
-    }
-
-    return changed;
-  }
-
   /** Cambio interno del evento, sin pasar por la validacion del formulario. */
-  private patchEvent(id: string, patch: Partial<AcademicEvent>): AcademicEvent | null {    let result: AcademicEvent | null = null;
+  private patchEvent(id: string, patch: Partial<AcademicEvent>): AcademicEvent | null {
+    let result: AcademicEvent | null = null;
 
     this.eventsState.update((current) =>
       current.map((item) => {

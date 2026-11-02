@@ -74,6 +74,16 @@
         [required]="true"
         [invalid]="isInvalid('role')"
       />
+
+      <dc-select
+        formControlName="professionalSchoolId"
+        label="Escuela profesional"
+        [options]="schoolOptions()"
+        placeholder="Selecciona la escuela"
+        hint="Define el alcance de datos de la cuenta. «General» es acceso global."
+        [required]="true"
+        [invalid]="isInvalid('professionalSchoolId')"
+      />
     </div>
 
     @if (isInvalid('fullName')) {
@@ -94,6 +104,11 @@
     @if (isInvalid('role')) {
     <p class="mt-2 text-xs font-medium text-error-600 dark:text-error-500">
       Selecciona un perfil de acceso.
+    </p>
+    }
+    @if (isInvalid('professionalSchoolId')) {
+    <p class="mt-2 text-xs font-medium text-error-600 dark:text-error-500">
+      Selecciona la escuela profesional de la cuenta.
     </p>
     }
 

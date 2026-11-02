@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
-import { ParticipationStatus } from '../../generated/prisma/client';
+import { ParticipationStatus, Prisma } from '../../generated/prisma/client';
+import type { Actor } from '../../common/actor/actor.types';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { EventSummaryDto } from '../events/dto/event-participant.dto';
 import { roundCredits } from '../students/students.service';
@@ -14,20 +15,12 @@ import {
 const DAY_MS = 86_400_000;
 const UPCOMING_DAYS = 90;
 
-type EventRow = {
-  id: string;
-  code: string;
-  name: string;
-  category: string;
-  startDate: Date;
-  endDate: Date;
-  modality: string;
-  location: string;
-  capacity: number | null;
-  organizer: string;
-  credits: number;
-  status: string;
-};
+const eventInclude = {
+  organizer: { select: { name: true } },
+  professionalSchool: { select: { name: true } },
+} satisfies Prisma.EventInclude;
+
+type EventRow = Prisma.EventGetPayload<{ include: typeof eventInclude }>;
 
 @Injectable()
 export class ReportsService {
@@ -39,8 +32,14 @@ export class ReportsService {
    * Se resuelve con un GROUP BY sobre el JOIN students x participations: es la
    * unica forma de obtener el dato exacto sin una tabla de hechos. Los creditos
    * se derivan de participaciones VALID; no se reparte ni se estima nada.
+   *
+   * Un usuario de escuela solo recibe su propia fila.
    */
-  async schoolCredits(): Promise<SchoolCreditSummaryDto[]> {
+  async schoolCredits(actor: Actor): Promise<SchoolCreditSummaryDto[]> {
+    const scope = actor.isGlobal
+      ? Prisma.sql``
+      : Prisma.sql`WHERE ps.id = ${actor.professionalSchoolId}`;
+
     const rows = await this.prisma.$queryRaw<
       {
         professionalSchool: string;
@@ -52,18 +51,20 @@ export class ReportsService {
       }[]
     >`
       SELECT
-        s."professionalSchool"                                   AS "professionalSchool",
+        ps.name                                                  AS "professionalSchool",
         COUNT(DISTINCT s.id)::int                                AS "students",
         COUNT(DISTINCT s.id) FILTER (WHERE s.status = 'ACTIVE')::int
-                                                            AS "activeStudents",
+                                                             AS "activeStudents",
         COUNT(p.id)::int                                         AS "participations",
         COUNT(p.id) FILTER (WHERE p.status = 'VALID')::int       AS "validParticipations",
         COALESCE(SUM(p.credits) FILTER (WHERE p.status = 'VALID'), 0)::float
-                                                            AS "totalCredits"
+                                                             AS "totalCredits"
       FROM students s
+      JOIN professional_schools ps ON ps.id = s."professionalSchoolId"
       LEFT JOIN participations p ON p."studentId" = s.id
-      GROUP BY s."professionalSchool"
-      ORDER BY "totalCredits" DESC, s."professionalSchool" ASC
+      ${scope}
+      GROUP BY ps.name
+      ORDER BY "totalCredits" DESC, ps.name ASC
     `;
 
     return rows.map((row) => ({
@@ -77,7 +78,11 @@ export class ReportsService {
   }
 
   /** Cifras del inicio: conteos, eventos de hoy y rankings. */
-  async dashboard(): Promise<DashboardSummaryDto> {
+  async dashboard(actor: Actor): Promise<DashboardSummaryDto> {
+    const schoolWhere: Prisma.EventWhereInput = actor.isGlobal
+      ? {}
+      : { professionalSchoolId: actor.professionalSchoolId };
+
     const [
       totalEvents,
       activeEvents,
@@ -88,14 +93,18 @@ export class ReportsService {
       totalParticipations,
       creditsGrouped,
     ] = await Promise.all([
-      this.prisma.event.count(),
-      this.prisma.event.count({ where: { status: 'IN_PROGRESS' } }),
-      this.prisma.event.count({ where: { status: 'SCHEDULED' } }),
-      this.prisma.event.count({ where: { status: 'COMPLETED' } }),
-      this.prisma.student.count(),
-      this.prisma.student.count({ where: { status: 'ACTIVE' } }),
-      this.prisma.participation.count(),
-      this.prisma.participation.groupBy({ by: ['status'], _sum: { credits: true } }),
+      this.prisma.event.count({ where: schoolWhere }),
+      this.prisma.event.count({ where: { ...schoolWhere, status: 'IN_PROGRESS' } }),
+      this.prisma.event.count({ where: { ...schoolWhere, status: 'SCHEDULED' } }),
+      this.prisma.event.count({ where: { ...schoolWhere, status: 'COMPLETED' } }),
+      this.prisma.student.count({ where: this.studentWhere(actor) }),
+      this.prisma.student.count({ where: { ...this.studentWhere(actor), status: 'ACTIVE' } }),
+      this.prisma.participation.count({ where: this.participationWhere(actor) }),
+      this.prisma.participation.groupBy({
+        by: ['status'],
+        where: this.participationWhere(actor),
+        _sum: { credits: true },
+      }),
     ]);
 
     const totalCredits = roundCredits(
@@ -110,11 +119,11 @@ export class ReportsService {
     const horizon = new Date(now.getTime() + UPCOMING_DAYS * DAY_MS);
 
     const [todayEvents, nextEvents, topStudents, schoolSummaries, progress] = await Promise.all([
-      this.eventsBetween(todayStart, todayEnd),
-      this.eventsBetween(new Date(now.getTime() + DAY_MS), horizon),
-      this.topStudents(),
-      this.schoolCredits(),
-      this.creditsProgress(totalCredits),
+      this.eventsBetween(todayStart, todayEnd, actor),
+      this.eventsBetween(new Date(now.getTime() + DAY_MS), horizon, actor),
+      this.topStudents(actor),
+      this.schoolCredits(actor),
+      this.creditsProgress(actor, totalCredits),
     ]);
 
     return {
@@ -141,16 +150,18 @@ export class ReportsService {
    * cuenta cuantos estudiantes hay con creditos y cuantos ya cumplieron: la meta
    * se lee al vuelo, asi que cambiar `DCREDITS_CREDITS_TARGET` recalcula todo.
    */
-  async creditsProgress(knownTotalCredits?: number): Promise<CreditsProgressDto> {
+  async creditsProgress(actor: Actor, knownTotalCredits?: number): Promise<CreditsProgressDto> {
     const target = creditsTarget();
 
     const rows = await this.prisma.participation.groupBy({
       by: ['studentId'],
-      where: { status: ParticipationStatus.VALID },
+      where: { ...this.participationWhere(actor), status: ParticipationStatus.VALID },
       _sum: { credits: true },
     });
 
-    const totalStudents = await this.prisma.student.count();
+    const totalStudents = await this.prisma.student.count({
+      where: this.studentWhere(actor),
+    });
 
     // El dashboard ya trajo el total: se reutiliza en lugar de repetir la
     // consulta. Como endpoint suelto, el total se deriva de las participaciones.
@@ -183,12 +194,19 @@ export class ReportsService {
   }
 
   /** Eventos que empiezan dentro del rango, con su conteo de vigentes. */
-  private async eventsBetween(from: Date, to: Date, limit?: number): Promise<EventSummaryDto[]> {
+  private async eventsBetween(
+    from: Date,
+    to: Date,
+    actor: Actor,
+    limit?: number
+  ): Promise<EventSummaryDto[]> {
     const events = await this.prisma.event.findMany({
       where: {
         startDate: { gte: from, lte: to },
         status: { notIn: ['CANCELLED', 'COMPLETED'] },
+        ...(actor.isGlobal ? {} : { professionalSchoolId: actor.professionalSchoolId }),
       },
+      include: eventInclude,
       orderBy: { startDate: 'asc' },
       ...(limit ? { take: limit } : {}),
     });
@@ -196,10 +214,10 @@ export class ReportsService {
     return this.withRegisteredCount(events);
   }
 
-  private async topStudents(limit = 5): Promise<TopStudentDto[]> {
+  private async topStudents(actor: Actor, limit = 5): Promise<TopStudentDto[]> {
     const rows = await this.prisma.participation.groupBy({
       by: ['studentId'],
-      where: { status: ParticipationStatus.VALID },
+      where: { ...this.participationWhere(actor), status: ParticipationStatus.VALID },
       _sum: { credits: true },
       _count: { _all: true },
       orderBy: { _sum: { credits: 'desc' } },
@@ -255,11 +273,24 @@ export class ReportsService {
       modality: event.modality,
       location: event.location,
       capacity: event.capacity,
-      organizer: event.organizer,
+      organizerId: event.organizerId,
+      organizer: event.organizer.name,
+      professionalSchoolId: event.professionalSchoolId,
+      professionalSchool: event.professionalSchool.name,
       credits: event.credits,
       status: event.status,
       registeredCount: counts.get(event.id) ?? 0,
     }));
+  }
+
+  /** Estudiantes visibles para el actor. */
+  private studentWhere(actor: Actor): Prisma.StudentWhereInput {
+    return actor.isGlobal ? {} : { professionalSchoolId: actor.professionalSchoolId };
+  }
+
+  /** Participaciones visibles: siguen la escuela del evento. */
+  private participationWhere(actor: Actor): Prisma.ParticipationWhereInput {
+    return actor.isGlobal ? {} : { event: { professionalSchoolId: actor.professionalSchoolId } };
   }
 }
 

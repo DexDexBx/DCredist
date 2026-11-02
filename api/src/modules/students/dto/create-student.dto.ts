@@ -5,9 +5,11 @@ import {
   ArrayMinSize,
   IsArray,
   IsEnum,
+  IsInt,
   IsOptional,
   IsString,
   MaxLength,
+  Min,
   MinLength,
   ValidateNested,
 } from 'class-validator';
@@ -38,17 +40,17 @@ export class CreateStudentDto {
   @MaxLength(120)
   firstName!: string;
 
-  @ApiProperty({ example: 'CIENCIAS FARMACEUTICAS Y BIOQUIMICA' })
-  @IsString()
-  @MinLength(1)
-  @MaxLength(160)
-  professionalSchool!: string;
+  @ApiProperty({ example: 1, description: 'Escuela profesional del estudiante.' })
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  professionalSchoolId!: number;
 
-  @ApiProperty({ example: 'FILIAL LIMA' })
-  @IsString()
-  @MinLength(1)
-  @MaxLength(120)
-  headquarters!: string;
+  @ApiProperty({ example: 1, description: 'Sede o filial del estudiante.' })
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  locationId!: number;
 
   @ApiPropertyOptional({ enum: StudentStatus, default: StudentStatus.ACTIVE })
   @IsOptional()
@@ -58,7 +60,13 @@ export class CreateStudentDto {
 
 export class UpdateStudentDto extends PartialType(CreateStudentDto) {}
 
-/** Fila de carga del padron. Todo excepto el codigo es opcional: el padron se enriquece. */
+/**
+ * Fila de carga del padron.
+ *
+ * El archivo sigue trayendo nombres de escuela y sede (no ids): quien carga el
+ * padron no conoce los identificadores internos. El backend los resuelve contra
+ * el catalogo y rechaza la carga completa si alguno no existe.
+ */
 export class StudentImportRowDto {
   @ApiProperty({ example: '2213271' })
   @IsString()
@@ -92,15 +100,17 @@ export class StudentImportRowDto {
   @ApiPropertyOptional({ example: 'FILIAL LIMA' })
   @IsOptional()
   @IsString()
-  @MaxLength(120)
-  headquarters?: string;
+  @MaxLength(160)
+  location?: string;
 }
 
 /**
  * CARGA INCREMENTAL DEL PADRON.
  *
  * Nunca es destructiva: crea los codigos nuevos y completa los datos faltantes
- * de los existentes. No borra estudiantes niparticipaciones.
+ * de los existentes. No borra estudiantes ni participaciones.
+ *
+ * Es atomica: si una fila tiene un error de validacion, no se escribe ninguna.
  */
 export class ImportStudentsDto {
   @ApiProperty({ type: [StudentImportRowDto] })
@@ -120,12 +130,13 @@ export class StudentImportIssueDto {
   universityCode!: string;
 
   @ApiProperty({
-    example: 'MISSING_NAMES',
-    description: 'MISSING_CODE | DUPLICATE_IN_FILE | MISSING_NAMES | DB_ERROR',
+    example: 'UNKNOWN_PROFESSIONAL_SCHOOL',
+    description:
+      'MISSING_CODE | DUPLICATE_IN_FILE | MISSING_NAMES | MISSING_PROFESSIONAL_SCHOOL | MISSING_LOCATION | UNKNOWN_PROFESSIONAL_SCHOOL | UNKNOWN_LOCATION | INACTIVE_PROFESSIONAL_SCHOOL | INACTIVE_LOCATION | FOREIGN_PROFESSIONAL_SCHOOL | SCHOOL_MISMATCH | LOCATION_MISMATCH',
   })
   code!: string;
 
-  @ApiProperty({ example: 'La fila no trae apellidos ni nombres.' })
+  @ApiProperty({ example: 'La escuela profesional "SISTEMAS" no existe en el catalogo.' })
   message!: string;
 }
 

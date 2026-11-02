@@ -1,5 +1,6 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { IsEnum, IsOptional, IsString } from 'class-validator';
+import { Type } from 'class-transformer';
+import { IsEnum, IsInt, IsOptional, IsString, Min } from 'class-validator';
 import { blankToUndefined } from '../../../common/dto/blank-query';
 import { UserRole, UserStatus } from '../../../generated/prisma/client';
 
@@ -29,9 +30,10 @@ export class QueryUsersDto {
   @blankToUndefined()
   status?: UserStatus;
 
-  @ApiPropertyOptional({ example: 'CIENCIAS FARMACEUTICAS Y BIOQUIMICA' })
+  @ApiPropertyOptional({ example: 1, description: 'Escuela profesional.' })
   @IsOptional()
-  @IsString()
-  @blankToUndefined()
-  professionalSchool?: string;
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  professionalSchoolId?: number;
 }

@@ -1,12 +1,15 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Injectable,
   Logger,
   NotFoundException,
 } from '@nestjs/common';
 import type { Prisma } from '../../generated/prisma/client';
 import { EventStatus, ParticipationStatus, ParticipationType } from '../../generated/prisma/client';
+import type { Actor } from '../../common/actor/actor.types';
+import { assertCanReadSchool } from '../../common/actor/school-scope';
 import { isUniqueViolation } from '../../common/prisma/prisma-errors';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import {
@@ -38,12 +41,21 @@ export class ParticipationsService {
 
   constructor(private readonly prisma: PrismaService) {}
 
-  /** Lista global. `search` cubre codigo universitario, apellidos y nombres. */
-  async findAll(query: QueryParticipationsDto): Promise<ParticipationWithEventAndStudent[]> {
+  /**
+   * Lista global. `search` cubre codigo universitario, apellidos y nombres.
+   *
+   * El alcance sigue al evento: un usuario de escuela solo ve las
+   * participaciones de los eventos de su escuela. Una cuenta `general` ve todo.
+   */
+  async findAll(
+    query: QueryParticipationsDto,
+    actor: Actor
+  ): Promise<ParticipationWithEventAndStudent[]> {
     const search = query.search?.trim();
 
     return this.prisma.participation.findMany({
       where: {
+        ...(actor.isGlobal ? {} : { event: { professionalSchoolId: actor.professionalSchoolId } }),
         ...(query.eventId ? { eventId: query.eventId } : {}),
         ...(query.studentId ? { studentId: query.studentId } : {}),
         ...(query.status ? { status: query.status } : {}),
@@ -68,7 +80,7 @@ export class ParticipationsService {
     });
   }
 
-  async findOne(id: string): Promise<ParticipationWithEvent> {
+  async findOne(id: string, actor: Actor): Promise<ParticipationWithEvent> {
     const participation = await this.prisma.participation.findUnique({
       where: { id },
       include: EVENT_INCLUDE,
@@ -78,16 +90,23 @@ export class ParticipationsService {
       throw new NotFoundException(`No existe una participacion con id "${id}".`);
     }
 
+    assertCanReadSchool(actor, participation.event.professionalSchoolId);
+
     return participation;
   }
 
   /** Participaciones del estudiante con el evento resuelto, para su historial. */
-  async findByStudent(studentId: string): Promise<StudentParticipationDto[]> {
-    const student = await this.prisma.student.count({ where: { id: studentId } });
+  async findByStudent(studentId: string, actor: Actor): Promise<StudentParticipationDto[]> {
+    const student = await this.prisma.student.findUnique({
+      where: { id: studentId },
+      select: { professionalSchoolId: true },
+    });
 
-    if (student === 0) {
+    if (!student) {
       throw new NotFoundException(`No existe un estudiante con id "${studentId}".`);
     }
+
+    assertCanReadSchool(actor, student.professionalSchoolId);
 
     const rows = await this.prisma.participation.findMany({
       where: { studentId },
@@ -98,7 +117,7 @@ export class ParticipationsService {
     return rows.map((row) => this.toStudentParticipation(row));
   }
 
-  async create(dto: CreateParticipationDto): Promise<ParticipationWithEvent> {
+  async create(dto: CreateParticipationDto, actor: Actor): Promise<ParticipationWithEvent> {
     // Las dos referencias deben existir: la FK lo garantizaria, pero un 404
     // explicito es mas util que un error de constraint.
     const [event, student] = await Promise.all([
@@ -112,6 +131,16 @@ export class ParticipationsService {
 
     if (!student) {
       throw new NotFoundException(`No existe un estudiante con id "${dto.studentId}".`);
+    }
+
+    if (!actor.isGlobal && event.professionalSchoolId !== actor.professionalSchoolId) {
+      throw new ForbiddenException('Solo puedes registrar participaciones de tu propia escuela.');
+    }
+
+    if (event.professionalSchoolId !== student.professionalSchoolId) {
+      throw new BadRequestException(
+        'El estudiante y el evento pertenecen a escuelas profesionales distintas.'
+      );
     }
 
     if (event.status === EventStatus.CANCELLED) {
@@ -201,8 +230,12 @@ export class ParticipationsService {
    * El verificationCode es inmutable: anular una participacion no genera un
    * codigo nuevo, solo cambia su estado.
    */
-  async update(id: string, dto: UpdateParticipationDto): Promise<ParticipationWithEvent> {
-    const current = await this.findOne(id);
+  async update(
+    id: string,
+    dto: UpdateParticipationDto,
+    actor: Actor
+  ): Promise<ParticipationWithEvent> {
+    await this.findOne(id, actor);
 
     if (dto.credits !== undefined && dto.credits !== null && dto.credits < 0) {
       throw new BadRequestException('Los creditos no pueden ser negativos.');
@@ -237,17 +270,21 @@ export class ParticipationsService {
    * Reglas:
    *  - identifica a los estudiantes por codigo universitario,
    *  - NUNCA crea estudiantes: los codigos ausentes se reportan,
+   *  - solo admite estudiantes de la escuela del evento,
    *  - es idempotente: repetirla no duplica, marca ALREADY_REGISTERED,
    *  - es fila a fila: un error no descarta el resto del archivo.
    */
   async importParticipations(
-    dto: ImportParticipationsDto
+    dto: ImportParticipationsDto,
+    actor: Actor
   ): Promise<ParticipationImportResultDto> {
     const event = await this.prisma.event.findUnique({ where: { id: dto.eventId } });
 
     if (!event) {
       throw new NotFoundException(`No existe un evento con id "${dto.eventId}".`);
     }
+
+    assertCanReadSchool(actor, event.professionalSchoolId);
 
     if (event.status === EventStatus.CANCELLED) {
       throw new BadRequestException(
@@ -289,7 +326,12 @@ export class ParticipationsService {
 
     const students = await this.prisma.student.findMany({
       where: { universityCode: { in: pending.map((item) => item.code) } },
-      select: { id: true, universityCode: true, status: true },
+      select: {
+        id: true,
+        universityCode: true,
+        status: true,
+        professionalSchoolId: true,
+      },
     });
 
     const byCode = new Map(students.map((student) => [student.universityCode, student]));
@@ -326,6 +368,16 @@ export class ParticipationsService {
       }
 
       found++;
+
+      if (student.professionalSchoolId !== event.professionalSchoolId) {
+        issues.push({
+          row: item.index + 1,
+          universityCode: item.code,
+          code: 'STUDENT_OTHER_SCHOOL',
+          message: `El estudiante ${item.code} pertenece a otra escuela profesional y no puede participar en este evento.`,
+        });
+        continue;
+      }
 
       if (student.status !== 'ACTIVE') {
         issues.push({

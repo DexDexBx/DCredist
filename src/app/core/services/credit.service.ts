@@ -202,8 +202,8 @@ export class CreditService {
     const candidates = byName
       ? this.studentService.matchIndices({
           search: query.search,
-          professionalSchool: query.professionalSchool,
-          headquarters: query.headquarters,
+          professionalSchoolId: query.professionalSchoolId,
+          locationId: query.locationId,
           sort: 'name',
         })
       : null;

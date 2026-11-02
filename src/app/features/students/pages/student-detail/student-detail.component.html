@@ -1,7 +1,7 @@
 @if (student(); as item) {
 <dc-page-header
   [title]="item.lastName + ', ' + item.firstName"
-  [description]="'Padrón maestro · ' + item.professionalSchool + ' · Sede ' + item.headquarters"
+  [description]="'Padrón maestro · ' + item.professionalSchool + ' · Sede ' + item.location"
   [breadcrumbs]="[
     { label: 'Inicio', link: '/dashboard' },
     { label: 'Estudiantes', link: '/students' },

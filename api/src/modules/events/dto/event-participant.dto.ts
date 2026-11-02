@@ -18,8 +18,10 @@ export class EventParticipantDto {
   @ApiProperty({ example: 'QUINTO' }) academicDegree!: string;
   @ApiProperty({ example: 'AGUILAR PEREZ' }) lastName!: string;
   @ApiProperty({ example: 'MARISOL SONIA' }) firstName!: string;
+  @ApiProperty({ example: 1 }) professionalSchoolId!: number;
   @ApiProperty({ example: 'CIENCIAS FARMACEUTICAS Y BIOQUIMICA' }) professionalSchool!: string;
-  @ApiProperty({ example: 'FILIAL LIMA' }) headquarters!: string;
+  @ApiProperty({ example: 1 }) locationId!: number;
+  @ApiProperty({ example: 'FILIAL LIMA' }) location!: string;
 
   @ApiProperty({ enum: ParticipationType }) participationType!: ParticipationType;
   @ApiProperty({
@@ -45,7 +47,10 @@ export class EventSummaryDto {
   @ApiProperty() modality!: string;
   @ApiProperty() location!: string;
   @ApiProperty({ nullable: true }) capacity!: number | null;
+  @ApiProperty({ example: 1 }) organizerId!: number;
   @ApiProperty() organizer!: string;
+  @ApiProperty({ example: 1 }) professionalSchoolId!: number;
+  @ApiProperty() professionalSchool!: string;
   @ApiProperty({ example: 2 }) credits!: number;
   @ApiProperty() status!: string;
 

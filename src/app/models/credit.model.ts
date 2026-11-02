@@ -64,7 +64,10 @@ export type CreditSortKey = 'progress' | 'credits' | 'name';
  * duplicarlo.
  */
 export interface CreditQuery
-  extends Pick<StudentQuery, 'search' | 'professionalSchool' | 'headquarters' | 'page' | 'pageSize'> {
+  extends Pick<
+    StudentQuery,
+    'search' | 'professionalSchoolId' | 'locationId' | 'page' | 'pageSize'
+  > {
   filter?: CreditFilter;
   sort?: CreditSortKey;
 }

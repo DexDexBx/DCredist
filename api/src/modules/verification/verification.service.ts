@@ -1,5 +1,7 @@
 import { Injectable } from '@nestjs/common';
+import type { Prisma } from '../../generated/prisma/client';
 import { ParticipationStatus } from '../../generated/prisma/client';
+import type { Actor } from '../../common/actor/actor.types';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { isValidVerificationCode, normalizeVerificationCode } from '../../common/verification-code';
 import { roundCredits } from '../../modules/students/students.service';
@@ -20,7 +22,7 @@ import { MIN_SUGGESTION_LENGTH } from './dto/suggest-verification-codes.dto';
 export class VerificationService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async verify(input: string): Promise<VerificationResultDto> {
+  async verify(input: string, actor: Actor): Promise<VerificationResultDto> {
     const raw = normalizeVerificationCode(input);
 
     if (!raw) {
@@ -38,8 +40,26 @@ export class VerificationService {
     }
 
     const participation = await this.prisma.participation.findFirst({
-      where: { verificationCode: { in: candidates } },
-      include: { event: true, student: true },
+      where: {
+        verificationCode: { in: candidates },
+        ...(actor.isGlobal
+          ? {}
+          : { event: { professionalSchoolId: actor.professionalSchoolId } }),
+      },
+      include: {
+        event: {
+          include: {
+            organizer: { select: { name: true } },
+            professionalSchool: { select: { name: true } },
+          },
+        },
+        student: {
+          include: {
+            professionalSchool: { select: { name: true } },
+            location: { select: { name: true } },
+          },
+        },
+      },
     });
 
     if (!participation) {
@@ -66,7 +86,10 @@ export class VerificationService {
         endDate: participation.event.endDate,
         modality: participation.event.modality,
         location: participation.event.location,
-        organizer: participation.event.organizer,
+        organizerId: participation.event.organizerId,
+        organizer: participation.event.organizer.name,
+        professionalSchoolId: participation.event.professionalSchoolId,
+        professionalSchool: participation.event.professionalSchool.name,
         credits: participation.event.credits,
         status: participation.event.status,
       },
@@ -76,8 +99,10 @@ export class VerificationService {
         academicDegree: participation.student.academicDegree,
         lastName: participation.student.lastName,
         firstName: participation.student.firstName,
-        professionalSchool: participation.student.professionalSchool,
-        headquarters: participation.student.headquarters,
+        professionalSchoolId: participation.student.professionalSchoolId,
+        professionalSchool: participation.student.professionalSchool.name,
+        locationId: participation.student.locationId,
+        location: participation.student.location.name,
         status: participation.student.status,
       },
       credits,
@@ -104,7 +129,7 @@ export class VerificationService {
   }
 
   /** Codigos que empiezan con lo que el usuario escribe, para sugerir. */
-  async suggest(input: string, limit = 5): Promise<string[]> {
+  async suggest(input: string, actor: Actor, limit = 5): Promise<string[]> {
     const needle = normalizeVerificationCode(input).replace(/^DC-/, '');
 
     // Menos de 3 caracteres no consulta la base: el campo de busqueda pide
@@ -113,8 +138,13 @@ export class VerificationService {
       return [];
     }
 
+    const where: Prisma.ParticipationWhereInput = {
+      verificationCode: { contains: needle },
+      ...(actor.isGlobal ? {} : { event: { professionalSchoolId: actor.professionalSchoolId } }),
+    };
+
     const rows = await this.prisma.participation.findMany({
-      where: { verificationCode: { contains: needle } },
+      where,
       select: { verificationCode: true },
       take: limit,
       orderBy: { participationDate: 'desc' },

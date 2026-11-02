@@ -1,6 +1,14 @@
-import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import type { Prisma, UserRole } from '../../generated/prisma/client';
-import { UserStatus } from '../../generated/prisma/client';
+import { CatalogStatus, UserStatus } from '../../generated/prisma/client';
+import type { Actor } from '../../common/actor/actor.types';
+import { isGeneralSchool } from '../../common/actor/actor.guard';
 import { hashPassword } from '../../common/password';
 import { defaultPermission } from '../../common/permissions';
 import { isUniqueViolation } from '../../common/prisma/prisma-errors';
@@ -16,6 +24,7 @@ import {
 /** Todo usuario viaja con el nombre de cada modulo para calcular sus ajustes. */
 const permissionsInclude = {
   permissions: { include: { module: { select: { name: true } } } },
+  professionalSchool: { select: { name: true } },
 } satisfies Prisma.UserInclude;
 
 type UserRow = Prisma.UserGetPayload<{ include: typeof permissionsInclude }>;
@@ -62,7 +71,9 @@ export class UsersService {
     return toUserDto(row);
   }
 
-  async create(dto: CreateUserDto): Promise<UserDto> {
+  async create(dto: CreateUserDto, actor: Actor): Promise<UserDto> {
+    await this.assertSchoolAssignable(dto.professionalSchoolId, actor);
+
     try {
       const created = await this.prisma.$transaction(async (tx) => {
         const user = await tx.user.create({
@@ -74,7 +85,7 @@ export class UsersService {
             mustChangePassword: false,
             role: dto.role,
             status: dto.status ?? UserStatus.ACTIVE,
-            professionalSchool: dto.professionalSchool?.trim() ?? '',
+            professionalSchool: { connect: { id: dto.professionalSchoolId } },
           },
         });
 
@@ -91,14 +102,18 @@ export class UsersService {
   }
 
   /** Solo actualiza los campos enviados. `password` reemplaza el hash. */
-  async update(id: string, dto: UpdateUserDto): Promise<UserDto> {
+  async update(id: string, dto: UpdateUserDto, actor: Actor): Promise<UserDto> {
     const current = await this.prisma.user.findUnique({
       where: { id },
-      select: { role: true },
+      select: { role: true, professionalSchoolId: true },
     });
 
     if (!current) {
       throw new NotFoundException('El usuario no existe.');
+    }
+
+    if (!actor.isGlobal && current.professionalSchoolId !== actor.professionalSchoolId) {
+      throw new ForbiddenException('Solo puedes administrar usuarios de tu propia escuela.');
     }
 
     const data: Prisma.UserUpdateInput = {};
@@ -119,8 +134,9 @@ export class UsersService {
     if (dto.status !== undefined) {
       data.status = dto.status;
     }
-    if (dto.professionalSchool !== undefined) {
-      data.professionalSchool = dto.professionalSchool.trim();
+    if (dto.professionalSchoolId !== undefined) {
+      await this.assertSchoolAssignable(dto.professionalSchoolId, actor, id);
+      data.professionalSchool = { connect: { id: dto.professionalSchoolId } };
     }
 
     const nextRole = dto.role;
@@ -212,11 +228,45 @@ export class UsersService {
     if (query.status) {
       where.status = query.status;
     }
-    if (query.professionalSchool) {
-      where.professionalSchool = query.professionalSchool;
+    if (query.professionalSchoolId) {
+      where.professionalSchoolId = query.professionalSchoolId;
     }
 
     return where;
+  }
+
+  /**
+   * Valida que la escuela exista, este activa y que el actor pueda asignarla.
+   * Solo las cuentas globales pueden repartir la escuela `general`; nadie puede
+   * cambiarse su propia escuela y perder (o ganar) alcance por accidente.
+   */
+  private async assertSchoolAssignable(
+    schoolId: number,
+    actor: Actor,
+    targetUserId?: string
+  ): Promise<void> {
+    const school = await this.prisma.professionalSchool.findUnique({
+      where: { id: schoolId },
+      select: { name: true, status: true },
+    });
+
+    if (!school || school.status !== CatalogStatus.ACTIVE) {
+      throw new BadRequestException('La escuela profesional no existe o esta inactiva.');
+    }
+
+    if (isGeneralSchool(school.name) && !actor.isGlobal) {
+      throw new ForbiddenException(
+        'Solo un usuario global puede asignar la escuela general.'
+      );
+    }
+
+    if (!actor.isGlobal && schoolId !== actor.professionalSchoolId) {
+      throw new ForbiddenException('Solo puedes asignar tu propia escuela profesional.');
+    }
+
+    if (targetUserId === actor.id && schoolId !== actor.professionalSchoolId) {
+      throw new ForbiddenException('No puedes cambiar tu propia escuela profesional.');
+    }
   }
 
   /** Traduce la violacion UNIQUE del correo a 409 y deja pasar el resto. */
@@ -281,7 +331,8 @@ function toUserDto(row: UserRow): UserDto {
     email: row.email,
     role: row.role,
     status: row.status,
-    professionalSchool: row.professionalSchool,
+    professionalSchoolId: row.professionalSchoolId,
+    professionalSchoolName: row.professionalSchool.name,
     mustChangePassword: row.mustChangePassword,
     permissionsOverridden,
     createdAt: row.createdAt,

@@ -13,8 +13,12 @@ export class StudentDetail {
   @ApiProperty() academicDegree!: string;
   @ApiProperty() lastName!: string;
   @ApiProperty() firstName!: string;
-  @ApiProperty() professionalSchool!: string;
-  @ApiProperty() headquarters!: string;
+
+  @ApiProperty({ example: 1 }) professionalSchoolId!: number;
+  @ApiProperty({ example: 'CIENCIAS FARMACEUTICAS Y BIOQUIMICA' }) professionalSchool!: string;
+  @ApiProperty({ example: 1 }) locationId!: number;
+  @ApiProperty({ example: 'FILIAL LIMA' }) location!: string;
+
   @ApiProperty({ enum: StudentStatus }) status!: StudentStatus;
 
   @ApiProperty({ description: 'Creditos acumulados de participaciones VALID.', example: 4.5 })

@@ -8,7 +8,10 @@
  *
  *   POST   /auth/login                       (credenciales contra users)
  *
- *   GET    /users?search=&role=&status=&professionalSchool=
+ *   Cabecera obligatoria en todo el API salvo el login:
+ *     X-User-Id: <id del usuario autenticado>
+ *
+ *   GET    /users?search=&role=&status=
  *   GET    /users/:id
  *   POST   /users                            (contraseña inicial obligatoria)
  *   PATCH  /users/:id                        (datos, estado o contraseña)
@@ -17,7 +20,20 @@
  *
  *   GET    /modules                          (catalogo de modulos)
  *
- *   GET    /students?search=&professionalSchool=&headquarters=&status=
+ *   GET    /professional-schools?search=&status=&includeGeneral=
+ *   POST   /professional-schools
+ *   PATCH  /professional-schools/:id
+ *   DELETE /professional-schools/:id
+ *   GET    /locations?search=&status=
+ *   POST   /locations
+ *   PATCH  /locations/:id
+ *   DELETE /locations/:id
+ *   GET    /organizers?search=&status=
+ *   POST   /organizers
+ *   PATCH  /organizers/:id
+ *   DELETE /organizers/:id
+ *
+ *   GET    /students?search=&professionalSchoolId=&locationId=&status=
  *   GET    /students/facets
  *   POST   /students
  *   PATCH  /students/:id
@@ -55,6 +71,13 @@ export const API_ENDPOINTS = {
   userPermissions: (id: string) => `${API_BASE_URL}/users/${id}/permissions`,
 
   modules: `${API_BASE_URL}/modules`,
+
+  professionalSchools: `${API_BASE_URL}/professional-schools`,
+  professionalSchool: (id: number) => `${API_BASE_URL}/professional-schools/${id}`,
+  locations: `${API_BASE_URL}/locations`,
+  location: (id: number) => `${API_BASE_URL}/locations/${id}`,
+  organizers: `${API_BASE_URL}/organizers`,
+  organizer: (id: number) => `${API_BASE_URL}/organizers/${id}`,
 
   students: `${API_BASE_URL}/students`,
   student: (id: string) => `${API_BASE_URL}/students/${id}`,

@@ -13,8 +13,12 @@ export class StudentListItemDto {
   @ApiProperty({ example: 'QUINTO' }) academicDegree!: string;
   @ApiProperty({ example: 'AGUILAR PEREZ' }) lastName!: string;
   @ApiProperty({ example: 'MARISOL SONIA' }) firstName!: string;
+
+  @ApiProperty({ example: 1 }) professionalSchoolId!: number;
   @ApiProperty({ example: 'CIENCIAS FARMACEUTICAS Y BIOQUIMICA' }) professionalSchool!: string;
-  @ApiProperty({ example: 'FILIAL LIMA' }) headquarters!: string;
+  @ApiProperty({ example: 1 }) locationId!: number;
+  @ApiProperty({ example: 'FILIAL LIMA' }) location!: string;
+
   @ApiProperty({ enum: StudentStatus }) status!: StudentStatus;
 
   @ApiProperty({ example: 4.5, description: 'Suma de creditos de participaciones VALID.' })
@@ -45,8 +49,14 @@ export class StudentListItemDto {
   pendingGrades!: number;
 }
 
+/** Entrada de catalogo para los filtros del padron. */
+export class StudentFacetEntryDto {
+  @ApiProperty({ example: 1 }) id!: number;
+  @ApiProperty({ example: 'CIENCIAS FARMACEUTICAS Y BIOQUIMICA' }) name!: string;
+}
+
 /** Valores distintos existentes, para alimentar los filtros del padron. */
 export class StudentFacetsDto {
-  @ApiProperty({ type: [String] }) professionalSchools!: string[];
-  @ApiProperty({ type: [String] }) headquarters!: string[];
+  @ApiProperty({ type: [StudentFacetEntryDto] }) professionalSchools!: StudentFacetEntryDto[];
+  @ApiProperty({ type: [StudentFacetEntryDto] }) locations!: StudentFacetEntryDto[];
 }

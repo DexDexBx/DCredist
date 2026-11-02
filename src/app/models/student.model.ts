@@ -14,8 +14,14 @@ export interface Student {
   academicDegree: string;
   lastName: string;
   firstName: string;
+  /** Id de la escuela profesional en el catalogo. */
+  professionalSchoolId: number;
+  /** Nombre de la escuela, resuelto por el API para listados y documentos. */
   professionalSchool: string;
-  headquarters: string;
+  /** Id de la sede en el catalogo. */
+  locationId: number;
+  /** Nombre de la sede, resuelto por el API para listados y documentos. */
+  location: string;
   status: StudentStatus;
 }
 
@@ -29,8 +35,8 @@ export type StudentDraft = Omit<Student, 'id'>;
 export interface StudentQuery {
   /** Codigo universitario, apellidos o nombres. */
   search?: string;
-  professionalSchool?: string;
-  headquarters?: string;
+  professionalSchoolId?: number;
+  locationId?: number;
   status?: StudentStatus;
   /** 1-based. Sin valor, el servicio devuelve el listado completo. */
   page?: number;
@@ -81,7 +87,7 @@ export function normalizeSearchText(value: string): string {
  * usuario escribe como le sale y no como esta cargado en el padron.
  */
 export function studentSearchHaystack(student: Student): string {
-  return `${student.universityCode} ${student.lastName} ${student.firstName} ${student.professionalSchool} ${student.headquarters} ${student.academicDegree}`
+  return `${student.universityCode} ${student.lastName} ${student.firstName} ${student.professionalSchool} ${student.location} ${student.academicDegree}`
     .toLowerCase()
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '');

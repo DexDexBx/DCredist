@@ -1,6 +1,9 @@
 import { Module } from '@nestjs/common';
+import { APP_GUARD } from '@nestjs/core';
+import { ActorGuard } from './common/actor/actor.guard';
 import { PrismaModule } from './common/prisma/prisma.module';
 import { AuthModule } from './modules/auth/auth.module';
+import { CatalogsModule } from './modules/catalogs/catalogs.module';
 import { EventsModule } from './modules/events/events.module';
 import { ModulesModule } from './modules/modules/modules.module';
 import { ParticipationsModule } from './modules/participations/participations.module';
@@ -32,11 +35,17 @@ import { VerificationModule } from './modules/verification/verification.module';
     AuthModule,
     UsersModule,
     ModulesModule,
+    CatalogsModule,
     StudentsModule,
     EventsModule,
     ParticipationsModule,
     VerificationModule,
     ReportsModule,
+  ],
+  providers: [
+    // Resuelve el usuario de la sesion desde `X-User-Id` y lo deja en el
+    // request. Los servicios lo usan para limitar el acceso por escuela.
+    { provide: APP_GUARD, useClass: ActorGuard },
   ],
 })
 export class AppModule {}

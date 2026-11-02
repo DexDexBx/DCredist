@@ -9,6 +9,8 @@ import {
   ApiOperation,
   ApiTags,
 } from '@nestjs/swagger';
+import type { Actor } from '../../common/actor/actor.types';
+import { CurrentActor } from '../../common/actor/current-actor.decorator';
 import { StudentParticipationDto } from '../participations/dto/student-participation.dto';
 import { ParticipationsService } from '../participations/participations.service';
 import {
@@ -35,29 +37,35 @@ export class StudentsController {
   @ApiOperation({
     summary: 'Lista estudiantes con filtros opcionales y su resumen de creditos.',
     description:
-      'search coincide parcialmente con codigo, apellidos y nombres. Los creditos de cada fila se derivan de sus participaciones VALID.',
+      'search coincide parcialmente con codigo, apellidos y nombres. Los creditos de cada fila se derivan de sus participaciones VALID. Un usuario de escuela solo ve el padron de su escuela.',
   })
   @ApiOkResponse({ type: [StudentListItemDto] })
-  findAll(@Query() query: QueryStudentsDto): Promise<StudentListItemDto[]> {
-    return this.studentsService.findAll(query);
+  findAll(
+    @Query() query: QueryStudentsDto,
+    @CurrentActor() actor: Actor
+  ): Promise<StudentListItemDto[]> {
+    return this.studentsService.findAll(query, actor);
   }
 
   @Get('facets')
   @ApiOperation({
-    summary: 'Escuelas profesionales y sedes existentes.',
-    description: 'Alimenta los filtros del padron sin duplicar catálogos en el frontend.',
+    summary: 'Escuelas profesionales y sedes del catalogo.',
+    description: 'Alimenta los filtros del padron sin duplicar catalogos en el frontend.',
   })
   @ApiOkResponse({ type: StudentFacetsDto })
-  findFacets(): Promise<StudentFacetsDto> {
-    return this.studentsService.findFacets();
+  findFacets(@CurrentActor() actor: Actor): Promise<StudentFacetsDto> {
+    return this.studentsService.findFacets(actor);
   }
 
   @Get(':id')
-  @ApiOperation({ summary: 'Ficha del estudiante con participaciones y credos acumulados.' })
+  @ApiOperation({ summary: 'Ficha del estudiante con participaciones y creditos acumulados.' })
   @ApiOkResponse({ type: StudentDetail })
   @ApiNotFoundResponse({ description: 'El estudiante no existe.' })
-  findOne(@Param('id') id: string): Promise<StudentDetail> {
-    return this.studentsService.findDetail(id);
+  findOne(
+    @Param('id') id: string,
+    @CurrentActor() actor: Actor
+  ): Promise<StudentDetail> {
+    return this.studentsService.findDetail(id, actor);
   }
 
   @Get(':id/credits')
@@ -68,16 +76,22 @@ export class StudentsController {
   })
   @ApiOkResponse({ type: StudentCreditSummaryDto })
   @ApiNotFoundResponse({ description: 'El estudiante no existe.' })
-  getCredits(@Param('id') id: string): Promise<StudentCreditSummaryDto> {
-    return this.studentsService.getCreditSummary(id);
+  getCredits(
+    @Param('id') id: string,
+    @CurrentActor() actor: Actor
+  ): Promise<StudentCreditSummaryDto> {
+    return this.studentsService.getCreditSummary(id, actor);
   }
 
   @Get(':id/participations')
   @ApiOperation({ summary: 'Historial de participaciones del estudiante, con su evento.' })
   @ApiOkResponse({ type: [StudentParticipationDto] })
   @ApiNotFoundResponse({ description: 'El estudiante no existe.' })
-  getParticipations(@Param('id') id: string): Promise<StudentParticipationDto[]> {
-    return this.participationsService.findByStudent(id);
+  getParticipations(
+    @Param('id') id: string,
+    @CurrentActor() actor: Actor
+  ): Promise<StudentParticipationDto[]> {
+    return this.participationsService.findByStudent(id, actor);
   }
 
   @Post()
@@ -85,8 +99,8 @@ export class StudentsController {
   @ApiCreatedResponse({ description: 'Estudiante creado.' })
   @ApiConflictResponse({ description: 'El codigo universitario ya existe.' })
   @ApiBadRequestResponse({ description: 'Datos invalidos.' })
-  create(@Body() dto: CreateStudentDto) {
-    return this.studentsService.create(dto);
+  create(@Body() dto: CreateStudentDto, @CurrentActor() actor: Actor) {
+    return this.studentsService.create(dto, actor);
   }
 
   @Patch(':id')
@@ -97,24 +111,30 @@ export class StudentsController {
   @ApiOkResponse({ description: 'Estudiante actualizado.' })
   @ApiNotFoundResponse({ description: 'El estudiante no existe.' })
   @ApiConflictResponse({ description: 'El codigo universitario ya existe.' })
-  update(@Param('id') id: string, @Body() dto: UpdateStudentDto) {
-    return this.studentsService.update(id, dto);
+  update(
+    @Param('id') id: string,
+    @Body() dto: UpdateStudentDto,
+    @CurrentActor() actor: Actor
+  ) {
+    return this.studentsService.update(id, dto, actor);
   }
 
   @Post('import')
   @ApiOperation({
     summary: 'Carga incremental del padron.',
     description: [
-      'Nunca es destructiva: no borra estudiantes ni participaciones.',
+      'La carga es estricta y atomica: si una fila trae una escuela o sede inexistente, no se escribe ninguna.',
       'Codigo nuevo -> se crea. Codigo existente -> completa solo los campos vacios.',
-      'Es idempotente: reenviar el mismo archivo no cambia el resultado.',
-      'Devuelve un reporte por fila; los errores no descartan el resto del archivo.',
+      'Devuelve el detalle de cada fila con error para corregir el archivo de una sola vez.',
     ].join(' '),
   })
   @ApiBody({ type: ImportStudentsDto })
   @ApiCreatedResponse({ type: StudentImportResultDto })
-  @ApiBadRequestResponse({ description: 'El archivo no contiene filas.' })
-  import(@Body() dto: ImportStudentsDto) {
-    return this.studentsService.importStudents(dto);
+  @ApiBadRequestResponse({ description: 'El archivo no contiene filas o tiene errores.' })
+  import(
+    @Body() dto: ImportStudentsDto,
+    @CurrentActor() actor: Actor
+  ) {
+    return this.studentsService.importStudents(dto, actor);
   }
 }

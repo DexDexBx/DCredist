@@ -8,6 +8,8 @@ import {
   ApiOperation,
   ApiTags,
 } from '@nestjs/swagger';
+import type { Actor } from '../../common/actor/actor.types';
+import { CurrentActor } from '../../common/actor/current-actor.decorator';
 import { CreateUserDto, UpdateUserDto, UserDto } from './dto/create-user.dto';
 import { QueryUsersDto } from './dto/query-users.dto';
 import { UpdateUserPermissionsDto, UserPermissionsDto } from './dto/user-permissions.dto';
@@ -46,8 +48,11 @@ export class UsersController {
   @ApiCreatedResponse({ type: UserDto })
   @ApiBadRequestResponse({ description: 'Datos invalidos o contraseña demasiado corta.' })
   @ApiConflictResponse({ description: 'El correo ya existe.' })
-  create(@Body() dto: CreateUserDto): Promise<UserDto> {
-    return this.usersService.create(dto);
+  create(
+    @Body() dto: CreateUserDto,
+    @CurrentActor() actor: Actor
+  ): Promise<UserDto> {
+    return this.usersService.create(dto, actor);
   }
 
   @Patch(':id')
@@ -62,8 +67,12 @@ export class UsersController {
   @ApiOkResponse({ type: UserDto })
   @ApiNotFoundResponse({ description: 'El usuario no existe.' })
   @ApiConflictResponse({ description: 'El correo ya existe.' })
-  update(@Param('id') id: string, @Body() dto: UpdateUserDto): Promise<UserDto> {
-    return this.usersService.update(id, dto);
+  update(
+    @Param('id') id: string,
+    @Body() dto: UpdateUserDto,
+    @CurrentActor() actor: Actor
+  ): Promise<UserDto> {
+    return this.usersService.update(id, dto, actor);
   }
 
   @Get(':id/permissions')

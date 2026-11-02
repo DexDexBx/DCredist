@@ -101,11 +101,24 @@ export class EventFieldsDto {
   @Min(0)
   capacity?: number | null;
 
-  @ApiPropertyOptional({ example: 'Vicerrectoria Academica' })
-  @IsOptional()
-  @IsString()
-  @MaxLength(160)
-  organizer?: string;
+  @ApiProperty({
+    example: 1,
+    description: 'Organizador del evento. Debe existir y estar activo en el catalogo.',
+  })
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  organizerId!: number;
+
+  @ApiProperty({
+    example: 1,
+    description:
+      'Escuela profesional duena del evento. Delimita que usuarios pueden operarlo.',
+  })
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  professionalSchoolId!: number;
 
   @ApiPropertyOptional({ example: 2, description: 'Creditos que otorga el evento. Nunca negativo.' })
   @IsOptional()

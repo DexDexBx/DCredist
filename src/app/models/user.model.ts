@@ -49,6 +49,9 @@ export interface UserProfile {
   email: string;
   role: UserRole;
   status: UserStatus;
+  /** Escuela profesional del usuario: define su alcance de datos. */
+  professionalSchoolId: number;
+  professionalSchoolName: string;
   initials: string;
   description: string;
   /**
@@ -67,6 +70,8 @@ export interface UserDraft {
   email: string;
   role: UserRole;
   status: UserStatus;
+  /** Escuela profesional asignada. `general` identifica a las cuentas globales. */
+  professionalSchoolId: number | null;
 }
 
 /** Longitud mínima de una contraseña de DCredits. */

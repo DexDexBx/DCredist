@@ -25,7 +25,10 @@ export class AuthService {
 
   async login(dto: LoginDto): Promise<LoginResponseDto> {
     const email = dto.email.trim().toLowerCase();
-    const user = await this.prisma.user.findUnique({ where: { email } });
+    const user = await this.prisma.user.findUnique({
+      where: { email },
+      include: { professionalSchool: { select: { name: true } } },
+    });
 
     // Primero se valida la contraseña: el estado de la cuenta solo se revela a
     // quien ya demostró conocer la credencial.
@@ -45,7 +48,8 @@ export class AuthService {
       email: user.email,
       role: user.role,
       status: user.status,
-      professionalSchool: user.professionalSchool,
+      professionalSchoolId: user.professionalSchoolId,
+      professionalSchoolName: user.professionalSchool.name,
       mustChangePassword: user.mustChangePassword,
       permissions,
     };
