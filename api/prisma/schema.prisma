@@ -147,6 +147,22 @@ model Organizer {
   @@map("organizers")
 }
 
+/// Tipo de evento academico (congreso, seminario, taller, ...).
+/// El nombre se guarda en ingles; la interfaz lo traduce al espanol.
+model EventTypeCatalog {
+  id     Int           @id @default(autoincrement())
+  name   String        @unique @db.VarChar(100)
+  status CatalogStatus @default(ACTIVE)
+
+  events Event[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
+  @@map("event_types")
+}
+
 // ---------------------------------------------------------------------------
 // ENTIDADES
 // ---------------------------------------------------------------------------
@@ -154,7 +170,7 @@ model Organizer {
 /// Padron maestro de estudiantes.
 /// No contiene creditos, notas, participaciones ni codigos: eso es de Participation.
 model Student {
-  id String @id @default(uuid())
+  id Int @id @default(autoincrement())
 
   /// Codigo universitario. Identificador funcional y unico.
   universityCode String @unique
@@ -187,7 +203,7 @@ model Student {
 
 /// Evento academico. Los creditos son los que otorga a cada participante.
 model Event {
-  id String @id @default(uuid())
+  id Int @id @default(autoincrement())
 
   /// Codigo institucional del evento, por ejemplo "EVT-2026-001".
   code String @unique
@@ -198,18 +214,14 @@ model Event {
   /// SINGLE_DAY / MULTI_DAY: se deriva de startDate y endDate, no se elige a mano.
   eventType EventType @default(SINGLE_DAY)
 
-  /// Categoria academica del evento: "Congreso", "Seminario", "Taller", "Curso",
-  /// "Foro", "Conferencia", "Webinar", "Muestra". Es el dato que usa elDominio.
-  category String @default("Congreso")
+  /// Tipo academico del evento (congreso, seminario, taller, ...).
+  eventTypeId Int
+  eventTypeCatalog EventTypeCatalog @relation(fields: [eventTypeId], references: [id], onDelete: Restrict)
 
-  /// Fechas calendario del evento. No se impone limite artificial de dias:
-  /// la unica regla es endDate >= startDate.
-  startDate DateTime
-  endDate   DateTime
-
-  /// Horario de la jornada en formato "HH:mm". Nulo si el evento no lo define.
-  startTime String?
-  endTime   String?
+  /// Fechas calendario del evento (solo dia, sin hora). No se impone limite
+  /// artificial de dias: la unica regla es endDate >= startDate.
+  startDate DateTime @db.Date
+  endDate   DateTime @db.Date
 
   modality EventModality @default(PRESENTIAL)
 
@@ -230,6 +242,11 @@ model Event {
 
   status EventStatus @default(DRAFT)
 
+  /// Nombre completo del usuario que creo el evento y del ultimo que lo
+  /// modifico. Los estampa el backend a partir del actor de la peticion.
+  userCreate String @default("")
+  userUpdate String @default("")
+
   participations Participation[]
 
   createdAt DateTime @default(now())
@@ -239,6 +256,7 @@ model Event {
   @@index([status])
   @@index([organizerId])
   @@index([professionalSchoolId])
+  @@index([eventTypeId])
   @@map("events")
 }
 
@@ -247,13 +265,13 @@ model Event {
 /// Unico por evento: eventId + studentId impide registrar dos veces al mismo
 /// estudiante en el mismo evento.
 model Participation {
-  id String @id @default(uuid())
+  id Int @id @default(autoincrement())
 
   event   Event   @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  eventId String
+  eventId Int
 
   student   Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  studentId String
+  studentId Int
 
   participationType ParticipationType @default(ASISTENTE)
   participationDate DateTime
@@ -287,7 +305,7 @@ model Participation {
 /// sal por usuario. `mustChangePassword` queda en true para las cuentas
 /// sembradas con contraseña temporal, hasta que exista el cambio de contraseña.
 model User {
-  id String @id @default(uuid())
+  id Int @id @default(autoincrement())
 
   fullName String
   email    String @unique
@@ -325,7 +343,7 @@ model User {
 /// Catalogo de modulos del sistema. `name` es el identificador estable que usa
 /// el frontend (dashboard, calendar, events, ...).
 model Module {
-  id   String @id @default(uuid())
+  id   Int    @id @default(autoincrement())
   name String @unique
 
   permissions UserModulePermission[]
@@ -336,8 +354,8 @@ model Module {
 /// Matriz de permisos: que puede hacer un usuario en cada modulo.
 /// La clave compuesta impide dos filas para el mismo usuario y modulo.
 model UserModulePermission {
-  userId     String
-  moduleId   String
+  userId     Int
+  moduleId   Int
   permission PermissionLevel
 
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)

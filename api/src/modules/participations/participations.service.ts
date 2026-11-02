@@ -80,7 +80,7 @@ export class ParticipationsService {
     });
   }
 
-  async findOne(id: string, actor: Actor): Promise<ParticipationWithEvent> {
+  async findOne(id: number, actor: Actor): Promise<ParticipationWithEvent> {
     const participation = await this.prisma.participation.findUnique({
       where: { id },
       include: EVENT_INCLUDE,
@@ -96,7 +96,7 @@ export class ParticipationsService {
   }
 
   /** Participaciones del estudiante con el evento resuelto, para su historial. */
-  async findByStudent(studentId: string, actor: Actor): Promise<StudentParticipationDto[]> {
+  async findByStudent(studentId: number, actor: Actor): Promise<StudentParticipationDto[]> {
     const student = await this.prisma.student.findUnique({
       where: { id: studentId },
       select: { professionalSchoolId: true },
@@ -231,7 +231,7 @@ export class ParticipationsService {
    * codigo nuevo, solo cambia su estado.
    */
   async update(
-    id: string,
+    id: number,
     dto: UpdateParticipationDto,
     actor: Actor
   ): Promise<ParticipationWithEvent> {
@@ -351,7 +351,7 @@ export class ParticipationsService {
     });
     const hasCapacityLimit = typeof event.capacity === 'number' && event.capacity > 0;
 
-    const insertable: { index: number; studentId: string }[] = [];
+    const insertable: { index: number; studentId: number }[] = [];
     let found = 0;
 
     for (const item of pending) {
@@ -436,8 +436,8 @@ export class ParticipationsService {
    */
   private async insertImportedRows(
     dto: ImportParticipationsDto,
-    event: { id: string; startDate: Date; credits: number; code: string },
-    insertable: { index: number; studentId: string }[],
+    event: { id: number; startDate: Date; credits: number; code: string },
+    insertable: { index: number; studentId: number }[],
     issues: ParticipationImportIssueDto[]
   ): Promise<number> {
     if (insertable.length === 0) {
@@ -505,7 +505,7 @@ export class ParticipationsService {
   }
 
   private async assertCapacity(
-    eventId: string,
+    eventId: number,
     capacity: number | null | undefined,
     eventCode: string
   ): Promise<void> {

@@ -21,10 +21,10 @@ export const PARTICIPATION_TYPES = [
 export type ParticipationType = (typeof PARTICIPATION_TYPES)[number];
 
 export interface Participation {
-  id: string;
+  id: number;
 
-  eventId: string;
-  studentId: string;
+  eventId: number;
+  studentId: number;
 
   participationType: ParticipationType;
   participationDate: string;
@@ -71,8 +71,8 @@ export interface Participation {
 
 /** Datos-ingreso de una participacion. El repositorio asigna id, fecha y verificationCode. */
 export interface ParticipationDraft {
-  eventId: string;
-  studentId: string;
+  eventId: number;
+  studentId: number;
   participationType: ParticipationType;
   credits: number;
   grade?: number | null;
@@ -102,8 +102,8 @@ export interface ParticipationContext {
  * Mapean 1:1 con los query params de GET /participations.
  */
 export interface ParticipationQuery {
-  eventId?: string;
-  studentId?: string;
+  eventId?: number;
+  studentId?: number;
   status?: ParticipationStatus;
   participationType?: ParticipationType;
   search?: string;
@@ -241,7 +241,7 @@ export const LOAD_REQUEST_STATUS_LABEL: Record<LoadRequestStatus, string> = {
  */
 export interface ParticipationLoadRequest {
   id: string;
-  eventId: string;
+  eventId: number;
   /** Solicitante externo: persona o area que sube la lista y pide la recarga. */
   requestedBy: string;
   /** Motivo por el que la lista llego despues del cierre. */
@@ -269,7 +269,7 @@ export interface ParticipationLoadRequest {
 
 /** Datos-ingreso de una solicitud de carga. El servicio asigna id, fecha y estado. */
 export interface ParticipationLoadRequestDraft {
-  eventId: string;
+  eventId: number;
   requestedBy: string;
   reason: string;
   codes: string[];
@@ -285,7 +285,7 @@ export interface ParticipationLoadRequestDraft {
  */
 export interface ParticipationImportBatch {
   id: string;
-  eventId: string;
+  eventId: number;
   mode: ParticipationImportMode;
   /** ISO date-time de la confirmacion. */
   createdAt: string;

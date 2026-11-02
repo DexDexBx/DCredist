@@ -55,6 +55,18 @@
     }
   }
 
+  @if (auth.can('events', 'MANAGE')) {
+  <button
+    header-actions
+    type="button"
+    (click)="requestEdit()"
+    class="inline-flex h-10 items-center gap-2 rounded-xl border border-gray-200 px-4 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-100 dark:border-gray-800 dark:text-gray-200 dark:hover:bg-white/5"
+  >
+    <dc-icon name="pencil" [size]="17" />
+    Editar
+  </button>
+  }
+
   <button
     header-actions
     type="button"
@@ -82,7 +94,7 @@
       <div class="flex flex-col gap-5">
         <div class="flex flex-wrap items-center gap-2">
           <app-event-status-badge [status]="currentEvent.status" />
-          <app-badge size="sm" color="light">{{ currentEvent.eventType }}</app-badge>
+          <app-badge size="sm" color="light">{{ eventTypeName(currentEvent) }}</app-badge>
           <app-badge size="sm" color="primary">{{ currentEvent.credits }} créditos</app-badge>
           @if (currentEvent.tags?.length) {
           @for (tag of currentEvent.tags; track tag) {
@@ -140,6 +152,21 @@
           </div>
 
           <div class="flex items-start gap-3">
+            <dc-icon name="clock" [size]="18" class="mt-0.5 text-gray-400" />
+            <div>
+              <dt class="text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                Registro
+              </dt>
+              <dd class="mt-0.5 text-sm text-gray-900 dark:text-white/90">
+                Creado por {{ currentEvent.userCreate || 'No registrado' }}
+              </dd>
+              <dd class="text-xs text-gray-500 dark:text-gray-400">
+                Última edición: {{ currentEvent.userUpdate || 'No registrada' }}
+              </dd>
+            </div>
+          </div>
+
+          <div class="flex items-start gap-3">
             <dc-icon name="users" [size]="18" class="mt-0.5 text-gray-400" />
             <div>
               <dt class="text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">
@@ -174,7 +201,7 @@
           <div class="flex items-center justify-between gap-3">
             <dt class="text-gray-500 dark:text-gray-400">Tipo</dt>
             <dd class="font-medium text-gray-900 dark:text-white/90">{{
-              currentEvent.eventType
+              eventTypeName(currentEvent)
             }}</dd>
           </div>
           <div class="flex items-center justify-between gap-3">
@@ -184,7 +211,7 @@
             }}</dd>
           </div>
           <div class="flex items-center justify-between gap-3">
-            <dt class="text-gray-500 dark:text-gray-400">Horario</dt>
+            <dt class="text-gray-500 dark:text-gray-400">Fechas</dt>
             <dd class="font-medium text-gray-900 dark:text-white/90">{{
               formatSchedule(currentEvent)
             }}</dd>
@@ -423,6 +450,40 @@
         }
       </ul>
     </div>
+  </div>
+</app-modal>
+
+<app-modal
+  [isOpen]="blockedEdit()"
+  (close)="closeBlockedEdit()"
+  [showCloseButton]="false"
+  className="flex w-full max-w-md flex-col overflow-hidden rounded-3xl p-0"
+>
+  <div class="px-6 py-6">
+    <div class="flex items-start gap-3">
+      <span
+        class="flex size-10 shrink-0 items-center justify-center rounded-xl bg-error-50 text-error-600 dark:bg-error-500/10 dark:text-error-400"
+      >
+        <dc-icon name="info" [size]="20" />
+      </span>
+      <div class="min-w-0">
+        <h2 class="text-base font-semibold text-gray-900 dark:text-white/90">
+          No puedes editar este evento
+        </h2>
+        <p class="mt-1 text-sm text-gray-600 dark:text-gray-300">
+          Este evento ya tiene estudiantes asociados. Para modificarlo, comunícate con el
+          administrador.
+        </p>
+      </div>
+    </div>
+
+    <button
+      type="button"
+      (click)="closeBlockedEdit()"
+      class="mt-5 inline-flex h-10 w-full items-center justify-center rounded-xl bg-brand-700 px-4 text-sm font-semibold text-white transition-colors hover:bg-brand-800"
+    >
+      Entendido
+    </button>
   </div>
 </app-modal>
 } @else {

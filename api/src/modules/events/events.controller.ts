@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Patch, Post, Query } from '@nestjs/common';
+import { Body, Controller, Get, Param, ParseIntPipe, Patch, Post, Query } from '@nestjs/common';
 import {
   ApiBadRequestResponse,
   ApiConflictResponse,
@@ -40,7 +40,7 @@ export class EventsController {
   @ApiOperation({ summary: 'Detalle de un evento.' })
   @ApiOkResponse({ type: EventDto })
   @ApiNotFoundResponse({ description: 'El evento no existe.' })
-  findOne(@Param('id') id: string, @CurrentActor() actor: Actor): Promise<EventDto> {
+  findOne(@Param('id', ParseIntPipe) id: number, @CurrentActor() actor: Actor): Promise<EventDto> {
     return this.eventsService.findOneDto(id, actor);
   }
 
@@ -52,7 +52,7 @@ export class EventsController {
   @ApiOkResponse({ type: EventSummaryDto })
   @ApiNotFoundResponse({ description: 'El evento no existe.' })
   findSummary(
-    @Param('id') id: string,
+    @Param('id', ParseIntPipe) id: number,
     @CurrentActor() actor: Actor
   ): Promise<EventSummaryDto> {
     return this.eventsService.findSummary(id, actor);
@@ -72,7 +72,7 @@ export class EventsController {
   @ApiOkResponse({ type: [EventParticipantDto] })
   @ApiNotFoundResponse({ description: 'El evento no existe.' })
   findParticipants(
-    @Param('id') id: string,
+    @Param('id', ParseIntPipe) id: number,
     @Query('includeCancelled') includeCancelled: string | undefined,
     @CurrentActor() actor: Actor
   ): Promise<EventParticipantDto[]> {
@@ -99,7 +99,7 @@ export class EventsController {
   @ApiBadRequestResponse({ description: 'Fechas o creditos invalidos.' })
   @ApiConflictResponse({ description: 'El codigo del evento ya existe.' })
   update(
-    @Param('id') id: string,
+    @Param('id', ParseIntPipe) id: number,
     @Body() dto: UpdateEventDto,
     @CurrentActor() actor: Actor
   ): Promise<EventDto> {

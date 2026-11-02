@@ -10,7 +10,6 @@ import {
   IsNumber,
   IsOptional,
   IsString,
-  IsUUID,
   Max,
   MaxLength,
   Min,
@@ -28,12 +27,16 @@ import { blankToUndefined } from '../../../common/dto/blank-query';
  */
 export class CreateParticipationDto {
   @ApiProperty({ description: 'Evento en el que se registra la participacion.' })
-  @IsUUID()
-  eventId!: string;
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  eventId!: number;
 
   @ApiProperty({ description: 'Estudiante que participa.' })
-  @IsUUID()
-  studentId!: string;
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  studentId!: number;
 
   @ApiPropertyOptional({ enum: ParticipationType, default: ParticipationType.ASISTENTE })
   @IsOptional()
@@ -86,15 +89,19 @@ export class UpdateParticipationDto extends PartialType(CreateParticipationDto) 
 export class QueryParticipationsDto {
   @ApiPropertyOptional({ description: 'Filtra por evento.' })
   @IsOptional()
-  @IsUUID()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
   @blankToUndefined()
-  eventId?: string;
+  eventId?: number;
 
   @ApiPropertyOptional({ description: 'Filtra por estudiante.' })
   @IsOptional()
-  @IsUUID()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
   @blankToUndefined()
-  studentId?: string;
+  studentId?: number;
 
   @ApiPropertyOptional({ enum: ParticipationStatus })
   @IsOptional()
@@ -177,8 +184,10 @@ export class ParticipationImportRowDto {
  */
 export class ImportParticipationsDto {
   @ApiProperty({ description: 'Evento destino de la carga.' })
-  @IsUUID()
-  eventId!: string;
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  eventId!: number;
 
   @ApiPropertyOptional({
     enum: ParticipationType,

@@ -68,6 +68,7 @@ frontend arranca igual con datos de demostracion.
 | `/events/new`               | Nuevo evento                   |
 | `/events/calendar`          | Calendario de eventos          |
 | `/events/:id`               | Detalle del evento             |
+| `/events/:id/edit`          | Editar evento                  |
 | `/students`                 | Padron de estudiantes           |
 | `/students/new`             | Nuevo estudiante               |
 | `/students/:id`             | Ficha del estudiante           |

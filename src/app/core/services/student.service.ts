@@ -237,7 +237,7 @@ export class StudentService {
           CODE_COLLATOR.compare(students[a].universityCode, students[b].universityCode)
         );
       case 'recent':
-        return indices.sort((a, b) => students[b].id.localeCompare(students[a].id));
+        return indices.sort((a, b) => students[b].id - students[a].id);
       default:
         return indices.sort(
           (a, b) =>
@@ -274,7 +274,7 @@ export class StudentService {
    * es latoso; el indice lo resuelve en tiempo constante.
    */
   private readonly byIdIndex = computed(() => {
-    const index = new Map<string, Student>();
+    const index = new Map<number, Student>();
     for (const student of this.studentsState()) {
       index.set(student.id, student);
     }
@@ -294,16 +294,15 @@ export class StudentService {
     let max = 0;
 
     for (const student of this.studentsState()) {
-      const sequence = Number(student.id.replace(/^stu-/, ''));
-      if (Number.isFinite(sequence) && sequence > max) {
-        max = sequence;
+      if (student.id > max) {
+        max = student.id;
       }
     }
 
     return max;
   });
 
-  findById(id: string): Student | undefined {
+  findById(id: number): Student | undefined {
     return this.byIdIndex().get(id);
   }
 
@@ -311,12 +310,12 @@ export class StudentService {
     return this.byUniversityCodeIndex().get(code.trim());
   }
 
-  existsUniversityCode(code: string, exceptId?: string): boolean {
+  existsUniversityCode(code: string, exceptId?: number): boolean {
     const existing = this.findByUniversityCode(code);
     return Boolean(existing && existing.id !== exceptId);
   }
 
-  validate(draft: StudentDraft, exceptId?: string): StudentValidation {
+  validate(draft: StudentDraft, exceptId?: number): StudentValidation {
     const errors: StudentValidation['errors'] = {};
 
     if (!draft.universityCode.trim()) {
@@ -369,7 +368,7 @@ export class StudentService {
     return student;
   }
 
-  async update(id: string, draft: StudentDraft): Promise<Student | null> {
+  async update(id: number, draft: StudentDraft): Promise<Student | null> {
     if (!this.findById(id) || !this.validate(draft, id).valid) {
       return null;
     }
@@ -392,7 +391,7 @@ export class StudentService {
     return student;
   }
 
-  async setStatus(id: string, status: Student['status']): Promise<void> {
+  async setStatus(id: number, status: Student['status']): Promise<void> {
     const current = this.findById(id);
     if (!current) {
       return;
@@ -416,7 +415,7 @@ export class StudentService {
    * Normaliza como llega del formulario. Los nombres de escuela y sede se
    * resuelven contra el catalogo para no guardar etiquetas inventadas.
    */
-  private normalizeDraft(draft: StudentDraft, id: string): Student {
+  private normalizeDraft(draft: StudentDraft, id: number): Student {
     return {
       ...draft,
       id,
@@ -433,7 +432,7 @@ export class StudentService {
   }
 
   /** Reemplaza un estudiante por id sin recorrer el padron en la vista. */
-  private replaceById(id: string, student: Student): void {
+  private replaceById(id: number, student: Student): void {
     this.studentsState.update((current) => {
       const next = current.slice();
       const index = next.findIndex((item) => item.id === id);
@@ -647,11 +646,10 @@ export class StudentService {
             location: this.catalogService.nameOf('locations', item.locationId),
             status: 'ACTIVE',
           },
-          `stu-${String(nextSequence).padStart(6, '0')}`,
+          nextSequence,
         );
 
-        working.set(item.code, student);
-        nextSequence++;
+        working.set(item.code, student);        nextSequence++;
         created++;
         continue;
       }
@@ -741,7 +739,7 @@ export class StudentService {
     );
   }
 
-  private nextId(): string {
-    return `stu-${String(this.lastSequence() + 1).padStart(6, '0')}`;
+  private nextId(): number {
+    return this.lastSequence() + 1;
   }
 }

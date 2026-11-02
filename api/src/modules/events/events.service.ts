@@ -11,6 +11,7 @@ import {
   CatalogStatus,
   EventStatus,
   EventType,
+  UserRole,
 } from '../../generated/prisma/client';
 import type { Actor } from '../../common/actor/actor.types';
 import { isGeneralSchool } from '../../common/actor/actor.guard';
@@ -26,11 +27,24 @@ import { UpdateEventDto } from './dto/update-event.dto';
 const eventInclude = {
   organizer: { select: { id: true, name: true } },
   professionalSchool: { select: { id: true, name: true } },
+  eventTypeCatalog: { select: { id: true, name: true } },
 } satisfies Prisma.EventInclude;
 
 type EventRow = Prisma.EventGetPayload<{ include: typeof eventInclude }>;
 
 const DAY_MS = 86_400_000;
+
+/**
+ * Secuencia de estados para usuarios que no son administradores.
+ * Programado -> En curso | Cancelado; En curso -> Finalizado | Cancelado.
+ * Finalizado y Cancelado son terminales.
+ */
+const EVENT_STATUS_TRANSITIONS: Partial<Record<EventStatus, readonly EventStatus[]>> = {
+  [EventStatus.SCHEDULED]: [EventStatus.IN_PROGRESS, EventStatus.CANCELLED],
+  [EventStatus.IN_PROGRESS]: [EventStatus.COMPLETED, EventStatus.CANCELLED],
+  [EventStatus.COMPLETED]: [],
+  [EventStatus.CANCELLED]: [],
+};
 
 @Injectable()
 export class EventsService {
@@ -51,7 +65,7 @@ export class EventsService {
       where: {
         ...(actor.isGlobal ? {} : { professionalSchoolId: actor.professionalSchoolId }),
         ...(query.status ? { status: query.status } : {}),
-        ...(query.category ? { category: query.category } : {}),
+        ...(query.eventTypeId ? { eventTypeId: query.eventTypeId } : {}),
         ...(query.professionalSchoolId
           ? { professionalSchoolId: query.professionalSchoolId }
           : {}),
@@ -61,7 +75,7 @@ export class EventsService {
               OR: [
                 { name: { contains: search, mode: 'insensitive' } },
                 { code: { contains: search, mode: 'insensitive' } },
-                { category: { contains: search, mode: 'insensitive' } },
+                { eventTypeCatalog: { name: { contains: search, mode: 'insensitive' } } },
                 { organizer: { name: { contains: search, mode: 'insensitive' } } },
                 { professionalSchool: { name: { contains: search, mode: 'insensitive' } } },
               ],
@@ -75,7 +89,7 @@ export class EventsService {
     return rows.map(toEventDto);
   }
 
-  async findOne(id: string, actor: Actor): Promise<EventRow> {
+  async findOne(id: number, actor: Actor): Promise<EventRow> {
     const event = await this.prisma.event.findUnique({
       where: { id },
       include: eventInclude,
@@ -91,7 +105,7 @@ export class EventsService {
   }
 
   /** Detalle plano para el API. */
-  async findOneDto(id: string, actor: Actor): Promise<EventDto> {
+  async findOneDto(id: number, actor: Actor): Promise<EventDto> {
     return toEventDto(await this.findOne(id, actor));
   }
 
@@ -103,7 +117,7 @@ export class EventsService {
    * limita a las vigentes, que es lo que necesita el reporte institucional.
    */
   async findParticipants(
-    id: string,
+    id: number,
     includeCancelled: boolean,
     actor: Actor
   ): Promise<EventParticipantDto[]> {
@@ -152,7 +166,7 @@ export class EventsService {
   }
 
   /** Evento mas su conteo de participaciones vigentes: lo que ocupa cupo. */
-  async findSummary(id: string, actor: Actor): Promise<EventSummaryDto> {
+  async findSummary(id: number, actor: Actor): Promise<EventSummaryDto> {
     const event = await this.findOne(id, actor);
     const registeredCount = await this.countValidParticipations(id);
 
@@ -160,7 +174,8 @@ export class EventsService {
       id: event.id,
       code: event.code,
       name: event.name,
-      category: event.category,
+      eventTypeId: event.eventTypeCatalog.id,
+      eventTypeName: event.eventTypeCatalog.name,
       startDate: event.startDate,
       endDate: event.endDate,
       modality: event.modality,
@@ -177,12 +192,13 @@ export class EventsService {
   }
 
   async create(dto: CreateEventDto, actor: Actor): Promise<EventDto> {
-    const startDate = new Date(dto.startDate);
-    const endDate = new Date(dto.endDate);
+    const startDate = toCalendarDate(dto.startDate);
+    const endDate = toCalendarDate(dto.endDate);
 
     this.assertDates(startDate, endDate);
     await this.assertSchoolAssignable(dto.professionalSchoolId, actor);
     await this.assertOrganizerAssignable(dto.organizerId);
+    await this.assertEventTypeAssignable(dto.eventTypeId);
 
     if (dto.capacity !== undefined && dto.capacity !== null && dto.capacity < 0) {
       throw new BadRequestException('La capacidad no puede ser negativa.');
@@ -208,13 +224,11 @@ export class EventsService {
           code,
           name: dto.name.trim(),
           description: dto.description?.trim() ?? '',
-          category: dto.category ?? 'Congreso',
+          eventTypeId: dto.eventTypeId,
           // La duracion no se elige: se deriva de las fechas.
           eventType: dto.eventType ?? this.deriveEventType(startDate, endDate),
           startDate,
           endDate,
-          startTime: dto.startTime ?? null,
-          endTime: dto.endTime ?? null,
           modality: dto.modality,
           location: dto.location?.trim() ?? '',
           capacity: dto.capacity ?? null,
@@ -222,6 +236,9 @@ export class EventsService {
           professionalSchoolId: dto.professionalSchoolId,
           credits: dto.credits ?? 0,
           status: dto.status ?? EventStatus.SCHEDULED,
+          // Sello de autoria: el backend usa el actor de la peticion.
+          userCreate: actor.fullName,
+          userUpdate: actor.fullName,
         },
         include: eventInclude,
       });
@@ -236,11 +253,39 @@ export class EventsService {
     }
   }
 
-  async update(id: string, dto: UpdateEventDto, actor: Actor): Promise<EventDto> {
+  async update(id: number, dto: UpdateEventDto, actor: Actor): Promise<EventDto> {
     const current = await this.findOne(id, actor);
 
-    const startDate = dto.startDate ? new Date(dto.startDate) : current.startDate;
-    const endDate = dto.endDate ? new Date(dto.endDate) : current.endDate;
+    // Solo el administrador puede modificar un evento que ya tiene estudiantes
+    // asociados: cambiar sus datos afectaria participaciones y certificados.
+    const participationCount = await this.prisma.participation.count({
+      where: { eventId: id },
+    });
+
+    if (participationCount > 0 && actor.role !== UserRole.ADMIN) {
+      throw new ForbiddenException(
+        'No puedes editar este evento porque tiene estudiantes asociados. Contacta con el administrador.'
+      );
+    }
+
+    // El estado solo avanza en la secuencia establecida; el administrador puede
+    // corregirlo libremente.
+    if (
+      dto.status !== undefined &&
+      dto.status !== current.status &&
+      actor.role !== UserRole.ADMIN
+    ) {
+      const allowed = EVENT_STATUS_TRANSITIONS[current.status] ?? [];
+
+      if (!allowed.includes(dto.status)) {
+        throw new BadRequestException(
+          `No puedes cambiar el estado de "${current.status}" a "${dto.status}".`
+        );
+      }
+    }
+
+    const startDate = dto.startDate ? toCalendarDate(dto.startDate) : current.startDate;
+    const endDate = dto.endDate ? toCalendarDate(dto.endDate) : current.endDate;
 
     this.assertDates(startDate, endDate);
 
@@ -269,6 +314,10 @@ export class EventsService {
       await this.assertOrganizerAssignable(dto.organizerId);
     }
 
+    if (dto.eventTypeId !== undefined) {
+      await this.assertEventTypeAssignable(dto.eventTypeId);
+    }
+
     if (dto.code?.trim() && dto.code.trim() !== current.code) {
       const taken = await this.prisma.event.findUnique({ where: { code: dto.code.trim() } });
 
@@ -284,14 +333,12 @@ export class EventsService {
           ...(dto.code !== undefined ? { code: dto.code.trim() } : {}),
           ...(dto.name !== undefined ? { name: dto.name.trim() } : {}),
           ...(dto.description !== undefined ? { description: dto.description.trim() } : {}),
-          ...(dto.category !== undefined ? { category: dto.category } : {}),
+          ...(dto.eventTypeId !== undefined ? { eventTypeId: dto.eventTypeId } : {}),
           ...(dto.eventType !== undefined
             ? { eventType: dto.eventType }
             : { eventType: this.deriveEventType(startDate, endDate) }),
           startDate,
           endDate,
-          ...(dto.startTime !== undefined ? { startTime: dto.startTime } : {}),
-          ...(dto.endTime !== undefined ? { endTime: dto.endTime } : {}),
           ...(dto.modality !== undefined ? { modality: dto.modality } : {}),
           ...(dto.location !== undefined ? { location: dto.location.trim() } : {}),
           ...(dto.capacity !== undefined ? { capacity: dto.capacity } : {}),
@@ -301,6 +348,8 @@ export class EventsService {
             : {}),
           ...(dto.credits !== undefined ? { credits: dto.credits } : {}),
           ...(dto.status !== undefined ? { status: dto.status } : {}),
+          // Cada modificacion actualiza quien la hizo; userCreate no se toca.
+          userUpdate: actor.fullName,
         },
         include: eventInclude,
       });
@@ -316,7 +365,7 @@ export class EventsService {
   }
 
   /** Participaciones vigentes: las unicas que ocupan cupo y otorgan creditos. */
-  async countValidParticipations(eventId: string): Promise<number> {
+  async countValidParticipations(eventId: number): Promise<number> {
     return this.prisma.participation.count({
       where: { eventId, status: 'VALID' },
     });
@@ -374,6 +423,17 @@ export class EventsService {
     }
   }
 
+  private async assertEventTypeAssignable(eventTypeId: number): Promise<void> {
+    const eventType = await this.prisma.eventTypeCatalog.findUnique({
+      where: { id: eventTypeId },
+      select: { status: true },
+    });
+
+    if (!eventType || eventType.status !== CatalogStatus.ACTIVE) {
+      throw new BadRequestException('El tipo de evento no existe o esta inactivo.');
+    }
+  }
+
   private deriveEventType(startDate: Date, endDate: Date): EventType {
     return endDate.getTime() - startDate.getTime() >= DAY_MS
       ? EventType.MULTI_DAY
@@ -409,7 +469,7 @@ export class EventsService {
 
 /** Aplana la escuela y el organizador al contrato que consume el frontend. */
 function toEventDto(row: EventRow): EventDto {
-  const { organizer, professionalSchool, ...event } = row;
+  const { organizer, professionalSchool, eventTypeCatalog, ...event } = row;
 
   return {
     ...event,
@@ -417,5 +477,19 @@ function toEventDto(row: EventRow): EventDto {
     organizer: organizer.name,
     professionalSchoolId: professionalSchool.id,
     professionalSchool: professionalSchool.name,
+    eventTypeId: eventTypeCatalog.id,
+    eventTypeName: eventTypeCatalog.name,
   };
+}
+
+/**
+ * Convierte una fecha calendario a un Date a mediodia UTC.
+ *
+ * Las columnas son DATE (sin hora). Guardar medianoche UTC haria que, en zonas
+ * con offset negativo (Peru, UTC-5), PostgreSQL registre el dia anterior. El
+ * mediodia UTC conserva el dia en cualquier zona razonable.
+ */
+function toCalendarDate(value: string): Date {
+  const match = /^(\d{4}-\d{2}-\d{2})/.exec(value.trim());
+  return match ? new Date(`${match[1]}T12:00:00.000Z`) : new Date(value);
 }

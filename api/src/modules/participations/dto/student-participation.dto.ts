@@ -9,9 +9,9 @@ import { ParticipationStatus, ParticipationType } from '../../../generated/prism
  * es el codigo del certificado.
  */
 export class StudentParticipationDto {
-  @ApiProperty() id!: string;
-  @ApiProperty() eventId!: string;
-  @ApiProperty() studentId!: string;
+  @ApiProperty({ example: 1 }) id!: number;
+  @ApiProperty({ example: 1 }) eventId!: number;
+  @ApiProperty({ example: 1 }) studentId!: number;
 
   @ApiProperty() eventCode!: string;
   @ApiProperty() eventName!: string;

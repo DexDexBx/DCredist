@@ -2,11 +2,9 @@ import {
   AcademicEvent,
   CatalogEntry,
   CatalogStatus,
-  EVENT_TYPES,
   EventDraft,
   EventModality,
   EventStatus,
-  EventType,
   MODULES,
   ModuleKey,
   Participation,
@@ -74,11 +72,21 @@ function toIso(value: string): string {
   return Number.isNaN(date.getTime()) ? value : date.toISOString();
 }
 
-/** La categoria academica del API es el "tipo" de evento del frontend. */
-function categoryToEventType(category: string): EventType {
-  return (EVENT_TYPES as readonly string[]).includes(category)
-    ? (category as EventType)
-    : 'Congreso';
+/** Fecha calendario "YYYY-MM-DD" (sin hora) para eventos. */
+function toDateOnly(value: string): string {
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value.trim())) {
+    return value.trim();
+  }
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+
+  const year = date.getUTCFullYear();
+  const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+  const day = String(date.getUTCDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
 }
 
 export function mapApiStudent(row: ApiStudent): Student {
@@ -159,9 +167,10 @@ export function mapApiEvent(row: ApiEvent): AcademicEvent {
     code: row.code,
     name: row.name,
     description: row.description,
-    eventType: categoryToEventType(row.category),
-    startDate: toIso(row.startDate),
-    endDate: toIso(row.endDate),
+    eventTypeId: row.eventTypeId,
+    eventTypeName: row.eventTypeName,
+    startDate: toDateOnly(row.startDate),
+    endDate: toDateOnly(row.endDate),
     modality: MODALITY_FROM_API[row.modality] ?? 'Presencial',
     location: row.location,
     status: STATUS_FROM_API[row.status] ?? 'Programado',
@@ -171,6 +180,8 @@ export function mapApiEvent(row: ApiEvent): AcademicEvent {
     professionalSchoolId: row.professionalSchoolId,
     professionalSchool: row.professionalSchool,
     credits: row.credits,
+    userCreate: row.userCreate ?? '',
+    userUpdate: row.userUpdate ?? '',
     tags: [],
   };
 }
@@ -195,9 +206,9 @@ export function toApiEventPayload(draft: EventDraft): ApiEventPayload {
     ...(draft.code?.trim() ? { code: draft.code.trim() } : {}),
     name: draft.name.trim(),
     description: draft.description.trim(),
-    category: draft.eventType,
-    startDate: toIso(draft.startDate),
-    endDate: toIso(draft.endDate),
+    eventTypeId: draft.eventTypeId ?? undefined,
+    startDate: toDateOnly(draft.startDate),
+    endDate: toDateOnly(draft.endDate),
     modality: MODALITY_TO_API[draft.modality],
     location: draft.location.trim(),
     capacity: draft.capacity,
@@ -206,6 +217,61 @@ export function toApiEventPayload(draft: EventDraft): ApiEventPayload {
     credits: draft.credits,
     status: STATUS_TO_API[draft.status],
   };
+}
+
+/**
+ * PATCH real: solo envia los campos que cambiaron respecto al evento actual.
+ * El backend acepta actualizaciones parciales, asi que editar una sola fecha
+ * no reescribe todo el evento.
+ */
+export function toApiEventPatch(
+  draft: EventDraft,
+  current: AcademicEvent,
+): Partial<ApiEventPayload> {
+  const full = toApiEventPayload(draft);
+  const patch: Partial<ApiEventPayload> = {};
+
+  if (full.code && full.code !== current.code) {
+    patch.code = full.code;
+  }
+  if (full.name !== current.name) {
+    patch.name = full.name;
+  }
+  if ((full.description ?? '') !== (current.description ?? '')) {
+    patch.description = full.description;
+  }
+  if (full.eventTypeId !== current.eventTypeId) {
+    patch.eventTypeId = full.eventTypeId;
+  }
+  if (full.startDate !== current.startDate) {
+    patch.startDate = full.startDate;
+  }
+  if (full.endDate !== current.endDate) {
+    patch.endDate = full.endDate;
+  }
+  if (MODALITY_FROM_API[full.modality ?? 'PRESENTIAL'] !== current.modality) {
+    patch.modality = full.modality;
+  }
+  if ((full.location ?? '') !== (current.location ?? '')) {
+    patch.location = full.location;
+  }
+  if ((full.capacity ?? null) !== (current.capacity ?? null)) {
+    patch.capacity = full.capacity;
+  }
+  if (full.organizerId !== current.organizerId) {
+    patch.organizerId = full.organizerId;
+  }
+  if (full.professionalSchoolId !== current.professionalSchoolId) {
+    patch.professionalSchoolId = full.professionalSchoolId;
+  }
+  if (full.credits !== current.credits) {
+    patch.credits = full.credits;
+  }
+  if (STATUS_FROM_API[full.status ?? 'DRAFT'] !== current.status) {
+    patch.status = full.status;
+  }
+
+  return patch;
 }
 
 export function toApiStudentPayload(draft: StudentDraft): ApiStudentPayload {

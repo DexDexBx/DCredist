@@ -118,7 +118,7 @@ export function percentage(part: number, total: number): number {
 
 /** Estudiante con su avance hacia la meta: es lo que muestra la vista de creditos. */
 export interface StudentCreditProgress {
-  studentId: string;
+  studentId: number;
   /** Suma de Participation.credits de las participaciones VALID. */
   totalCredits: number;
   creditsTarget: number;

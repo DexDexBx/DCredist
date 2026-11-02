@@ -2,7 +2,7 @@ import { ApiProperty } from '@nestjs/swagger';
 
 /** Resumen de creditos derivado de PostgreSQL, nunca almacenado en Student. */
 export class StudentCreditSummaryDto {
-  @ApiProperty() studentId!: string;
+  @ApiProperty({ example: 1 }) studentId!: number;
   @ApiProperty({ example: 4.5, description: 'Suma de participaciones VALID.' })
   totalCredits!: number;
   @ApiProperty({ example: 21, description: 'Meta institucional de creditos.' })

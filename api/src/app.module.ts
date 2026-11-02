@@ -4,6 +4,7 @@ import { ActorGuard } from './common/actor/actor.guard';
 import { PrismaModule } from './common/prisma/prisma.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { CatalogsModule } from './modules/catalogs/catalogs.module';
+import { EventTypesModule } from './modules/event-types/event-types.module';
 import { EventsModule } from './modules/events/events.module';
 import { ModulesModule } from './modules/modules/modules.module';
 import { ParticipationsModule } from './modules/participations/participations.module';
@@ -37,6 +38,7 @@ import { VerificationModule } from './modules/verification/verification.module';
     ModulesModule,
     CatalogsModule,
     StudentsModule,
+    EventTypesModule,
     EventsModule,
     ParticipationsModule,
     VerificationModule,

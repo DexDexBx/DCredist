@@ -1,0 +1,244 @@
+<dc-page-header
+  title="Editar evento"
+  description="Actualiza los datos del evento. Solo se guardan los campos que cambian."
+  [breadcrumbs]="[
+    { label: 'Eventos', link: '/events' },
+    { label: event()?.code ?? 'Evento', link: event() ? '/events/' + event()!.id : '/events' },
+    { label: 'Editar evento' }
+  ]"
+/>
+
+@if (saved()) {
+<div
+  class="mb-6 flex items-start gap-3 rounded-2xl border border-success-200 bg-success-50 px-4 py-3.5 dark:border-success-500/20 dark:bg-success-500/10"
+>
+  <dc-icon name="check" [size]="20" class="mt-0.5 text-success-600 dark:text-success-500" />
+  <div class="min-w-0">
+    <p class="text-sm font-medium text-success-700 dark:text-success-500">
+      Cambios guardados correctamente.
+    </p>
+    <p class="mt-0.5 text-sm text-success-700/80 dark:text-success-500/80">
+      El evento ya muestra la información actualizada.
+    </p>
+  </div>
+</div>
+}
+
+@if (formError(); as message) {
+<div
+  class="mb-6 flex items-start gap-3 rounded-2xl border border-error-200 bg-error-50 px-5 py-4 dark:border-error-500/20 dark:bg-error-500/10"
+>
+  <dc-icon name="info" [size]="20" class="mt-0.5 text-error-600 dark:text-error-500" />
+  <p class="text-sm font-medium text-error-700 dark:text-error-500">{{ message }}</p>
+</div>
+}
+
+@if (blocked()) {
+<dc-empty-state
+  title="No puedes editar este evento"
+  description="Este evento ya tiene estudiantes asociados. Para modificarlo, comunícate con el administrador."
+>
+  <a
+    [routerLink]="['/events', event()!.id]"
+    class="inline-flex h-10 items-center rounded-xl bg-brand-700 px-4 text-sm font-semibold text-white transition-colors hover:bg-brand-800"
+  >
+    Volver al evento
+  </a>
+</dc-empty-state>
+} @else if (!event()) {
+<dc-empty-state
+  title="Evento no encontrado"
+  description="El identificador solicitado no existe o ya no está disponible."
+>
+  <a
+    routerLink="/events"
+    class="inline-flex h-10 items-center rounded-xl bg-brand-700 px-4 text-sm font-semibold text-white transition-colors hover:bg-brand-800"
+  >
+    Volver al listado
+  </a>
+</dc-empty-state>
+} @else {
+<form [formGroup]="form" (ngSubmit)="onSubmit()" novalidate class="grid gap-6 xl:grid-cols-3">
+  <dc-panel title="Datos del evento" class="xl:col-span-2">
+    <div class="flex flex-col gap-5">
+      <dc-input
+        formControlName="name"
+        label="Nombre del evento"
+        placeholder="Congreso Internacional de Educación Superior"
+        [required]="true"
+        [invalid]="isInvalid('name')"
+      />
+      @if (isInvalid('name')) {
+      <p class="-mt-3 text-xs text-error-500">
+        Ingresa un nombre de al menos 5 caracteres.
+      </p>
+      }
+
+      <dc-textarea
+        formControlName="description"
+        label="Descripción"
+        placeholder="Resume los objetivos, la agenda y el público del evento."
+        [rows]="5"
+        [required]="true"
+        [invalid]="isInvalid('description')"
+        hint="Mínimo 20 caracteres."
+      />
+
+      <div class="grid gap-5 sm:grid-cols-2">
+        <dc-input
+          formControlName="startDate"
+          type="date"
+          label="Fecha de inicio"
+          [required]="true"
+          [invalid]="isInvalid('startDate')"
+        />
+        <dc-input
+          formControlName="endDate"
+          type="date"
+          label="Fecha de fin"
+          [required]="true"
+          [invalid]="isInvalid('endDate')"
+        />
+      </div>
+      @if (isInvalid('endDate')) {
+      <p class="-mt-3 text-xs text-error-500">
+        @if (form.errors?.['endBeforeStart']) {
+        La fecha de fin no puede ser anterior a la de inicio.
+        } @else {
+        Indica la fecha de finalización.
+        }
+      </p>
+      }
+
+      <div class="grid gap-5 sm:grid-cols-2">
+        <dc-select
+          formControlName="eventTypeId"
+          label="Tipo de evento"
+          [options]="typeOptions()"
+          placeholder="Selecciona el tipo"
+          [required]="true"
+          [invalid]="isInvalid('eventTypeId')"
+        />
+
+        <dc-select
+          formControlName="modality"
+          label="Modalidad"
+          [options]="modalityOptions"
+          placeholder="Selecciona la modalidad"
+          [required]="true"
+        />
+        <dc-input
+          formControlName="location"
+          label="Ubicación o enlace"
+          placeholder="Auditorio Central, Campus Norte"
+          [required]="true"
+          [invalid]="isInvalid('location')"
+        />
+      </div>
+      @if (isInvalid('eventTypeId')) {
+      <p class="-mt-3 text-xs text-error-500">Selecciona el tipo de evento.</p>
+      }
+
+      <div class="grid gap-5 sm:grid-cols-2">
+        <div>
+          <dc-input
+            formControlName="credits"
+            type="number"
+            label="Créditos"
+            hint="Créditos que otorga el evento a cada participante."
+            [required]="true"
+            [invalid]="isInvalid('credits')"
+            [min]="0"
+          />
+          @if (isInvalid('credits')) {
+          <p class="mt-1.5 text-xs text-error-500">
+            Solo se admiten números (ej. 1 o 0.5); no se permiten valores negativos.
+          </p>
+          }
+        </div>
+        <dc-combobox
+          formControlName="organizerId"
+          label="Organizador"
+          [options]="organizerOptions()"
+          placeholder="Buscar organizador..."
+          hint="Se administra desde Catálogos."
+          [clearable]="false"
+          [required]="true"
+          [invalid]="isInvalid('organizerId')"
+        />
+      </div>
+    </div>
+  </dc-panel>
+
+  <div class="flex flex-col gap-6">
+    <dc-panel title="Configuración">
+      <div class="flex flex-col gap-5">
+        <dc-select
+          formControlName="professionalSchoolId"
+          label="Escuela profesional"
+          [options]="schoolOptions()"
+          placeholder="Selecciona la escuela"
+          hint="Define el alcance del evento."
+          [required]="true"
+          [invalid]="isInvalid('professionalSchoolId')"
+        />
+
+        <dc-select
+          formControlName="status"
+          label="Estado"
+          [options]="statusOptions()"
+          placeholder="Selecciona el estado"
+          hint="El estado avanza en orden: Programado → En curso → Finalizado. Cancelado cierra el evento."
+          [required]="true"
+        />
+
+        <div>
+          <dc-input
+            formControlName="capacity"
+            type="number"
+            label="Capacidad"
+            placeholder="0"
+            hint="Usa 0 cuando el evento no tenga límite de participantes."
+            [invalid]="isInvalid('capacity')"
+            [min]="0"
+          />
+          @if (isInvalid('capacity')) {
+          <p class="mt-1.5 text-xs text-error-500">
+            Solo números enteros iguales o mayores a 0, sin símbolos.
+          </p>
+          }
+        </div>
+
+        <div
+          class="flex gap-3 rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 dark:border-gray-800 dark:bg-white/[0.03]"
+        >
+          <dc-icon name="info" [size]="17" class="mt-0.5 text-gray-400 dark:text-gray-500" />
+          <p class="text-xs leading-relaxed text-gray-500 dark:text-gray-400">
+            Solo se envían los campos modificados. Si el evento ya tiene estudiantes, únicamente
+            un administrador puede guardar cambios.
+          </p>
+        </div>
+      </div>
+    </dc-panel>
+
+    <div class="flex flex-col gap-2">
+      <button
+        type="submit"
+        [disabled]="saving()"
+        class="inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-brand-700 px-4 text-sm font-semibold text-white transition-colors hover:bg-brand-800 focus:outline-none focus:ring-3 focus:ring-brand-500/30 disabled:cursor-not-allowed disabled:opacity-60"
+      >
+        <dc-icon name="check" [size]="17" />
+        Guardar cambios
+      </button>
+
+      <button
+        type="button"
+        class="inline-flex h-11 w-full items-center justify-center rounded-xl border border-gray-300 px-4 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-100 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-white/5"
+        (click)="onCancel()"
+      >
+        Cancelar
+      </button>
+    </div>
+  </div>
+</form>
+}

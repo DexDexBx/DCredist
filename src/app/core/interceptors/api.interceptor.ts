@@ -24,7 +24,7 @@ export const apiInterceptor: HttpInterceptorFn = (request, next) => {
   }
 
   if (userId) {
-    headers = headers.set('X-User-Id', userId);
+    headers = headers.set('X-User-Id', String(userId));
   }
 
   const url =

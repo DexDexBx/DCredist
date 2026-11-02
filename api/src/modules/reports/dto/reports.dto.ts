@@ -14,7 +14,7 @@ export class SchoolCreditSummaryDto {
 }
 
 export class TopStudentDto {
-  @ApiProperty() studentId!: string;
+  @ApiProperty({ example: 1 }) studentId!: number;
   @ApiProperty({ example: 'MARISOL SONIA AGUILAR PEREZ' }) name!: string;
   @ApiProperty({ example: '2213271' }) universityCode!: string;
   @ApiProperty({ example: 4.5 }) credits!: number;

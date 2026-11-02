@@ -44,7 +44,7 @@ export const ROLE_DESCRIPTIONS: Record<UserRole, string> = {
 };
 
 export interface UserProfile {
-  id: string;
+  id: number;
   fullName: string;
   email: string;
   role: UserRole;

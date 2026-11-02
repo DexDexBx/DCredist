@@ -13,16 +13,18 @@ import {
  * pantalla tenga que resolver la relacion por su cuenta.
  */
 export class EventDto {
-  @ApiProperty() id!: string;
+  @ApiProperty({ example: 1 }) id!: number;
   @ApiProperty({ example: 'EVT-2026-001' }) code!: string;
-  @ApiProperty() name!: string;
+  @ApiProperty({ example: 'Congreso Internacional de Educacion Superior' }) name!: string;
   @ApiProperty() description!: string;
-  @ApiProperty({ example: 'Congreso' }) category!: string;
+  @ApiProperty({ example: 1 }) eventTypeId!: number;
+  @ApiProperty({ example: 'Congress', description: 'Nombre del tipo (en ingles).' })
+  eventTypeName!: string;
   @ApiProperty({ enum: EventType }) eventType!: EventType;
-  @ApiProperty() startDate!: Date;
-  @ApiProperty() endDate!: Date;
-  @ApiProperty({ nullable: true, example: '08:30' }) startTime!: string | null;
-  @ApiProperty({ nullable: true, example: '18:00' }) endTime!: string | null;
+  @ApiProperty({ example: '2026-10-05', description: 'Fecha calendario (YYYY-MM-DD).' })
+  startDate!: Date;
+  @ApiProperty({ example: '2026-10-07', description: 'Fecha calendario (YYYY-MM-DD).' })
+  endDate!: Date;
   @ApiProperty({ enum: EventModality }) modality!: EventModality;
 
   @ApiProperty({
@@ -41,6 +43,8 @@ export class EventDto {
 
   @ApiProperty({ example: 2 }) credits!: number;
   @ApiProperty({ enum: EventStatus }) status!: EventStatus;
+  @ApiProperty({ example: 'Ana Torres' }) userCreate!: string;
+  @ApiProperty({ example: 'Ana Torres' }) userUpdate!: string;
   @ApiProperty() createdAt!: Date;
   @ApiProperty() updatedAt!: Date;
 }

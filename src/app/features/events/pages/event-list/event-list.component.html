@@ -35,7 +35,7 @@
 </dc-page-header>
 
 <div
-class="mb-6 grid gap-3 rounded-2xl border border-gray-200 bg-white p-4 shadow-theme-xs dark:border-gray-800 dark:bg-white/[0.03] md:grid-cols-4"
+class="mb-6 grid gap-3 rounded-2xl border border-gray-200 bg-white p-4 shadow-theme-xs dark:border-gray-800 dark:bg-white/[0.03] md:grid-cols-5"
 >
   <label class="relative md:col-span-1">
     <span class="sr-only">Buscar evento</span>
@@ -89,11 +89,27 @@ class="mb-6 grid gap-3 rounded-2xl border border-gray-200 bg-white p-4 shadow-th
       class="h-11 w-full rounded-xl border border-gray-300 bg-white px-3.5 text-sm text-gray-900 shadow-theme-xs focus:border-brand-600 focus:outline-none focus:ring-3 focus:ring-brand-500/15 dark:border-gray-700 dark:bg-white/[0.03] dark:text-white/90"
     >
       <option value="Todos">Todos los tipos</option>
-      @for (type of types; track type) {
-      <option [value]="type">{{ type }}</option>
+      @for (type of typeOptions(); track type.id) {
+      <option [value]="type.id">{{ type.label }}</option>
       }
     </select>
   </label>
+
+  @if (hasFilters()) {
+  <button
+    type="button"
+    (click)="clearFilters()"
+    class="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-gray-300 px-4 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-100 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-white/5"
+  >
+    <dc-icon name="close" [size]="16" />
+    Limpiar
+  </button>
+  } @else {
+  <div class="hidden items-center gap-2 text-sm text-gray-500 dark:text-gray-400 md:flex">
+    <dc-icon name="event" [size]="17" />
+    {{ sortedEvents().length }} evento(s)
+  </div>
+  }
 </div>
 
 @if (events().length === 0) {
@@ -135,7 +151,7 @@ class="mb-6 grid gap-3 rounded-2xl border border-gray-200 bg-white p-4 shadow-th
       </div>
       <div class="flex items-center gap-2">
         <dc-icon name="event" [size]="14" class="text-gray-400" />
-        <dd>{{ event.eventType }} &middot; {{ event.credits }} créd.</dd>
+        <dd>{{ typeLabel(event) }} &middot; {{ event.credits }} créd.</dd>
       </div>
       <div class="flex items-center gap-2">
         <dc-icon name="map-pin" [size]="14" class="text-gray-400" />
@@ -163,7 +179,6 @@ class="mb-6 grid gap-3 rounded-2xl border border-gray-200 bg-white p-4 shadow-th
   [from]="pageData().from"
   [to]="pageData().to"
   [pageSize]="pageData().pageSize"
-  [pageSizes]="pageSizes"
   (pageChange)="goToPage($event)"
   (pageSizeChange)="onPageSizeChange($event)"
 />
@@ -220,7 +235,7 @@ class="mb-6 grid gap-3 rounded-2xl border border-gray-200 bg-white p-4 shadow-th
           <td class="px-5 py-3.5 text-gray-600 dark:text-gray-300">
             {{ formatRange(event) }}
           </td>
-          <td class="px-5 py-3.5 text-gray-600 dark:text-gray-300">{{ event.eventType }}</td>
+          <td class="px-5 py-3.5 text-gray-600 dark:text-gray-300">{{ typeLabel(event) }}</td>
           <td class="px-5 py-3.5 text-gray-600 dark:text-gray-300">{{ event.modality }}</td>
           <td class="px-5 py-3.5 text-gray-600 dark:text-gray-300">{{ event.credits }}</td>
           <td class="max-w-[220px] truncate px-5 py-3.5 text-gray-600 dark:text-gray-300">
@@ -238,13 +253,26 @@ class="mb-6 grid gap-3 rounded-2xl border border-gray-200 bg-white p-4 shadow-th
           </td>
           <td class="px-5 py-3.5"><app-event-status-badge [status]="event.status" /></td>
           <td class="px-5 py-3.5 text-end">
-            <a
-              [routerLink]="['/events', event.id]"
-              class="inline-flex h-9 items-center gap-1.5 rounded-lg border border-gray-200 px-3 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-100 dark:border-gray-800 dark:text-gray-200 dark:hover:bg-white/5"
-            >
-              Ver
-              <dc-icon name="chevron-right" [size]="15" />
-            </a>
+            <div class="inline-flex items-center gap-1.5">
+              <a
+                [routerLink]="['/events', event.id]"
+                class="inline-flex h-9 items-center gap-1.5 rounded-lg border border-gray-200 px-3 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-100 dark:border-gray-800 dark:text-gray-200 dark:hover:bg-white/5"
+              >
+                Ver
+                <dc-icon name="chevron-right" [size]="15" />
+              </a>
+              @if (auth.can('events', 'MANAGE')) {
+              <button
+                type="button"
+                (click)="requestEdit(event)"
+                aria-label="Editar evento"
+                title="Editar evento"
+                class="inline-flex size-9 items-center justify-center rounded-lg border border-gray-200 text-gray-600 transition-colors hover:bg-gray-100 hover:text-brand-700 dark:border-gray-800 dark:text-gray-300 dark:hover:bg-white/5 dark:hover:text-brand-300"
+              >
+                <dc-icon name="pencil" [size]="15" />
+              </button>
+              }
+            </div>
           </td>
         </tr>
         }
@@ -260,8 +288,7 @@ class="mb-6 grid gap-3 rounded-2xl border border-gray-200 bg-white p-4 shadow-th
       [from]="pageData().from"
       [to]="pageData().to"
       [pageSize]="pageData().pageSize"
-      [pageSizes]="pageSizes"
-      (pageChange)="goToPage($event)"
+          (pageChange)="goToPage($event)"
       (pageSizeChange)="onPageSizeChange($event)"
     />
   </div>
@@ -327,4 +354,40 @@ class="mb-6 grid gap-3 rounded-2xl border border-gray-200 bg-white p-4 shadow-th
     </div>
     }
   </div>
+</app-modal>
+
+<app-modal
+  [isOpen]="blockedEditEvent() !== null"
+  (close)="closeBlockedEdit()"
+  [showCloseButton]="false"
+  className="flex w-full max-w-md flex-col overflow-hidden rounded-3xl p-0"
+>
+  @if (blockedEditEvent(); as blocked) {
+  <div class="px-6 py-6">
+    <div class="flex items-start gap-3">
+      <span
+        class="flex size-10 shrink-0 items-center justify-center rounded-xl bg-error-50 text-error-600 dark:bg-error-500/10 dark:text-error-400"
+      >
+        <dc-icon name="info" [size]="20" />
+      </span>
+      <div class="min-w-0">
+        <h2 class="text-base font-semibold text-gray-900 dark:text-white/90">
+          No puedes editar este evento
+        </h2>
+        <p class="mt-1 text-sm text-gray-600 dark:text-gray-300">
+          El evento <span class="font-medium">{{ blocked.code }}</span> ya tiene estudiantes
+          asociados. Para modificarlo, comunícate con el administrador.
+        </p>
+      </div>
+    </div>
+
+    <button
+      type="button"
+      (click)="closeBlockedEdit()"
+      class="mt-5 inline-flex h-10 w-full items-center justify-center rounded-xl bg-brand-700 px-4 text-sm font-semibold text-white transition-colors hover:bg-brand-800"
+    >
+      Entendido
+    </button>
+  </div>
+  }
 </app-modal>

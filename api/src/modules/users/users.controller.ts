@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Patch, Post, Put, Query } from '@nestjs/common';
+import { Body, Controller, Get, Param, ParseIntPipe, Patch, Post, Put, Query } from '@nestjs/common';
 import {
   ApiBadRequestResponse,
   ApiConflictResponse,
@@ -35,7 +35,7 @@ export class UsersController {
   @ApiOperation({ summary: 'Ficha de un usuario del directorio.' })
   @ApiOkResponse({ type: UserDto })
   @ApiNotFoundResponse({ description: 'El usuario no existe.' })
-  findOne(@Param('id') id: string): Promise<UserDto> {
+  findOne(@Param('id', ParseIntPipe) id: number): Promise<UserDto> {
     return this.usersService.findOne(id);
   }
 
@@ -68,7 +68,7 @@ export class UsersController {
   @ApiNotFoundResponse({ description: 'El usuario no existe.' })
   @ApiConflictResponse({ description: 'El correo ya existe.' })
   update(
-    @Param('id') id: string,
+    @Param('id', ParseIntPipe) id: number,
     @Body() dto: UpdateUserDto,
     @CurrentActor() actor: Actor
   ): Promise<UserDto> {
@@ -83,7 +83,7 @@ export class UsersController {
   })
   @ApiOkResponse({ type: UserPermissionsDto })
   @ApiNotFoundResponse({ description: 'El usuario no existe.' })
-  findPermissions(@Param('id') id: string): Promise<UserPermissionsDto> {
+  findPermissions(@Param('id', ParseIntPipe) id: number): Promise<UserPermissionsDto> {
     return this.usersService.findPermissions(id);
   }
 
@@ -97,7 +97,7 @@ export class UsersController {
   @ApiBadRequestResponse({ description: 'Modulo desconocido o nivel invalido.' })
   @ApiNotFoundResponse({ description: 'El usuario no existe.' })
   updatePermissions(
-    @Param('id') id: string,
+    @Param('id', ParseIntPipe) id: number,
     @Body() dto: UpdateUserPermissionsDto
   ): Promise<UserPermissionsDto> {
     return this.usersService.updatePermissions(id, dto);

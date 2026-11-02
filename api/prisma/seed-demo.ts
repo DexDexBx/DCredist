@@ -3,15 +3,15 @@ import { hashPassword } from '../src/common/password';
 import { defaultPermission, MODULE_NAMES } from '../src/common/permissions';
 import { CatalogStatus, UserRole, UserStatus } from '../src/generated/prisma/client';
 import { createPrismaClient } from '../src/common/prisma/prisma-client-factory';
+import { seedAcademicDemo } from './demo-data';
 
 /**
  * SEED DE DEMOSTRACION DE DCREDITS.
  *
  * Deja el sistema listo para levantar:
  *  1. Catalogo de modulos (dashboard, calendar, events, ...).
- *  2. Cuenta administradora de demostracion (admin@dcredits.demo).
+ *  2. Escuela `general` y cuenta administradora (admin@dcredits.demo).
  *  3. Matriz de permisos de cada usuario segun el preset de su rol.
- *
  * Es idempotente: se puede volver a ejecutar sin duplicar nada. No pisa los
  * permisos que ya existan, de modo que los ajustes manuales se conservan.
  *

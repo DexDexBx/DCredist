@@ -12,6 +12,7 @@ import { AuthService } from './auth.service';
 import { CatalogService } from './catalog.service';
 import { DataModeService } from './data-mode.service';
 import { EventService } from './event.service';
+import { EventTypeService } from './event-type.service';
 import { ParticipationService } from './participation.service';
 import { StudentService } from './student.service';
 import { UserService } from './user.service';
@@ -37,6 +38,7 @@ export class ApiHydrationService {
   private readonly auth = inject(AuthService);
   private readonly catalogService = inject(CatalogService);
   private readonly eventService = inject(EventService);
+  private readonly eventTypeService = inject(EventTypeService);
   private readonly studentService = inject(StudentService);
   private readonly participationService = inject(ParticipationService);
   private readonly userService = inject(UserService);
@@ -78,6 +80,7 @@ export class ApiHydrationService {
           })
         ),
         this.catalogService.loadAll(),
+        this.eventTypeService.load(),
       ]);
 
       this.eventService.replaceAll(events.map(mapApiEvent));

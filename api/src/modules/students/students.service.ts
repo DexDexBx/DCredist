@@ -116,7 +116,7 @@ export class StudentsService {
     return { professionalSchools: schools, locations };
   }
 
-  async findOne(id: string, actor: Actor): Promise<StudentRow> {
+  async findOne(id: number, actor: Actor): Promise<StudentRow> {
     const student = await this.prisma.student.findUnique({
       where: { id },
       include: studentInclude,
@@ -135,7 +135,7 @@ export class StudentsService {
    * Ficha completa: datos del estudiante + participaciones + creditos.
    * Los creditos se derivan de las participaciones, no de una columna.
    */
-  async findDetail(id: string, actor: Actor): Promise<StudentDetail> {
+  async findDetail(id: number, actor: Actor): Promise<StudentDetail> {
     const student = await this.prisma.student.findUnique({
       where: { id },
       include: { ...studentInclude, participations: { select: { id: true } } },
@@ -178,7 +178,7 @@ export class StudentsService {
    * Los creditos nunca se guardan en students.
    */
   async getCreditSummary(
-    studentId: string,
+    studentId: number,
     actor: Actor
   ): Promise<StudentCreditSummaryDto> {
     const student = await this.prisma.student.findUnique({
@@ -261,7 +261,7 @@ export class StudentsService {
     }
   }
 
-  async update(id: string, dto: UpdateStudentDto, actor: Actor): Promise<StudentRow> {
+  async update(id: number, dto: UpdateStudentDto, actor: Actor): Promise<StudentRow> {
     const current = await this.findOne(id, actor);
     const universityCode = dto.universityCode?.trim() ?? current.universityCode;
 
@@ -647,7 +647,7 @@ type ParticipationForSummary = {
   status: ParticipationStatus;
   credits: number;
   grade: number | null;
-  eventId: string;
+  eventId: number;
 };
 
 /**

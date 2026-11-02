@@ -60,6 +60,9 @@ export class UserDetailComponent {
   /** Identificador tomado de la ruta /users/:id. */
   readonly id = input.required<string>();
 
+  /** La ruta entrega el id como texto; los servicios lo usan numerico. */
+  private readonly userId = computed(() => Number(this.id()));
+
   readonly saved = signal(false);
   readonly formError = signal<string | null>(null);
 
@@ -89,7 +92,7 @@ export class UserDetailComponent {
       .map((option) => ({ value: String(option.id), label: option.name }));
   });
 
-  readonly user = computed(() => this.userService.findById(this.id()));
+  readonly user = computed(() => this.userService.findById(this.userId()));
 
   readonly canManage = computed(() => this.auth.can('users', 'MANAGE'));
 
@@ -209,14 +212,14 @@ export class UserDetailComponent {
         ? user.professionalSchoolId
         : Number(value.professionalSchoolId),
     };
-    const validation = this.userService.validate(draft, this.id());
+    const validation = this.userService.validate(draft, this.userId());
 
     if (!validation.valid) {
       this.formError.set(Object.values(validation.errors)[0] ?? 'Revisa los datos del usuario.');
       return;
     }
 
-    const updated = await this.userService.update(this.id(), draft);
+    const updated = await this.userService.update(this.userId(), draft);
 
     if (updated) {
       this.saved.set(true);

@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Patch, Post, Query } from '@nestjs/common';
+import { Body, Controller, Get, Param, ParseIntPipe, Patch, Post, Query } from '@nestjs/common';
 import {
   ApiBadRequestResponse,
   ApiBody,
@@ -62,7 +62,7 @@ export class StudentsController {
   @ApiOkResponse({ type: StudentDetail })
   @ApiNotFoundResponse({ description: 'El estudiante no existe.' })
   findOne(
-    @Param('id') id: string,
+    @Param('id', ParseIntPipe) id: number,
     @CurrentActor() actor: Actor
   ): Promise<StudentDetail> {
     return this.studentsService.findDetail(id, actor);
@@ -77,7 +77,7 @@ export class StudentsController {
   @ApiOkResponse({ type: StudentCreditSummaryDto })
   @ApiNotFoundResponse({ description: 'El estudiante no existe.' })
   getCredits(
-    @Param('id') id: string,
+    @Param('id', ParseIntPipe) id: number,
     @CurrentActor() actor: Actor
   ): Promise<StudentCreditSummaryDto> {
     return this.studentsService.getCreditSummary(id, actor);
@@ -88,7 +88,7 @@ export class StudentsController {
   @ApiOkResponse({ type: [StudentParticipationDto] })
   @ApiNotFoundResponse({ description: 'El estudiante no existe.' })
   getParticipations(
-    @Param('id') id: string,
+    @Param('id', ParseIntPipe) id: number,
     @CurrentActor() actor: Actor
   ): Promise<StudentParticipationDto[]> {
     return this.participationsService.findByStudent(id, actor);
@@ -112,7 +112,7 @@ export class StudentsController {
   @ApiNotFoundResponse({ description: 'El estudiante no existe.' })
   @ApiConflictResponse({ description: 'El codigo universitario ya existe.' })
   update(
-    @Param('id') id: string,
+    @Param('id', ParseIntPipe) id: number,
     @Body() dto: UpdateStudentDto,
     @CurrentActor() actor: Actor
   ) {

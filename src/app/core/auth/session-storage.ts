@@ -12,7 +12,7 @@ interface StoredSession {
 }
 
 /** Id del usuario guardado en la sesion, o null si no hay sesion valida. */
-export function readSessionUserId(): string | null {
+export function readSessionUserId(): number | null {
   if (typeof localStorage === 'undefined') {
     return null;
   }
@@ -24,7 +24,8 @@ export function readSessionUserId(): string | null {
 
   try {
     const profile = JSON.parse(stored) as StoredSession;
-    return typeof profile?.id === 'string' && profile.id ? profile.id : null;
+    const id = Number(profile?.id);
+    return Number.isInteger(id) && id > 0 ? id : null;
   } catch {
     return null;
   }

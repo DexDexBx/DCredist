@@ -30,7 +30,10 @@ export class StudentCertificateComponent {
 
   readonly id = input.required<string>();
 
-  readonly student = computed<Student | undefined>(() => this.studentService.findById(this.id()));
+  /** La ruta entrega el id como texto; los servicios lo usan numerico. */
+  private readonly studentId = computed(() => Number(this.id()));
+
+  readonly student = computed<Student | undefined>(() => this.studentService.findById(this.studentId()));
 
   print(): void {
     printCertificate();

@@ -115,7 +115,7 @@ export class UserListComponent {
   });
 
   /** Usuario cuyo acceso se está configurando en el modal. */
-  readonly configuringUserId = signal<string | null>(null);
+  readonly configuringUserId = signal<number | null>(null);
 
   /** Borrador del modal: se edita aquí y se envía al guardar. */
   readonly draft = signal<PermissionMap | null>(null);

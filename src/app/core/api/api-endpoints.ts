@@ -67,8 +67,8 @@ export const API_ENDPOINTS = {
   authLogin: `${API_BASE_URL}/auth/login`,
 
   users: `${API_BASE_URL}/users`,
-  user: (id: string) => `${API_BASE_URL}/users/${id}`,
-  userPermissions: (id: string) => `${API_BASE_URL}/users/${id}/permissions`,
+  user: (id: number) => `${API_BASE_URL}/users/${id}`,
+  userPermissions: (id: number) => `${API_BASE_URL}/users/${id}/permissions`,
 
   modules: `${API_BASE_URL}/modules`,
 
@@ -80,19 +80,20 @@ export const API_ENDPOINTS = {
   organizer: (id: number) => `${API_BASE_URL}/organizers/${id}`,
 
   students: `${API_BASE_URL}/students`,
-  student: (id: string) => `${API_BASE_URL}/students/${id}`,
+  student: (id: number) => `${API_BASE_URL}/students/${id}`,
   studentFacets: `${API_BASE_URL}/students/facets`,
-  studentParticipations: (id: string) => `${API_BASE_URL}/students/${id}/participations`,
-  studentCredits: (id: string) => `${API_BASE_URL}/students/${id}/credits`,
+  studentParticipations: (id: number) => `${API_BASE_URL}/students/${id}/participations`,
+  studentCredits: (id: number) => `${API_BASE_URL}/students/${id}/credits`,
   studentImport: `${API_BASE_URL}/students/import`,
 
   events: `${API_BASE_URL}/events`,
-  event: (id: string) => `${API_BASE_URL}/events/${id}`,
-  eventSummary: (id: string) => `${API_BASE_URL}/events/${id}/summary`,
-  eventParticipations: (id: string) => `${API_BASE_URL}/events/${id}/participations`,
+  event: (id: number) => `${API_BASE_URL}/events/${id}`,
+  eventSummary: (id: number) => `${API_BASE_URL}/events/${id}/summary`,
+  eventParticipations: (id: number) => `${API_BASE_URL}/events/${id}/participations`,
+  eventTypes: `${API_BASE_URL}/event-types`,
 
   participations: `${API_BASE_URL}/participations`,
-  participation: (id: string) => `${API_BASE_URL}/participations/${id}`,
+  participation: (id: number) => `${API_BASE_URL}/participations/${id}`,
   participationImport: `${API_BASE_URL}/participations/import`,
 
   verification: (code: string) => `${API_BASE_URL}/verification/${code}`,

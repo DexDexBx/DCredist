@@ -17,6 +17,7 @@ import {
   AcademicEvent,
   Participation,
   eventDateRangeLabel,
+  eventTypeLabel,
   primaryCertificateCode,
 } from '../../../../models';
 import {
@@ -32,7 +33,7 @@ import {
   EVENT_STATUS_COLOR,
   PARTICIPATION_STATUS_COLOR,
 } from '../../../../shared/constants/status-ui';
-import { formatDateTimeRange, formatLongDate } from '../../../../shared/utils/date.utils';
+import { formatDateRange, formatLongDate } from '../../../../shared/utils/date.utils';
 
 /** Tipo de documento que se esta verificando. */
 export type VerificationKind = 'CERTIFICATE' | 'CONSTANCY';
@@ -180,11 +181,15 @@ export class VerificationComponent {
   }
 
   dateRange(start: string, end: string): string {
-    return formatDateTimeRange(start, end);
+    return formatDateRange(start, end);
   }
 
   eventDates(event: Pick<AcademicEvent, 'startDate' | 'endDate'>): string {
     return eventDateRangeLabel(event);
+  }
+
+  eventTypeName(event: Pick<AcademicEvent, 'eventTypeName'>): string {
+    return eventTypeLabel(event.eventTypeName);
   }
 
   /** Fecha de emision de la constancia, ya formateada. */

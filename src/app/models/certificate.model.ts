@@ -38,10 +38,11 @@ export function missingCreditsForCertificate(
  * Determinista a proposito: el mismo estudiante produce siempre el mismo codigo,
  * de modo que dos renders del certificado no muestran codigos distintos.
  */
-function shortHash(value: string): string {
+function shortHash(value: string | number): string {
+  const text = String(value);
   let hash = 0x811c9dc5;
-  for (let index = 0; index < value.length; index++) {
-    hash ^= value.charCodeAt(index);
+  for (let index = 0; index < text.length; index++) {
+    hash ^= text.charCodeAt(index);
     hash = Math.imul(hash, 0x01000193);
   }
   return (hash >>> 0).toString(36).toUpperCase().padStart(6, '0').slice(-6);

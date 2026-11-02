@@ -117,7 +117,7 @@ export class ParticipationListComponent {
    */
   readonly eventOptions = computed<DcSelectOption[]>(() =>
     this.events().map((event) => ({
-      value: event.id,
+      value: String(event.id),
       label: event.code ? `${event.code} · ${event.name}` : event.name,
       description: [event.organizer, event.modality].filter(Boolean).join(' · '),
       search: `${event.code ?? ''} ${event.name} ${event.organizer ?? ''}`,
@@ -128,7 +128,7 @@ export class ParticipationListComponent {
     const currentStatus = this.status();
     return {
       search: this.search(),
-      eventId: this.eventId() || undefined,
+      eventId: this.eventId() ? Number(this.eventId()) : undefined,
       participationType: this.type() || undefined,
       status: currentStatus === 'Todos' ? undefined : currentStatus,
       sort: this.sort(),
@@ -206,7 +206,7 @@ export class ParticipationListComponent {
   }
 
   studentHref(row: ParticipationContext): string[] {
-    return ['/students', row.student?.id ?? ''];
+    return ['/students', String(row.student?.id ?? '')];
   }
 
   eventName(row: ParticipationContext): string {
@@ -214,7 +214,7 @@ export class ParticipationListComponent {
   }
 
   eventHref(row: ParticipationContext): string[] {
-    return ['/events', row.event?.id ?? ''];
+    return ['/events', String(row.event?.id ?? '')];
   }
 
   date(value: string): string {

@@ -43,9 +43,10 @@ export class ActorGuard implements CanActivate {
       .switchToHttp()
       .getRequest<Request & { actor?: Actor }>();
     const rawHeader = request.headers['x-user-id'];
-    const userId = Array.isArray(rawHeader) ? rawHeader[0] : rawHeader;
+    const rawUserId = Array.isArray(rawHeader) ? rawHeader[0] : rawHeader;
+    const userId = Number(rawUserId);
 
-    if (!userId) {
+    if (!rawUserId || !Number.isInteger(userId) || userId <= 0) {
       throw new UnauthorizedException(
         'Falta la cabecera X-User-Id con el usuario de la sesion.'
       );
@@ -55,6 +56,7 @@ export class ActorGuard implements CanActivate {
       where: { id: userId },
       select: {
         id: true,
+        fullName: true,
         role: true,
         status: true,
         professionalSchoolId: true,
@@ -68,6 +70,7 @@ export class ActorGuard implements CanActivate {
 
     request.actor = {
       id: user.id,
+      fullName: user.fullName,
       role: user.role,
       professionalSchoolId: user.professionalSchoolId,
       professionalSchoolName: user.professionalSchool.name,

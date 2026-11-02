@@ -8,7 +8,7 @@ import { StudentStatus } from '../../../generated/prisma/client';
  * consulta sumando los creditos de las participaciones vigentes (VALID).
  */
 export class StudentDetail {
-  @ApiProperty() id!: string;
+  @ApiProperty({ example: 1 }) id!: number;
   @ApiProperty() universityCode!: string;
   @ApiProperty() academicDegree!: string;
   @ApiProperty() lastName!: string;
@@ -30,7 +30,7 @@ export class StudentDetail {
   @ApiProperty({ example: 0 }) pendingParticipations!: number;
 
   @ApiProperty({ type: () => [String] })
-  participationIds!: string[];
+  participationIds!: number[];
 
   @ApiProperty() createdAt!: Date;
   @ApiProperty() updatedAt!: Date;

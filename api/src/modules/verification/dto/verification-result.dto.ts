@@ -27,7 +27,7 @@ export class VerificationResultDto {
 
   @ApiProperty({ nullable: true, description: 'Participacion encontrada. null si no existe.' })
   participation!: {
-    id: string;
+    id: number;
     participationType: ParticipationType;
     participationDate: Date;
     credits: number;
@@ -38,10 +38,11 @@ export class VerificationResultDto {
 
   @ApiProperty({ nullable: true })
   event!: {
-    id: string;
+    id: number;
     code: string;
     name: string;
-    category: string;
+    eventTypeId: number;
+    eventTypeName: string;
     startDate: Date;
     endDate: Date;
     modality: EventModality;
@@ -56,7 +57,7 @@ export class VerificationResultDto {
 
   @ApiProperty({ nullable: true })
   student!: {
-    id: string;
+    id: number;
     universityCode: string;
     academicDegree: string;
     lastName: string;

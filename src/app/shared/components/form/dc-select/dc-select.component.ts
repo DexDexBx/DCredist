@@ -10,6 +10,8 @@ export interface DcSelectOption {
   description?: string;
   /** Texto adicional sobre el que busca el combobox; no se muestra. */
   search?: string;
+  /** Opcion visible pero no seleccionable (por ejemplo, el estado actual). */
+  disabled?: boolean;
 }
 
 @Component({

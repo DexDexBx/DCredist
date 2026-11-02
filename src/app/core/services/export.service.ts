@@ -8,6 +8,7 @@ import {
   ParticipationQuery,
   ParticipationStatus,
   eventDateRangeLabel,
+  eventTypeLabel,
   isMultiDayEvent,
   primaryCertificateCode,
 } from '../../models';
@@ -16,6 +17,7 @@ import { ParticipationService } from './participation.service';
 import { StudentService } from './student.service';
 import { CatalogService } from './catalog.service';
 import { collateCodes } from '../../shared/utils/text.utils';
+import { parseCalendarDate } from '../../shared/utils/date.utils';
 import {
   buildCsv,
   buildFileName,
@@ -71,7 +73,7 @@ export class ExportService {
     );
   }
 
-  exportEventParticipants(eventId: string): ExportResult | null {
+  exportEventParticipants(eventId: number): ExportResult | null {
     const event = this.eventService.findById(eventId);
     if (!event) {
       return null;
@@ -80,7 +82,7 @@ export class ExportService {
     return this.buildInstitutional(event);
   }
 
-  downloadEventParticipants(eventId: string): ExportResult | null {
+  downloadEventParticipants(eventId: number): ExportResult | null {
     const result = this.exportEventParticipants(eventId);
     if (!result) {
       return null;
@@ -92,7 +94,7 @@ export class ExportService {
   }
 
   /** Vista previa del archivo institucional sin descargarlo. */
-  previewInstitutional(eventId: string, limit = 8): string[][] {
+  previewInstitutional(eventId: number, limit = 8): string[][] {
     const event = this.eventService.findById(eventId);
     if (!event) {
       return [];
@@ -163,8 +165,8 @@ export class ExportService {
   }
 
   private metadataRows(event: AcademicEvent): string[][] {
-    const start = new Date(event.startDate);
-    const end = new Date(event.endDate);
+    const start = parseCalendarDate(event.startDate) ?? new Date(event.startDate);
+    const end = parseCalendarDate(event.endDate) ?? new Date(event.endDate);
     const multiDay = isMultiDayEvent(event);
     const formatter = new Intl.DateTimeFormat('es', {
       day: '2-digit',
@@ -175,7 +177,7 @@ export class ExportService {
     const values: Record<string, string> = {
       'Código del evento': event.code,
       'Nombre del evento': event.name,
-      'Tipo de evento': event.eventType,
+      'Tipo de evento': eventTypeLabel(event.eventTypeName),
       'Fecha de inicio': formatter.format(start),
       'Fecha de término': formatter.format(multiDay ? end : start),
       Modalidad: event.modality,
@@ -293,10 +295,10 @@ export class ExportService {
     const body = events.map((event) => [
       event.code,
       event.name,
-      event.eventType,
+      eventTypeLabel(event.eventTypeName),
       event.modality,
-      dateFormatter.format(new Date(event.startDate)),
-      dateFormatter.format(new Date(event.endDate)),
+      dateFormatter.format(parseCalendarDate(event.startDate) ?? new Date(event.startDate)),
+      dateFormatter.format(parseCalendarDate(event.endDate) ?? new Date(event.endDate)),
       optionalText(event.location),
       optionalText(event.organizer),
       formatCredits(event.credits),
@@ -389,12 +391,12 @@ export class ExportService {
   }
 
   /** Participaciones del evento con evento y estudiante resueltos. */
-  private getEventTable(eventId: string): ParticipationContext[] {
+  private getEventTable(eventId: number): ParticipationContext[] {
     return this.participationService.getEventTable(eventId);
   }
 
   /** Solo para diagnostico: codigos de participacion del evento, de cualquier nomenclatura. */
-  verificationCodes(eventId: string): string[] {
+  verificationCodes(eventId: number): string[] {
     return this.participationService
       .getEventTable(eventId)
       .filter((item) => this.isExportable(item.participation.status))

@@ -49,6 +49,8 @@ export class DcComboboxComponent implements ControlValueAccessor {
   readonly required = input(false);
   readonly invalid = input(false);
   readonly emptyText = input<string>('Sin resultados');
+  /** Permite borrar la seleccion con la X. Se desactiva si la seleccion es definitiva. */
+  readonly clearable = input(true);
 
   readonly controlId = `dc-combobox-${++sequence}`;
   readonly value = signal('');

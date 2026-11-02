@@ -1,8 +1,7 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import { EventStatus } from '../../../generated/prisma/client';
-import { IsEnum, IsIn, IsInt, IsOptional, IsString, Min } from 'class-validator';
-import { EVENT_CATEGORIES } from '../../../common/domain';
+import { IsEnum, IsInt, IsOptional, IsString, Min } from 'class-validator';
 import { blankToUndefined } from '../../../common/dto/blank-query';
 
 /**
@@ -16,11 +15,13 @@ export class QueryEventsDto {
   @blankToUndefined()
   search?: string;
 
-  @ApiPropertyOptional({ enum: EVENT_CATEGORIES })
+  @ApiPropertyOptional({ example: 1, description: 'Tipo de evento academico.' })
   @IsOptional()
-  @IsIn(EVENT_CATEGORIES)
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
   @blankToUndefined()
-  category?: string;
+  eventTypeId?: number;
 
   @ApiPropertyOptional({ enum: EventStatus })
   @IsOptional()

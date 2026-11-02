@@ -77,7 +77,7 @@ export class UpdateUserDto extends PartialType(CreateUserDto) {}
 /** Perfil publico de un usuario. Nunca incluye el hash de la contraseña. */
 export class UserDto {
   @ApiProperty()
-  id!: string;
+  id!: number;
 
   @ApiProperty()
   fullName!: string;

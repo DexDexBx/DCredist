@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Patch, Post, Query } from '@nestjs/common';
+import { Body, Controller, Get, Param, ParseIntPipe, Patch, Post, Query } from '@nestjs/common';
 import {
   ApiBadRequestResponse,
   ApiBody,
@@ -41,7 +41,7 @@ export class ParticipationsController {
   @ApiOperation({ summary: 'Detalle de una participacion.' })
   @ApiOkResponse({ description: 'Participacion con su evento.' })
   @ApiNotFoundResponse({ description: 'La participacion no existe.' })
-  findOne(@Param('id') id: string, @CurrentActor() actor: Actor) {
+  findOne(@Param('id', ParseIntPipe) id: number, @CurrentActor() actor: Actor) {
     return this.participationsService.findOne(id, actor);
   }
 
@@ -75,7 +75,7 @@ export class ParticipationsController {
   @ApiNotFoundResponse({ description: 'La participacion no existe.' })
   @ApiBadRequestResponse({ description: 'Creditos o nota invalidos.' })
   update(
-    @Param('id') id: string,
+    @Param('id', ParseIntPipe) id: number,
     @Body() dto: UpdateParticipationDto,
     @CurrentActor() actor: Actor
   ) {

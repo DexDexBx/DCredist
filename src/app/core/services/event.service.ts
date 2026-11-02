@@ -4,19 +4,20 @@ import {
   AcademicEvent,
   EVENT_MODALITIES,
   EVENT_STATUSES,
-  EVENT_TYPES,
   EventDraft,
   EventModality,
   EventStatus,
-  EventType,
   EventValidation,
   acceptsParticipations,
+  eventTypeLabel,
   isImportCompleted,
   isLateImportsEnabled,
 } from '../../models';
-import { mapApiEvent, toApiEventPayload } from '../api/api.mappers';
+import { mapApiEvent, toApiEventPatch, toApiEventPayload } from '../api/api.mappers';
 import { DcreditsApiClient } from '../api/dcredits-api.client';
+import { AuthService } from './auth.service';
 import { CatalogService } from './catalog.service';
+import { EventTypeService } from './event-type.service';
 import { DataModeService } from './data-mode.service';
 
 /**
@@ -29,8 +30,7 @@ import { DataModeService } from './data-mode.service';
  *   PATCH /events/:id
  *
  * Validaciones de dominio (se aplican antes de tocar el API o el estado local):
- *  - fecha de fin >= fecha de inicio (sin limite artificial de duracion),
- *  - hora de fin > hora de inicio cuando ambas existen,
+ *  - fecha de fin >= fecha de inicio (mismo dia permitido; sin limite de duracion),
  *  - creditos >= 0,
  *  - capacidad nula o positiva.
  */
@@ -39,6 +39,8 @@ export class EventService {
   private readonly api = inject(DcreditsApiClient);
   private readonly dataMode = inject(DataModeService);
   private readonly catalogService = inject(CatalogService);
+  private readonly eventTypeService = inject(EventTypeService);
+  private readonly auth = inject(AuthService);
   private readonly eventsState = signal<AcademicEvent[]>([]);
 
   readonly events = this.eventsState.asReadonly();
@@ -53,7 +55,6 @@ export class EventService {
     this.eventsState.set(events);
   }
 
-  readonly eventTypes: readonly EventType[] = EVENT_TYPES;
   readonly modalities: readonly EventModality[] = EVENT_MODALITIES;
   readonly statuses: readonly EventStatus[] = EVENT_STATUSES;
 
@@ -67,7 +68,7 @@ export class EventService {
     () => this.eventsState().filter((event) => event.status === 'En curso')
   );
 
-  findById(id: string): AcademicEvent | undefined {
+  findById(id: number): AcademicEvent | undefined {
     return this.eventsState().find((event) => event.id === id);
   }
 
@@ -95,7 +96,8 @@ export class EventService {
           !search ||
           event.name.toLowerCase().includes(search) ||
           event.code.toLowerCase().includes(search) ||
-          event.eventType.toLowerCase().includes(search) ||
+          event.eventTypeName.toLowerCase().includes(search) ||
+          eventTypeLabel(event.eventTypeName).toLowerCase().includes(search) ||
           event.organizer.toLowerCase().includes(search) ||
           event.professionalSchool.toLowerCase().includes(search) ||
           (event.description?.toLowerCase().includes(search) ?? false);
@@ -143,22 +145,18 @@ export class EventService {
     }
 
     if (!Number.isNaN(start.getTime()) && !Number.isNaN(end.getTime())) {
+      // Solo fechas: el mismo dia es valido (evento de un dia).
       if (end.getTime() < start.getTime()) {
         errors.endDate = 'La fecha de término no puede ser anterior a la de inicio.';
-      }
-
-      const sameDay =
-        start.getFullYear() === end.getFullYear() &&
-        start.getMonth() === end.getMonth() &&
-        start.getDate() === end.getDate();
-
-      if (sameDay && end.getTime() <= start.getTime()) {
-        errors.endDate = 'La hora de término debe ser posterior a la de inicio.';
       }
     }
 
     if (!draft.location.trim()) {
       errors.location = 'El lugar es obligatorio.';
+    }
+
+    if (!draft.eventTypeId) {
+      errors.eventTypeId = 'El tipo de evento es obligatorio.';
     }
 
     if (!draft.organizerId) {
@@ -200,15 +198,17 @@ export class EventService {
   }
 
   private createLocal(draft: EventDraft): AcademicEvent {
-    const sequence = this.eventsState().length + 1;
+    const sequence = this.eventsState().reduce((max, item) => Math.max(max, item.id), 0) + 1;
+    const actorName = this.auth.currentUser()?.fullName ?? '';
     const event: AcademicEvent = {
-      id: `evt-${String(sequence).padStart(3, '0')}`,
+      id: sequence,
       code: draft.code?.trim() || `EVT-${new Date().getFullYear()}-${String(sequence).padStart(3, '0')}`,
       name: draft.name.trim(),
       description: draft.description.trim(),
-      eventType: draft.eventType,
-      startDate: new Date(draft.startDate).toISOString(),
-      endDate: new Date(draft.endDate).toISOString(),
+      eventTypeId: draft.eventTypeId ?? 0,
+      eventTypeName: this.eventTypeService.nameOf(draft.eventTypeId),
+      startDate: toDateOnly(draft.startDate),
+      endDate: toDateOnly(draft.endDate),
       modality: draft.modality,
       location: draft.location.trim(),
       status: draft.status,
@@ -221,6 +221,8 @@ export class EventService {
         draft.professionalSchoolId ?? 0,
       ),
       credits: draft.credits,
+      userCreate: actorName,
+      userUpdate: actorName,
       tags: draft.tags,
     };
 
@@ -228,17 +230,22 @@ export class EventService {
     return event;
   }
 
-  async update(id: string, draft: EventDraft): Promise<AcademicEvent | null> {
+  async update(id: number, draft: EventDraft): Promise<AcademicEvent | null> {
     const current = this.findById(id);
     if (!current || !this.validate(draft).valid) {
       return null;
     }
 
     if (this.dataMode.isApi) {
+      const patch = toApiEventPatch(draft, current);
+
+      // Sin cambios reales no se toca el API ni se estampa userUpdate.
+      if (Object.keys(patch).length === 0) {
+        return current;
+      }
+
       try {
-        const updated = await firstValueFrom(
-          this.api.updateEvent(id, toApiEventPayload(draft))
-        );
+        const updated = await firstValueFrom(this.api.updateEvent(id, patch));
         const event = mapApiEvent(updated);
         this.eventsState.update((list) => list.map((item) => (item.id === id ? event : item)));
         return event;
@@ -250,15 +257,17 @@ export class EventService {
     return this.updateLocal(id, draft);
   }
 
-  private updateLocal(id: string, draft: EventDraft): AcademicEvent {
+  private updateLocal(id: number, draft: EventDraft): AcademicEvent {
     const current = this.findById(id) as AcademicEvent;
     const event: AcademicEvent = {
       ...current,
       name: draft.name.trim(),
       description: draft.description.trim(),
-      eventType: draft.eventType,
-      startDate: new Date(draft.startDate).toISOString(),
-      endDate: new Date(draft.endDate).toISOString(),
+      eventTypeId: draft.eventTypeId ?? current.eventTypeId,
+      eventTypeName:
+        this.eventTypeService.nameOf(draft.eventTypeId) || current.eventTypeName,
+      startDate: toDateOnly(draft.startDate),
+      endDate: toDateOnly(draft.endDate),
       modality: draft.modality,
       location: draft.location.trim(),
       status: draft.status,
@@ -271,6 +280,7 @@ export class EventService {
         draft.professionalSchoolId ?? 0,
       ),
       credits: draft.credits,
+      userUpdate: this.auth.currentUser()?.fullName ?? current.userUpdate,
       tags: draft.tags,
     };
 
@@ -291,7 +301,7 @@ export class EventService {
    * Contrato de API: POST /events/:id/import/complete
    */
   markImportComplete(
-    eventId: string,
+    eventId: number,
     options: { completedBy?: string } = {}
   ): AcademicEvent | null {
     const current = this.findById(eventId);
@@ -316,7 +326,7 @@ export class EventService {
    * Contrato de API: POST /events/:id/import/late
    */
   enableLateImports(
-    eventId: string,
+    eventId: number,
     options: { enabledBy: string; reason: string }
   ): AcademicEvent | null {
     const current = this.findById(eventId);
@@ -338,7 +348,7 @@ export class EventService {
   }
 
   /** Vuelve a cerrar el evento: deja de admitir cargas extemporaneas. */
-  disableLateImports(eventId: string): AcademicEvent | null {
+  disableLateImports(eventId: number): AcademicEvent | null {
     const current = this.findById(eventId);
     if (!current || !isLateImportsEnabled(current)) {
       return current ?? null;
@@ -364,7 +374,7 @@ export class EventService {
    *    confirmarla, el evento vuelve a quedar cerrado.
    */
   recordImportBatch(
-    eventId: string,
+    eventId: number,
     batch: { batchId: string; mode: 'NORMAL' | 'LATE'; uploadedBy?: string }
   ): AcademicEvent | null {
     const current = this.findById(eventId);
@@ -396,7 +406,7 @@ export class EventService {
   }
 
   /** Cambio interno del evento, sin pasar por la validacion del formulario. */
-  private patchEvent(id: string, patch: Partial<AcademicEvent>): AcademicEvent | null {
+  private patchEvent(id: number, patch: Partial<AcademicEvent>): AcademicEvent | null {
     let result: AcademicEvent | null = null;
 
     this.eventsState.update((current) =>
@@ -411,4 +421,18 @@ export class EventService {
 
     return result;
   }
+}
+
+/** Fecha calendario "YYYY-MM-DD", sin hora. */
+function toDateOnly(value: string): string {
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value.trim())) {
+    return value.trim();
+  }
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+
+  return date.toISOString().slice(0, 10);
 }

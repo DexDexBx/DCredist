@@ -238,7 +238,7 @@ export class CertificateCodesComponent {
     return found.event?.name ?? 'Evento no disponible';
   }
 
-  eventServiceName(eventId: string): string {
+  eventServiceName(eventId: number): string {
     return this.eventService.findById(eventId)?.name ?? 'Evento no disponible';
   }
 

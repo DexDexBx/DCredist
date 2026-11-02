@@ -51,6 +51,7 @@ export class VerificationService {
           include: {
             organizer: { select: { name: true } },
             professionalSchool: { select: { name: true } },
+            eventTypeCatalog: { select: { id: true, name: true } },
           },
         },
         student: {
@@ -81,7 +82,8 @@ export class VerificationService {
         id: participation.event.id,
         code: participation.event.code,
         name: participation.event.name,
-        category: participation.event.category,
+        eventTypeId: participation.event.eventTypeCatalog.id,
+        eventTypeName: participation.event.eventTypeCatalog.name,
         startDate: participation.event.startDate,
         endDate: participation.event.endDate,
         modality: participation.event.modality,
@@ -153,7 +155,7 @@ export class VerificationService {
     return rows.map((row) => row.verificationCode);
   }
 
-  private async creditSummary(studentId: string) {
+  private async creditSummary(studentId: number) {
     const grouped = await this.prisma.participation.groupBy({
       by: ['status'],
       where: { studentId },

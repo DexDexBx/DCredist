@@ -189,7 +189,7 @@ export class AuthService {
     try {
       const profile = JSON.parse(stored) as UserProfile;
 
-      if (!profile || typeof profile.id !== 'string' || typeof profile.email !== 'string') {
+      if (!profile || (typeof profile.id !== 'number' || !Number.isInteger(profile.id) || profile.id <= 0) || typeof profile.email !== 'string') {
         return null;
       }
 

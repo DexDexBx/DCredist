@@ -11,8 +11,8 @@ import { ParticipationStatus, ParticipationType } from '../../../generated/prism
  * codigo de participacion y del certificado: la interfaz nunca lo genera.
  */
 export class EventParticipantDto {
-  @ApiProperty() participationId!: string;
-  @ApiProperty() studentId!: string;
+  @ApiProperty({ example: 1 }) participationId!: number;
+  @ApiProperty({ example: 1 }) studentId!: number;
 
   @ApiProperty({ example: '2213271' }) universityCode!: string;
   @ApiProperty({ example: 'QUINTO' }) academicDegree!: string;
@@ -38,10 +38,11 @@ export class EventParticipantDto {
 
 /** Evento con su conteo de participantes, para el dashboard. */
 export class EventSummaryDto {
-  @ApiProperty() id!: string;
+  @ApiProperty({ example: 1 }) id!: number;
   @ApiProperty({ example: 'EVT-2026-001' }) code!: string;
   @ApiProperty() name!: string;
-  @ApiProperty({ example: 'Congreso' }) category!: string;
+  @ApiProperty({ example: 1 }) eventTypeId!: number;
+  @ApiProperty({ example: 'Congress' }) eventTypeName!: string;
   @ApiProperty() startDate!: Date;
   @ApiProperty() endDate!: Date;
   @ApiProperty() modality!: string;

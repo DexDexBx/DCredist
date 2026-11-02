@@ -5,7 +5,7 @@ import { UserPermissionDto } from '../../users/dto/user-permissions.dto';
 /** Perfil que devuelve el login. Nunca incluye el hash de la contrasena. */
 export class LoginResponseDto {
   @ApiProperty()
-  id!: string;
+  id!: number;
 
   @ApiProperty()
   fullName!: string;

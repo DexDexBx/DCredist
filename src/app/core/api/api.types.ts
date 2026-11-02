@@ -18,13 +18,13 @@ export interface ApiUserPermission {
 
 /** Modulo del catalogo (GET /modules). */
 export interface ApiModule {
-  id: string;
+  id: number;
   name: string;
 }
 
 /** Datos comunes del perfil. Nunca incluye el hash de la contrasena. */
 export interface ApiUserBase {
-  id: string;
+  id: number;
   fullName: string;
   email: string;
   role: ApiUserRole;
@@ -117,7 +117,7 @@ export type ApiStudentImportIssueCode =
   | 'DB_ERROR';
 
 export interface ApiStudent {
-  id: string;
+  id: number;
   universityCode: string;
   academicDegree: string;
   lastName: string;
@@ -168,17 +168,24 @@ export type ApiEventType = 'SINGLE_DAY' | 'MULTI_DAY';
 export type ApiEventModality = 'PRESENTIAL' | 'VIRTUAL' | 'HYBRID';
 export type ApiEventStatus = 'DRAFT' | 'SCHEDULED' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
 
+/** Tipo de evento academico (GET /event-types). */
+export interface ApiEventTypeEntry {
+  id: number;
+  name: string;
+  status: 'ACTIVE' | 'INACTIVE';
+}
+
 export interface ApiEvent {
-  id: string;
+  id: number;
   code: string;
   name: string;
   description: string;
   eventType: ApiEventType;
-  category: string;
+  eventTypeId: number;
+  /** Nombre del tipo en ingles; la interfaz lo traduce. */
+  eventTypeName: string;
   startDate: string;
   endDate: string;
-  startTime: string | null;
-  endTime: string | null;
   modality: ApiEventModality;
   location: string;
   capacity: number | null;
@@ -188,6 +195,8 @@ export interface ApiEvent {
   professionalSchool: string;
   credits: number;
   status: ApiEventStatus;
+  userCreate: string;
+  userUpdate: string;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -202,9 +211,9 @@ export type ApiParticipationType =
 export type ApiParticipationStatus = 'VALID' | 'CANCELLED' | 'PENDING';
 
 export interface ApiParticipation {
-  id: string;
-  eventId: string;
-  studentId: string;
+  id: number;
+  eventId: number;
+  studentId: number;
   participationType: ApiParticipationType;
   participationDate: string;
   credits: number;
@@ -215,19 +224,17 @@ export interface ApiParticipation {
   updatedAt?: string;
 }
 
-/** Cuerpo de alta/edicion de un evento. `category` es el "tipo" del dominio. */
+/** Cuerpo de alta/edicion de un evento. `eventTypeId` referencia a `event_types`. */
 export interface ApiEventPayload {
   code?: string;
   name: string;
   description?: string;
-  category?: string;
   startDate: string;
   endDate: string;
-  startTime?: string;
-  endTime?: string;
   modality?: ApiEventModality;
   location?: string;
   capacity?: number | null;
+  eventTypeId?: number;
   organizerId?: number;
   professionalSchoolId?: number;
   credits?: number;
@@ -254,8 +261,8 @@ export interface ApiStudentImportRow {
 }
 
 export interface ApiParticipationPayload {
-  eventId: string;
-  studentId: string;
+  eventId: number;
+  studentId: number;
   participationType?: ApiParticipationType;
   participationDate?: string;
   credits?: number;

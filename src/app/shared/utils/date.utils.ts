@@ -53,7 +53,43 @@ export function formatSchedule(start: string | Date, end: string | Date): string
   return `${from} - ${to}`;
 }
 
-/** Rango completo: "30 sept 2026 · 09:00 - 18:00" o con dos fechas si son distintos dias. */
+/** Rango de fechas calendario, sin hora: "30 sept 2026" o "30 sept 2026 - 02 oct 2026". */
+export function formatDateRange(start: string | Date, end: string | Date): string {
+  const from = formatMediumDate(start);
+  const to = formatMediumDate(end);
+  if (!from || !to) {
+    return '';
+  }
+  return isSameDay(start, end) ? from : `${from} - ${to}`;
+}
+
+/**
+ * Interpreta una fecha calendario "YYYY-MM-DD" como dia local.
+ *
+ * `new Date('2026-10-05')` la interpreta como medianoche UTC y en Peru se veria
+ * como el dia anterior. Las fechas de evento no tienen hora: se construyen con
+ * los componentes locales para que el dia mostrado sea el guardado.
+ */
+export function parseCalendarDate(value: string | Date): Date | null {
+  if (value instanceof Date) {
+    return Number.isNaN(value.getTime()) ? null : value;
+  }
+
+  const dateOnly = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value.trim());
+  if (dateOnly) {
+    const date = new Date(
+      Number(dateOnly[1]),
+      Number(dateOnly[2]) - 1,
+      Number(dateOnly[3]),
+    );
+    return Number.isNaN(date.getTime()) ? null : date;
+  }
+
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+/** Rango completo con hora (solo para marcas de tiempo como participationDate). */
 export function formatDateTimeRange(start: string | Date, end: string | Date): string {
   const schedule = formatSchedule(start, end);
   if (isSameDay(start, end)) {
@@ -63,6 +99,5 @@ export function formatDateTimeRange(start: string | Date, end: string | Date): s
 }
 
 function toDate(value: string | Date): Date | null {
-  const date = value instanceof Date ? value : new Date(value);
-  return Number.isNaN(date.getTime()) ? null : date;
+  return parseCalendarDate(value);
 }

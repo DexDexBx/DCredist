@@ -36,12 +36,12 @@ export class ParticipationLoadRequestService {
   private sequence = 0;
 
   /** Solicitudes de un evento, de la mas reciente a la mas antigua. */
-  requestsForEvent(eventId: string): ParticipationLoadRequest[] {
+  requestsForEvent(eventId: number): ParticipationLoadRequest[] {
     return this.requestsState().filter((request) => request.eventId === eventId);
   }
 
   /** Solicitud pendiente mas reciente del evento, si existe. */
-  pendingForEvent(eventId: string): ParticipationLoadRequest | undefined {
+  pendingForEvent(eventId: number): ParticipationLoadRequest | undefined {
     return this.requestsState().find(
       (request) => request.eventId === eventId && request.status === 'PENDING'
     );

@@ -18,7 +18,7 @@ import { printCertificate } from '../../../../shared/utils/print.utils';
 export class CertificateModalComponent {
   private readonly destroyRef = inject(DestroyRef);
 
-  readonly studentId = input<string | null>(null);
+  readonly studentId = input<number | null>(null);
   readonly isOpen = input(false);
 
   readonly close = output<void>();

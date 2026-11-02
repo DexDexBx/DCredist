@@ -7,7 +7,7 @@
 export type StudentStatus = 'ACTIVE' | 'INACTIVE';
 
 export interface Student {
-  id: string;
+  id: number;
   /** Codigo universitario. Identificador funcional y unico. */
   universityCode: string;
   /** Grado academico. Puede estar vacio si la institucion no lo reporta. */

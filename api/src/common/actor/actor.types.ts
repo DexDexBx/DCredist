@@ -9,7 +9,8 @@ import type { UserRole } from '../../generated/prisma/client';
  * los estudiantes, eventos y participaciones de su propia escuela.
  */
 export interface Actor {
-  id: string;
+  id: number;
+  fullName: string;
   role: UserRole;
   professionalSchoolId: number;
   professionalSchoolName: string;

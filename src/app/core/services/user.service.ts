@@ -55,7 +55,7 @@ export class UserService {
   private readonly usersState = signal<UserProfile[]>([]);
 
   /** Solo se usa sin API: matriz por usuario en memoria durante la sesión. */
-  private readonly localPermissions = signal<Record<string, PermissionMap>>({});
+  private readonly localPermissions = signal<Record<number, PermissionMap>>({});
 
   readonly users = this.usersState.asReadonly();
 
@@ -66,7 +66,7 @@ export class UserService {
   );
 
   private readonly byIdIndex = computed(() => {
-    const index = new Map<string, UserProfile>();
+    const index = new Map<number, UserProfile>();
     for (const user of this.usersState()) {
       index.set(user.id, user);
     }
@@ -78,7 +78,7 @@ export class UserService {
     this.usersState.set(users);
   }
 
-  findById(id: string): UserProfile | undefined {
+  findById(id: number): UserProfile | undefined {
     return this.byIdIndex().get(id);
   }
 
@@ -87,7 +87,7 @@ export class UserService {
     return this.usersState().find((user) => user.email.toLowerCase() === normalized);
   }
 
-  existsEmail(email: string, exceptId?: string): boolean {
+  existsEmail(email: string, exceptId?: number): boolean {
     const existing = this.findByEmail(email);
     return Boolean(existing && existing.id !== exceptId);
   }
@@ -98,7 +98,7 @@ export class UserService {
    */
   validate(
     draft: UserDraft & { password?: string },
-    exceptId?: string,
+    exceptId?: number,
     requirePassword = false
   ): UserValidation {
     const errors: UserValidation['errors'] = {};
@@ -144,12 +144,13 @@ export class UserService {
       }
     }
 
-    const user = this.normalizeDraft(draft, `user-${Date.now().toString(36)}`);
+    const nextId = this.usersState().reduce((max, user) => Math.max(max, user.id), 0) + 1;
+    const user = this.normalizeDraft(draft, nextId);
     this.usersState.update((current) => [...current, user]);
     return user;
   }
 
-  async update(id: string, draft: UserUpdateDraft): Promise<UserProfile | null> {
+  async update(id: number, draft: UserUpdateDraft): Promise<UserProfile | null> {
     if (!this.findById(id) || !this.validate(draft, id).valid) {
       return null;
     }
@@ -172,7 +173,7 @@ export class UserService {
     return user;
   }
 
-  async setStatus(id: string, status: UserProfile['status']): Promise<void> {
+  async setStatus(id: number, status: UserProfile['status']): Promise<void> {
     const current = this.findById(id);
     if (!current || current.status === status) {
       return;
@@ -213,7 +214,7 @@ export class UserService {
    * Matriz de permisos de un usuario. Se pide solo al abrir la tuerca de
    * accesos: el listado no la trae para no cargar nueve filas por usuario.
    */
-  async getPermissions(id: string): Promise<PermissionMap | null> {
+  async getPermissions(id: number): Promise<PermissionMap | null> {
     const user = this.findById(id);
 
     if (!this.dataMode.isApi) {
@@ -230,7 +231,7 @@ export class UserService {
   }
 
   /** Reemplaza la matriz completa del usuario. */
-  async updatePermissions(id: string, permissions: PermissionMap): Promise<PermissionMap | null> {
+  async updatePermissions(id: number, permissions: PermissionMap): Promise<PermissionMap | null> {
     const user = this.findById(id);
     if (!user) {
       return null;
@@ -256,7 +257,7 @@ export class UserService {
 
   /** Refresca el "X módulos ajustados" del listado sin volver a pedir el directorio. */
   private setPermissionsOverridden(
-    id: string,
+    id: number,
     role: UserProfile['role'],
     permissions: PermissionMap
   ): void {
@@ -273,7 +274,7 @@ export class UserService {
    * Normaliza el borrador: el nombre queda como se escribió (con sus mayúsculas)
    * y la descripción se deriva del perfil elegido, igual que el directorio.
    */
-  private normalizeDraft(draft: UserDraft, id: string): UserProfile {
+  private normalizeDraft(draft: UserDraft, id: number): UserProfile {
     const fullName = draft.fullName.trim().replace(/\s+/g, ' ');
     const professionalSchoolId = draft.professionalSchoolId ?? 0;
     const professionalSchoolName =
@@ -295,7 +296,7 @@ export class UserService {
     };
   }
 
-  private replaceById(id: string, user: UserProfile): void {
+  private replaceById(id: number, user: UserProfile): void {
     this.usersState.update((current) => {
       const next = current.slice();
       const index = next.findIndex((item) => item.id === id);

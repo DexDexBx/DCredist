@@ -58,7 +58,7 @@ export class UsersService {
     return rows.map(toUserDto);
   }
 
-  async findOne(id: string): Promise<UserDto> {
+  async findOne(id: number): Promise<UserDto> {
     const row = await this.prisma.user.findUnique({
       where: { id },
       include: permissionsInclude,
@@ -102,7 +102,7 @@ export class UsersService {
   }
 
   /** Solo actualiza los campos enviados. `password` reemplaza el hash. */
-  async update(id: string, dto: UpdateUserDto, actor: Actor): Promise<UserDto> {
+  async update(id: number, dto: UpdateUserDto, actor: Actor): Promise<UserDto> {
     const current = await this.prisma.user.findUnique({
       where: { id },
       select: { role: true, professionalSchoolId: true },
@@ -163,7 +163,7 @@ export class UsersService {
    * Matriz de permisos de un usuario. Si todavia no tiene filas (cuenta creada
    * antes de existir esta tabla) se devuelve el preset de su rol.
    */
-  async findPermissions(id: string): Promise<UserPermissionsDto> {
+  async findPermissions(id: number): Promise<UserPermissionsDto> {
     const user = await this.prisma.user.findUnique({
       where: { id },
       select: { role: true },
@@ -195,7 +195,7 @@ export class UsersService {
   }
 
   /** Reemplaza la matriz completa del usuario con la que envia el frontend. */
-  async updatePermissions(id: string, dto: UpdateUserPermissionsDto): Promise<UserPermissionsDto> {
+  async updatePermissions(id: number, dto: UpdateUserPermissionsDto): Promise<UserPermissionsDto> {
     const user = await this.prisma.user.findUnique({
       where: { id },
       select: { role: true },
@@ -243,7 +243,7 @@ export class UsersService {
   private async assertSchoolAssignable(
     schoolId: number,
     actor: Actor,
-    targetUserId?: string
+    targetUserId?: number
   ): Promise<void> {
     const school = await this.prisma.professionalSchool.findUnique({
       where: { id: schoolId },
@@ -287,7 +287,7 @@ export class UsersService {
  */
 async function replacePermissions(
   tx: Prisma.TransactionClient,
-  userId: string,
+  userId: number,
   role: UserRole,
   entries?: UserPermissionDto[]
 ): Promise<void> {

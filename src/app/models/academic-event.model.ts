@@ -4,30 +4,42 @@ export type EventModality = 'Presencial' | 'Virtual' | 'Híbrido';
 export const EVENT_MODALITIES = ['Presencial', 'Virtual', 'Híbrido'] as const;
 export const EVENT_STATUSES = ['Programado', 'En curso', 'Finalizado', 'Cancelado'] as const;
 
-/** Tipos de evento academico soportados por DCredits. */
-export const EVENT_TYPES = [
-  'Congreso',
-  'Seminario',
-  'Taller',
-  'Curso',
-  'Foro',
-  'Conferencia',
-  'Webinar',
-  'Muestra',
-] as const;
+/**
+ * Traduccion de los tipos de evento.
+ *
+ * La base guarda el nombre en ingles (`event_types.name`); la interfaz muestra
+ * siempre el nombre en espanol. Si aparece un tipo nuevo sin traduccion se usa
+ * el nombre original como respaldo.
+ */
+const EVENT_TYPE_LABELS: Record<string, string> = {
+  congress: 'Congreso',
+  seminar: 'Seminario',
+  workshop: 'Taller',
+  course: 'Curso',
+  forum: 'Foro',
+  conference: 'Conferencia',
+  webinar: 'Webinar',
+  exhibition: 'Muestra',
+};
 
-export type EventType = (typeof EVENT_TYPES)[number];
+export function eventTypeLabel(name: string | null | undefined): string {
+  const key = (name ?? '').trim().toLowerCase();
+  return EVENT_TYPE_LABELS[key] ?? (name?.trim() || 'Sin tipo');
+}
 
 export interface AcademicEvent {
-  id: string;
+  id: number;
   code: string;
   name: string;
   description?: string;
-  eventType: EventType;
+  /** Id del tipo de evento en `event_types`. */
+  eventTypeId: number;
+  /** Nombre del tipo tal como llega del API (en ingles). */
+  eventTypeName: string;
 
-  /** ISO date-time. */
+  /** Fecha calendario (YYYY-MM-DD). */
   startDate: string;
-  /** ISO date-time. Siempre >= startDate. Puede ser el mismo dia. */
+  /** Fecha calendario (YYYY-MM-DD). Siempre >= startDate. Puede ser el mismo dia. */
   endDate: string;
 
   modality: EventModality;
@@ -42,6 +54,10 @@ export interface AcademicEvent {
   /** Escuela profesional duena del evento: delimita su alcance. */
   professionalSchoolId: number;
   professionalSchool: string;
+
+  /** Usuario que creo el evento y que lo modifico por ultima vez. */
+  userCreate: string;
+  userUpdate: string;
 
   /** Creditos que otorga el evento a cada participante. */
   credits: number;
@@ -93,7 +109,7 @@ export interface EventDraft {
   code?: string;
   name: string;
   description: string;
-  eventType: EventType;
+  eventTypeId: number | null;
   startDate: string;
   endDate: string;
   modality: EventModality;
@@ -114,6 +130,16 @@ export interface EventValidation {
 const DAY_MS = 86_400_000;
 
 function toDate(value: string): Date | null {
+  const dateOnly = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value.trim());
+  if (dateOnly) {
+    const date = new Date(
+      Number(dateOnly[1]),
+      Number(dateOnly[2]) - 1,
+      Number(dateOnly[3]),
+    );
+    return Number.isNaN(date.getTime()) ? null : date;
+  }
+
   const date = new Date(value);
   return Number.isNaN(date.getTime()) ? null : date;
 }
@@ -214,13 +240,4 @@ export function eventLoadState(event: AcademicEvent): EventLoadState {
   return isImportCompleted(event) ? 'PRIMERA_CARGA_REALIZADA' : 'SIN_PRIMERA_CARGA';
 }
 
-export const EVENT_TYPE_LABEL: Record<EventType, string> = {
-  Congreso: 'Congreso',
-  Seminario: 'Seminario',
-  Taller: 'Taller',
-  Curso: 'Curso',
-  Foro: 'Foro',
-  Conferencia: 'Conferencia',
-  Webinar: 'Webinar',
-  Muestra: 'Muestra',
-};
+

@@ -46,7 +46,7 @@
         (keydown)="onKeydown($event)"
       />
 
-      @if (value() && !disabled()) {
+      @if (value() && !disabled() && clearable()) {
       <button
         type="button"
         (mousedown)="clear($event)"

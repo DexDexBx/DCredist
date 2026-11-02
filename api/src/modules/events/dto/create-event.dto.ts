@@ -3,22 +3,16 @@ import { Type } from 'class-transformer';
 import {
   IsDateString,
   IsEnum,
-  IsIn,
   IsInt,
   IsNotEmpty,
   IsNumber,
   IsOptional,
   IsString,
-  Matches,
   Max,
   MaxLength,
   Min,
 } from 'class-validator';
 import { EventModality, EventStatus, EventType } from '../../../generated/prisma/client';
-import { EVENT_CATEGORIES } from '../../../common/domain';
-
-/** "HH:mm" o "HH:mm:ss". El backend no impone una duracion maxima. */
-const TIME_PATTERN = /^([01]\d|2[0-3]):[0-5]\d(:[0-5]\d)?$/;
 
 /** Campos de un evento. Create y Update comparten las mismas reglas. */
 export class EventFieldsDto {
@@ -43,14 +37,14 @@ export class EventFieldsDto {
   @MaxLength(2000)
   description?: string;
 
-  @ApiPropertyOptional({
-    enum: EVENT_CATEGORIES,
-    default: 'Congreso',
-    description: 'Categoria academica. Es el "tipo" que muestra la institucion.',
+  @ApiProperty({
+    example: 1,
+    description: 'Id del tipo de evento academico (GET /event-types).',
   })
-  @IsOptional()
-  @IsIn(EVENT_CATEGORIES)
-  category?: string;
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  eventTypeId!: number;
 
   @ApiPropertyOptional({
     enum: EventType,
@@ -60,28 +54,16 @@ export class EventFieldsDto {
   @IsEnum(EventType)
   eventType?: EventType;
 
-  @ApiProperty({ example: '2026-10-05T00:00:00.000Z', description: 'ISO 8601.' })
+  @ApiProperty({ example: '2026-10-05', description: 'Fecha calendario (YYYY-MM-DD).' })
   @IsDateString()
   startDate!: string;
 
   @ApiProperty({
-    example: '2026-10-07T00:00:00.000Z',
-    description: 'Debe ser mayor o igual que startDate. No hay limite de dias.',
+    example: '2026-10-07',
+    description: 'Fecha calendario (YYYY-MM-DD). Igual o posterior a startDate.',
   })
   @IsDateString()
   endDate!: string;
-
-  @ApiPropertyOptional({ example: '08:30', description: 'Formato HH:mm.' })
-  @IsOptional()
-  @IsString()
-  @Matches(TIME_PATTERN, { message: 'startTime debe tener el formato HH:mm.' })
-  startTime?: string;
-
-  @ApiPropertyOptional({ example: '18:00', description: 'Formato HH:mm.' })
-  @IsOptional()
-  @IsString()
-  @Matches(TIME_PATTERN, { message: 'endTime debe tener el formato HH:mm.' })
-  endTime?: string;
 
   @ApiPropertyOptional({ enum: EventModality, default: EventModality.PRESENTIAL })
   @IsOptional()

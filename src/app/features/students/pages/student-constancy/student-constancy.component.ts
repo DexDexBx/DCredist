@@ -25,7 +25,7 @@ import { PageHeaderComponent } from '../../../../shared/components/ui/page-heade
 import { PanelComponent } from '../../../../shared/components/ui/panel/panel.component';
 import { StatCardComponent } from '../../../../shared/components/ui/stat-card/stat-card.component';
 import { PARTICIPATION_STATUS_COLOR } from '../../../../shared/constants/status-ui';
-import { formatDateTimeRange } from '../../../../shared/utils/date.utils';
+import { formatDateRange } from '../../../../shared/utils/date.utils';
 
 interface HistoryRow {
   participation: Participation;
@@ -60,12 +60,15 @@ export class StudentConstancyComponent {
 
   readonly id = input.required<string>();
 
+  /** La ruta entrega el id como texto; los servicios lo usan numerico. */
+  private readonly studentId = computed(() => Number(this.id()));
+
   readonly requiredCredits = REQUIRED_CREDITS;
   readonly statusLabel = PARTICIPATION_STATUS_LABEL;
 
-  readonly student = computed<Student | undefined>(() => this.studentService.findById(this.id()));
+  readonly student = computed<Student | undefined>(() => this.studentService.findById(this.studentId()));
 
-  readonly summary = computed(() => this.creditService.getStudentCreditSummary(this.id()));
+  readonly summary = computed(() => this.creditService.getStudentCreditSummary(this.studentId()));
 
   /** true cuando el estudiante ya puede emitir su certificado. */
   readonly meetsRequirement = computed(() =>
@@ -78,7 +81,7 @@ export class StudentConstancyComponent {
 
   readonly history = computed<HistoryRow[]>(() =>
     this.creditService
-      .getStudentHistory(this.id())
+      .getStudentHistory(this.studentId())
       .map((participation) => ({
         participation,
         event: this.eventService.findById(participation.eventId),
@@ -98,7 +101,7 @@ export class StudentConstancyComponent {
   }
 
   dateRange(start: string, end: string): string {
-    return formatDateTimeRange(start, end);
+    return formatDateRange(start, end);
   }
 
   codeOf(participation: Participation): string | null {

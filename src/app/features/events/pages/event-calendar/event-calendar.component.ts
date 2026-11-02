@@ -10,17 +10,22 @@ import type {
 } from 'fullcalendar';
 import { EventService } from '../../../../core/services/event.service';
 import { AuthService } from '../../../../core/services/auth.service';
-import { EVENT_STATUSES, AcademicEvent, EventStatus } from '../../../../models';
+import {
+  EVENT_STATUSES,
+  AcademicEvent,
+  EventStatus,
+  eventDateRangeLabel,
+} from '../../../../models';
 import { EVENT_STATUS_HEX } from '../../../../shared/constants/status-ui';
 import { IconComponent } from '../../../../shared/components/ui/icon/icon.component';
 import { ModalComponent } from '../../../../shared/components/ui/modal/modal.component';
 import { PageHeaderComponent } from '../../../../shared/components/ui/page-header/page-header.component';
-import { formatDateTimeRange, formatSchedule } from '../../../../shared/utils/date.utils';
+
 import { EventStatusBadgeComponent } from '../../components/event-status-badge/event-status-badge.component';
 import { buildCalendarOptions } from './event-calendar.options';
 
 interface SelectedEvent {
-  id: string;
+  id: number;
   name: string;
   code: string;
   status: AcademicEvent['status'];
@@ -89,22 +94,24 @@ export class EventCalendarComponent {
 
   private toEventInput(event: AcademicEvent): EventInput {
     return {
-      id: event.id,
+      id: String(event.id),
       title: event.name,
       start: event.startDate,
-      end: event.endDate,
+      // FullCalendar trata `end` como exclusivo en eventos de todo el dia.
+      end: addDays(event.endDate, 1),
+      allDay: true,
       backgroundColor: EVENT_STATUS_HEX[event.status],
       borderColor: EVENT_STATUS_HEX[event.status],
       textColor: '#ffffff',
       extendedProps: {
         modality: event.modality,
-        schedule: formatSchedule(event.startDate, event.endDate),
+        schedule: eventDateRangeLabel(event),
       },
     };
   }
 
   private onEventClick(info: EventClickInfo): void {
-    const event = this.eventService.findById(info.event.id);
+    const event = this.eventService.findById(Number(info.event.id));
     if (!event) {
       return;
     }
@@ -116,8 +123,8 @@ export class EventCalendarComponent {
       status: event.status,
       modality: event.modality,
       location: event.location ?? '',
-      schedule: formatSchedule(event.startDate, event.endDate),
-      range: formatDateTimeRange(event.startDate, event.endDate),
+      schedule: eventDateRangeLabel(event),
+      range: eventDateRangeLabel(event),
       organizer: event.organizer ?? '',
     });
   }
@@ -134,12 +141,19 @@ export class EventCalendarComponent {
     }
 
     void this.router.navigate(['/events/new'], {
-      queryParams: { fecha: toDatetimeLocalValue(info.start) },
+      queryParams: { fecha: toDateValue(info.start) },
     });
   }
 }
 
-function toDatetimeLocalValue(date: Date): string {
+function toDateValue(date: Date): string {
   const pad = (value: number): string => String(value).padStart(2, '0');
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+}
+
+/** Suma dias a una fecha calendario "YYYY-MM-DD". */
+function addDays(dateOnly: string, days: number): string {
+  const date = new Date(`${dateOnly}T00:00:00.000Z`);
+  date.setUTCDate(date.getUTCDate() + days);
+  return date.toISOString().slice(0, 10);
 }

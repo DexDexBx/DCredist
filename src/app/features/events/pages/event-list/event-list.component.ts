@@ -1,6 +1,7 @@
 import { Component, computed, inject, linkedSignal, signal } from '@angular/core';
-import { RouterLink } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { EventService } from '../../../../core/services/event.service';
+import { EventTypeService } from '../../../../core/services/event-type.service';
 import { AuthService } from '../../../../core/services/auth.service';
 import { ExportService } from '../../../../core/services/export.service';
 import { ParticipationService } from '../../../../core/services/participation.service';
@@ -8,11 +9,10 @@ import {
   AcademicEvent,
   EVENT_MODALITIES,
   EVENT_STATUSES,
-  EVENT_TYPES,
   EventModality,
   EventStatus,
-  EventType,
   ExportResult,
+  eventTypeLabel,
 } from '../../../../models';
 import { EmptyStateComponent } from '../../../../shared/components/ui/empty-state/empty-state.component';
 import { IconComponent } from '../../../../shared/components/ui/icon/icon.component';
@@ -20,7 +20,7 @@ import { ModalComponent } from '../../../../shared/components/ui/modal/modal.com
 import { PageHeaderComponent } from '../../../../shared/components/ui/page-header/page-header.component';
 import { PaginationComponent } from '../../../../shared/components/ui/pagination/pagination.component';
 import { PanelComponent } from '../../../../shared/components/ui/panel/panel.component';
-import { formatDateTimeRange } from '../../../../shared/utils/date.utils';
+import { formatDateRange } from '../../../../shared/utils/date.utils';
 import { EventStatusBadgeComponent } from '../../components/event-status-badge/event-status-badge.component';
 
 type EventSortKey = 'name' | 'date' | 'type' | 'modality' | 'credits' | 'capacity' | 'status';
@@ -34,7 +34,7 @@ function compareEvents(a: AcademicEvent, b: AcademicEvent, key: EventSortKey): n
     case 'date':
       return a.startDate.localeCompare(b.startDate);
     case 'type':
-      return a.eventType.localeCompare(b.eventType);
+      return eventTypeLabel(a.eventTypeName).localeCompare(eventTypeLabel(b.eventTypeName));
     case 'modality':
       return a.modality.localeCompare(b.modality);
     case 'credits':
@@ -63,13 +63,20 @@ function compareEvents(a: AcademicEvent, b: AcademicEvent, key: EventSortKey): n
 export class EventListComponent {
   private readonly eventService = inject(EventService);
   private readonly participationService = inject(ParticipationService);
+  private readonly eventTypeService = inject(EventTypeService);
   private readonly exportService = inject(ExportService);
+  private readonly router = inject(Router);
   readonly auth = inject(AuthService);
+
+  constructor() {
+    void this.eventTypeService.load();
+  }
 
   readonly statuses = EVENT_STATUSES;
   readonly modalities = EVENT_MODALITIES;
-  readonly types = EVENT_TYPES;
-  readonly pageSizes = [3, 10, 20, 50];
+
+  /** Tipos de evento activos, con su nombre visible en espanol. */
+  readonly typeOptions = computed(() => this.eventTypeService.activeTypes());
 
   /** Columnas de la tabla. `key: null` = columna que no se ordena. */
   readonly columns: { key: EventSortKey | null; label: string }[] = [
@@ -85,13 +92,13 @@ export class EventListComponent {
 
   readonly selectedStatus = signal<EventStatus | 'Todos'>('Todos');
   readonly selectedModality = signal<EventModality | 'Todas'>('Todas');
-  readonly selectedType = signal<EventType | 'Todos'>('Todos');
+  readonly selectedType = signal<string>('Todos');
   readonly search = signal('');
 
   /** Orden actual de la tabla: por defecto, los más recientes primero. */
   readonly sortKey = signal<EventSortKey>('date');
   readonly sortDir = signal<SortDirection>('desc');
-  readonly pageSize = signal(3);
+  readonly pageSize = signal(25);
 
   /** Modal de exportación del listado filtrado. */
   readonly exportOpen = signal(false);
@@ -110,7 +117,9 @@ export class EventListComponent {
   readonly sortedEvents = computed(() => {
     const type = this.selectedType();
     const list =
-      type === 'Todos' ? this.events() : this.events().filter((event) => event.eventType === type);
+      type === 'Todos'
+        ? this.events()
+        : this.events().filter((event) => event.eventTypeId === Number(type));
     const direction = this.sortDir() === 'asc' ? 1 : -1;
     const key = this.sortKey();
     return [...list].sort((a, b) => compareEvents(a, b, key) * direction);
@@ -144,6 +153,48 @@ export class EventListComponent {
       pageSize,
     };
   });
+
+  /** Evento cuyo bloqueo de edicion se esta explicando en el modal. */
+  readonly blockedEditEvent = signal<AcademicEvent | null>(null);
+
+  /**
+   * Abre la edicion si el evento no tiene estudiantes o si el usuario es
+   * administrador. En caso contrario, explica el bloqueo en un modal.
+   */
+  requestEdit(event: AcademicEvent): void {
+    if (!this.auth.can('events', 'MANAGE')) {
+      return;
+    }
+
+    const hasParticipants = this.participationService.countForEvent(event.id, false) > 0;
+
+    if (hasParticipants && this.auth.currentUser()?.role !== 'ADMIN') {
+      this.blockedEditEvent.set(event);
+      return;
+    }
+
+    void this.router.navigate(['/events', event.id, 'edit']);
+  }
+
+  closeBlockedEdit(): void {
+    this.blockedEditEvent.set(null);
+  }
+
+  /** Hay algun filtro activo: se muestra el atajo para limpiarlos. */
+  readonly hasFilters = computed(
+    () =>
+      this.search().trim() !== '' ||
+      this.selectedStatus() !== 'Todos' ||
+      this.selectedModality() !== 'Todas' ||
+      this.selectedType() !== 'Todos',
+  );
+
+  clearFilters(): void {
+    this.search.set('');
+    this.selectedStatus.set('Todos');
+    this.selectedModality.set('Todas');
+    this.selectedType.set('Todos');
+  }
 
   goToPage(page: number): void {
     this.page.set(page);
@@ -190,7 +241,7 @@ export class EventListComponent {
   }
 
   onTypeChange(event: Event): void {
-    this.selectedType.set(this.readValue(event) as EventType | 'Todos');
+    this.selectedType.set(this.readValue(event));
   }
 
   onSearch(event: Event): void {
@@ -198,7 +249,11 @@ export class EventListComponent {
   }
 
   formatRange(event: AcademicEvent): string {
-    return formatDateTimeRange(event.startDate, event.endDate);
+    return formatDateRange(event.startDate, event.endDate);
+  }
+
+  typeLabel(event: AcademicEvent): string {
+    return eventTypeLabel(event.eventTypeName);
   }
 
   participantsCount(event: AcademicEvent): number {

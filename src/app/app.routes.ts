@@ -60,6 +60,15 @@ export const routes: Routes = [
         canActivate: [permissionGuard('calendar', 'VIEW')],
       },
       {
+        path: 'events/:id/edit',
+        loadComponent: () =>
+          import('./features/events/pages/event-edit/event-edit.component').then(
+            (module) => module.EventEditComponent
+          ),
+        title: 'Editar evento | DCredits',
+        canActivate: [permissionGuard('events', 'MANAGE')],
+      },
+      {
         path: 'events/:id',
         loadComponent: () =>
           import('./features/events/pages/event-detail/event-detail.component').then(

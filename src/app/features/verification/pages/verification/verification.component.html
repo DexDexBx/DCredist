@@ -378,7 +378,7 @@
           {{ event.name }}
         </a>
         <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
-          {{ event.code }} · {{ event.eventType }} · {{ eventDates(event) }}
+          {{ event.code }} · {{ eventTypeName(event) }} · {{ eventDates(event) }}
         </p>
         <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
           {{ dateRange(event.startDate, event.endDate) }}

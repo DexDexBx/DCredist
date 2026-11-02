@@ -10,14 +10,13 @@ import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { EventService } from '../../../../core/services/event.service';
 import { AuthService } from '../../../../core/services/auth.service';
 import { CatalogService } from '../../../../core/services/catalog.service';
+import { EventTypeService } from '../../../../core/services/event-type.service';
 import {
   EVENT_MODALITIES,
   EVENT_STATUSES,
-  EVENT_TYPES,
   EventDraft,
   EventModality,
   EventStatus,
-  EventType,
 } from '../../../../models';
 import { CatalogOption } from '../../../../models/catalog.model';
 import { DcInputComponent } from '../../../../shared/components/form/dc-input/dc-input.component';
@@ -49,6 +48,7 @@ import { PanelComponent } from '../../../../shared/components/ui/panel/panel.com
 export class EventNewComponent {
   private readonly eventService = inject(EventService);
   private readonly catalogService = inject(CatalogService);
+  private readonly eventTypeService = inject(EventTypeService);
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
   private readonly fb = inject(FormBuilder);
@@ -56,10 +56,16 @@ export class EventNewComponent {
 
   readonly submitting = signal(false);
   readonly createdCode = signal<string | null>(null);
-  readonly createdId = signal<string | null>(null);
+  readonly createdId = signal<number | null>(null);
   readonly formError = signal<string | null>(null);
 
-  readonly statusOptions: DcSelectOption[] = EVENT_STATUSES.map((status) => ({
+  /**
+   * Estados disponibles al CREAR un evento. `Cancelado` se reserva para la
+   * edicion posterior: un evento nuevo no nace cancelado.
+   */
+  readonly statusOptions: DcSelectOption[] = EVENT_STATUSES.filter(
+    (status) => status !== 'Cancelado',
+  ).map((status) => ({
     value: status,
     label: status,
   }));
@@ -69,10 +75,13 @@ export class EventNewComponent {
     label: modality,
   }));
 
-  readonly typeOptions: DcSelectOption[] = EVENT_TYPES.map((type) => ({
-    value: type,
-    label: type,
-  }));
+  /** Tipos de evento del API, con el nombre visible en espanol. */
+  readonly typeOptions = computed<DcSelectOption[]>(() =>
+    this.eventTypeService.activeTypes().map((type) => ({
+      value: String(type.id),
+      label: type.label,
+    })),
+  );
 
   /** Los organizadores salen del catalogo administrable. */
   readonly organizerOptions = computed<DcSelectOption[]>(() =>
@@ -100,12 +109,12 @@ export class EventNewComponent {
     {
       name: ['', [Validators.required, Validators.minLength(5)]],
       description: ['', [Validators.required, Validators.minLength(20)]],
-      eventType: ['Congreso' as EventType, [Validators.required]],
+      eventTypeId: ['', [Validators.required]],
       startDate: ['', [Validators.required]],
       endDate: ['', [Validators.required]],
-      modality: ['Presencial' as EventModality, [Validators.required]],
+      modality: ['', [Validators.required]],
       location: ['', [Validators.required, Validators.minLength(3)]],
-      status: ['Programado' as EventStatus, [Validators.required]],
+      status: ['', [Validators.required]],
       capacity: ['0', [Validators.pattern(/^(\d{1,9})?$/)]],
       credits: ['1', [Validators.required, Validators.pattern(/^\d{1,7}(\.\d{1,2})?$/)]],
       organizerId: ['', [Validators.required]],
@@ -116,8 +125,10 @@ export class EventNewComponent {
   );
 
   constructor() {
+    void this.eventTypeService.load();
+
     const fecha = this.route.snapshot.queryParamMap.get('fecha');
-    if (fecha && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(fecha)) {
+    if (fecha && /^\d{4}-\d{2}-\d{2}$/.test(fecha)) {
       this.form.patchValue({ startDate: fecha });
     }
   }
@@ -136,12 +147,12 @@ export class EventNewComponent {
     const draft: EventDraft = {
       name: value.name,
       description: value.description,
-      eventType: value.eventType,
+      eventTypeId: Number(value.eventTypeId),
       startDate: value.startDate,
       endDate: value.endDate,
-      modality: value.modality,
+      modality: value.modality as EventModality,
       location: value.location,
-      status: value.status,
+      status: value.status as EventStatus,
       capacity: value.capacity ? Number(value.capacity) : null,
       credits: Number(value.credits),
       organizerId: Number(value.organizerId),
@@ -165,6 +176,22 @@ export class EventNewComponent {
     if (event) {
       this.createdCode.set(event.code);
       this.createdId.set(event.id);
+      // El formulario queda listo para registrar otro evento.
+      this.form.reset({
+        name: '',
+        description: '',
+        eventTypeId: '',
+        startDate: '',
+        endDate: '',
+        modality: '',
+        location: '',
+        status: '',
+        capacity: '0',
+        credits: '1',
+        organizerId: '',
+        professionalSchoolId: '',
+        tags: '',
+      });
     } else {
       this.formError.set('No se pudo registrar el evento. Intenta nuevamente.');
     }
@@ -180,6 +207,7 @@ export class EventNewComponent {
     control:
       | 'name'
       | 'description'
+      | 'eventTypeId'
       | 'startDate'
       | 'endDate'
       | 'location'

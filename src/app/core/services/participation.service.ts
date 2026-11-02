@@ -50,7 +50,7 @@ import { DataModeService } from './data-mode.service';
  */
 interface ParticipationSearch {
   needle: string;
-  ids: Set<string> | null;
+  ids: Set<number> | null;
   /** Coincidencias ya ordenadas por fecha, para no reordenar el historial. */
   items: Participation[] | null;
 }
@@ -109,7 +109,7 @@ export interface ParticipationImportError {
 export interface ParticipationImportStagedItem {
   row: number;
   code: string;
-  studentId?: string;
+  studentId?: number;
   student?: any;
   error?: string;
   valid?: boolean;
@@ -201,7 +201,7 @@ export class ParticipationService {
    * recorrer el millon de participaciones descartando las de otros eventos.
    */
   readonly participationsByEvent = computed(() => {
-    const index = new Map<string, Participation[]>();
+    const index = new Map<number, Participation[]>();
     for (const participation of this.participationsState()) {
       const bucket = index.get(participation.eventId);
       if (bucket) {
@@ -268,7 +268,7 @@ export class ParticipationService {
    * indice, y recorrerlo una vez es un solo viaje.
    */
   readonly participationsByStudent = computed(() => {
-    const index = new Map<string, Participation[]>();
+    const index = new Map<number, Participation[]>();
     for (const participation of this.participationsState()) {
       const bucket = index.get(participation.studentId);
       if (bucket) {
@@ -500,7 +500,7 @@ getParticipations(query: ParticipationQuery = {}): Participation[] {
       this.studentService.matchStudents(needle).map((student) => student.id)
     );
 
-    const eventIds = new Set<string>();
+    const eventIds = new Set<number>();
     for (const event of this.eventService.events()) {
       if (matchesText(event.name, needle) || matchesText(event.code, needle)) {
         eventIds.add(event.id);
@@ -515,7 +515,7 @@ getParticipations(query: ParticipationQuery = {}): Participation[] {
 
     const checkCodes = compactNeedle.length > 0;
     const matched: Participation[] = [];
-    const ids = new Set<string>();
+    const ids = new Set<number>();
 
     const participations = this.participationsState();
     const codes = checkCodes ? this.compactCodeIndex() : null;
@@ -639,7 +639,7 @@ getParticipations(query: ParticipationQuery = {}): Participation[] {
    * anterior. Un certificado ya impreso debe seguir localizable por el codigo que
    * el estudiante conoce.
    */
-  assignDcCode(participationId: string): CodeReissueResult {
+  assignDcCode(participationId: number): CodeReissueResult {
     const participation = this.participationsState().find((item) => item.id === participationId);
 
     if (!participation) {
@@ -686,7 +686,7 @@ getParticipations(query: ParticipationQuery = {}): Participation[] {
    * se expone en el formulario, asi que va por su propia via en vez de abrir un
    * `ParticipationEdit` que permitiera escribir el codigo a mano.
    */
-  private patchParticipation(id: string, patch: Partial<Participation>): Participation | null {
+  private patchParticipation(id: number, patch: Partial<Participation>): Participation | null {
     let result: Participation | null = null;
 
     this.participationsState.update((items) =>
@@ -745,11 +745,11 @@ getParticipations(query: ParticipationQuery = {}): Participation[] {
     return results;
   }
 
-  getByEvent(eventId: string): Participation[] {
+  getByEvent(eventId: number): Participation[] {
     return this.getParticipations({ eventId });
   }
 
-  getByStudent(studentId: string): Participation[] {
+  getByStudent(studentId: number): Participation[] {
     return this.participationsByStudent().get(studentId) ?? [];
   }
 
@@ -758,13 +758,13 @@ getParticipations(query: ParticipationQuery = {}): Participation[] {
    * Con 260 000 estudiantes, preguntar "participa en algun evento?" con un
    * `some()` sobre el padron completo es inviable en cada fila de una tabla.
    */
-  hasParticipations(studentId: string): boolean {
+  hasParticipations(studentId: number): boolean {
     const bucket = this.participationsByStudent().get(studentId);
     return Boolean(bucket && bucket.length > 0);
   }
 
   /** Participaciones del evento con evento y estudiante resueltos. */
-  getEventTable(eventId: string): ParticipationContext[] {
+  getEventTable(eventId: number): ParticipationContext[] {
     return this.getByEvent(eventId)
       .map((participation) => this.context(participation))
       .filter((item) => item.student !== undefined);
@@ -827,13 +827,13 @@ getParticipations(query: ParticipationQuery = {}): Participation[] {
       .slice(0, limit);
   }
 
-  exists(eventId: string, studentId: string): Participation | undefined {
+  exists(eventId: number, studentId: number): Participation | undefined {
     return this.participationsState().find(
       (participation) => participation.eventId === eventId && participation.studentId === studentId
     );
   }
 
-  countForEvent(eventId: string, onlyValid = false): number {
+  countForEvent(eventId: number, onlyValid = false): number {
     return this.participationsState().filter(
       (participation) =>
         participation.eventId === eventId && (!onlyValid || participation.status === 'VALID')
@@ -996,7 +996,7 @@ getParticipations(query: ParticipationQuery = {}): Participation[] {
     return { ok: false, error: 'STUDENT_NOT_FOUND', message: 'No se pudo contactar el servicio de participaciones.' };
   }
 
-  async update(id: string, edit: ParticipationEdit): Promise<Participation | null> {
+  async update(id: number, edit: ParticipationEdit): Promise<Participation | null> {
     const current = this.participationsState().find((item) => item.id === id);
     if (!current) {
       return null;
@@ -1043,7 +1043,7 @@ getParticipations(query: ParticipationQuery = {}): Participation[] {
   }
 
   /** Anula una participacion. Sus creditos dejan de sumar de inmediato. */
-  async cancel(id: string, status: ParticipationStatus = 'CANCELLED'): Promise<Participation | null> {
+  async cancel(id: number, status: ParticipationStatus = 'CANCELLED'): Promise<Participation | null> {
     return this.update(id, { status });
   }
 
@@ -1071,7 +1071,7 @@ getParticipations(query: ParticipationQuery = {}): Participation[] {
   /**
    * Etapa 2: Validación contra base de datos antes de confirmar
    */
-  importStage2(eventId: string, stagedItems: ParticipationImportStagedItem[]): ParticipationImportStage2Result {
+  importStage2(eventId: number, stagedItems: ParticipationImportStagedItem[]): ParticipationImportStage2Result {
     const event = this.eventService.findById(eventId);
     const errors: ParticipationImportError[] = [];
     const items: ParticipationImportStagedItem[] = stagedItems.map((item) => ({ ...item }));
@@ -1172,7 +1172,7 @@ getParticipations(query: ParticipationQuery = {}): Participation[] {
    * posterior)" con su lote, fecha y responsables.
    */
   async importStage2Commit(
-    eventId: string,
+    eventId: number,
     validItems: ParticipationImportStagedItem[],
     options: ParticipationImportCommitOptions = {}
   ): Promise<ParticipationImportSummary> {
@@ -1226,7 +1226,7 @@ getParticipations(query: ParticipationQuery = {}): Participation[] {
 
   /** Registro de la carga en memoria (modo local): valida y guarda item por item. */
   private async importStage2CommitLocal(
-    eventId: string,
+    eventId: number,
     validItems: ParticipationImportStagedItem[],
     mode: ParticipationImportMode,
     uploadedBy: string
@@ -1277,7 +1277,7 @@ getParticipations(query: ParticipationQuery = {}): Participation[] {
    * interfaz (modo, quien subio, cuando), compartida por el modo real y el local.
    */
   private sealImportBatch(
-    eventId: string,
+    eventId: number,
     mode: ParticipationImportMode,
     uploadedBy: string,
     total: number,
@@ -1317,25 +1317,25 @@ getParticipations(query: ParticipationQuery = {}): Participation[] {
   }
 
   /** Lotes de importacion de un evento, del mas reciente al mas antiguo. */
-  importBatchesForEvent(eventId: string): ParticipationImportBatch[] {
+  importBatchesForEvent(eventId: number): ParticipationImportBatch[] {
     return this.importBatchesState().filter((batch) => batch.eventId === eventId);
   }
 
   /** Ultimo lote extemporaneo confirmado para un evento, si existe. */
-  lastLateBatchForEvent(eventId: string): ParticipationImportBatch | undefined {
+  lastLateBatchForEvent(eventId: number): ParticipationImportBatch | undefined {
     return this.importBatchesState().find(
       (batch) => batch.eventId === eventId && batch.mode === 'LATE'
     );
   }
 
   /** Indica si el evento admite hoy un registro (abierto o extemporaneo). */
-  canRegisterInEvent(eventId: string): boolean {
+  canRegisterInEvent(eventId: number): boolean {
     const event = this.eventService.findById(eventId);
     return event ? isRegistrationOpen(event) : false;
   }
 
   /** Indica si el evento esta en modo LATE (cerrado con cargas habilitadas). */
-  isLateMode(eventId: string): boolean {
+  isLateMode(eventId: number): boolean {
     const event = this.eventService.findById(eventId);
     return event ? isLateImportsEnabled(event) : false;
   }
@@ -1344,7 +1344,7 @@ getParticipations(query: ParticipationQuery = {}): Participation[] {
    * Importa participantes a un evento usando codigos universitarios.
    * No crea estudiantes: los que no existen en el padron se reportan como error.
    */
-  importByUniversityCodes(eventId: string, codes: string[]): Promise<ParticipationImportSummary> {
+  importByUniversityCodes(eventId: number, codes: string[]): Promise<ParticipationImportSummary> {
     const stage1 = this.importStage1(codes);
     const stage2 = this.importStage2(eventId, stage1.items);
     return this.importStage2Commit(eventId, stage2.items.filter(i => i.valid));
@@ -1380,14 +1380,13 @@ getParticipations(query: ParticipationQuery = {}): Participation[] {
     );
   }
 
-  private resolveParticipationDate(eventId: string): string {
+  private resolveParticipationDate(eventId: number): string {
     const event = this.eventService.findById(eventId);
-    return event?.startDate ?? new Date().toISOString();
+    return event?.startDate ? `${event.startDate}T00:00:00.000Z` : new Date().toISOString();
   }
 
-  private nextId(): string {
-    const numbers = this.participationsState().map((participation) => Number(participation.id.slice(4)));
-    const next = numbers.length > 0 ? Math.max(...numbers) + 1 : 1;
-    return `par-${String(next).padStart(4, '0')}`;
+  private nextId(): number {
+    const numbers = this.participationsState().map((participation) => participation.id);
+    return numbers.length > 0 ? Math.max(...numbers) + 1 : 1;
   }
 }

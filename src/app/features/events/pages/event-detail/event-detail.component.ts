@@ -1,5 +1,5 @@
 import { Component, computed, inject, input, linkedSignal, signal } from '@angular/core';
-import { RouterLink } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { EventService } from '../../../../core/services/event.service';
 import { AuthService } from '../../../../core/services/auth.service';
 import { ExportService } from '../../../../core/services/export.service';
@@ -12,6 +12,7 @@ import {
   PARTICIPATION_TYPE_LABEL,
   ParticipationContext,
   ParticipationStatus,
+  eventTypeLabel,
   isImportCompleted,
   isLateImportsEnabled,
   isRegistrationOpen,
@@ -29,7 +30,7 @@ import { PaginationComponent } from '../../../../shared/components/ui/pagination
 import { PanelComponent } from '../../../../shared/components/ui/panel/panel.component';
 import { PARTICIPATION_STATUS_COLOR } from '../../../../shared/constants/status-ui';
 import {
-  formatDateTimeRange,
+  formatDateRange,
   formatLongDate,
   formatSchedule,
 } from '../../../../shared/utils/date.utils';
@@ -54,6 +55,7 @@ import { EventStatusBadgeComponent } from '../../components/event-status-badge/e
 export class EventDetailComponent {
   private readonly eventService = inject(EventService);
   private readonly participationService = inject(ParticipationService);
+  private readonly router = inject(Router);
   private readonly exportService = inject(ExportService);
   readonly auth = inject(AuthService);
 
@@ -66,12 +68,18 @@ export class EventDetailComponent {
    */
   readonly eventId = input.required<string>({ alias: 'id' });
 
+  /** La ruta entrega el id como texto; los servicios lo usan numerico. */
+  private readonly eventIdNumber = computed(() => Number(this.eventId()));
+
   readonly statusLabel = PARTICIPATION_STATUS_LABEL;
   readonly typeLabel = PARTICIPATION_TYPE_LABEL;
   readonly institutionalColumns = INSTITUTIONAL_EXPORT_COLUMNS;
 
   readonly lastExport = signal<ExportResult | null>(null);
-  readonly cancelledId = signal<string | null>(null);
+  readonly cancelledId = signal<number | null>(null);
+
+  /** Modal que explica por que no se puede editar (evento con estudiantes). */
+  readonly blockedEdit = signal(false);
   readonly exportOpen = signal(false);
   readonly copied = signal(false);
 
@@ -95,11 +103,11 @@ export class EventDetailComponent {
   }
 
   readonly event = computed<AcademicEvent | undefined>(() =>
-    this.eventService.findById(this.eventId())
+    this.eventService.findById(this.eventIdNumber())
   );
 
   readonly rows = computed<ParticipationContext[]>(() =>
-    this.participationService.getEventTable(this.eventId())
+    this.participationService.getEventTable(this.eventIdNumber())
   );
 
   readonly pageSizes = [10, 20, 50];
@@ -144,7 +152,7 @@ export class EventDetailComponent {
   }
 
   readonly registeredCount = computed(
-    () => this.participationService.countForEvent(this.eventId(), true)
+    () => this.participationService.countForEvent(this.eventIdNumber(), true)
   );
 
   readonly validCredits = computed(() =>
@@ -196,11 +204,15 @@ export class EventDetailComponent {
   }
 
   formatRange(event: AcademicEvent): string {
-    return formatDateTimeRange(event.startDate, event.endDate);
+    return formatDateRange(event.startDate, event.endDate);
+  }
+
+  eventTypeName(event: AcademicEvent): string {
+    return eventTypeLabel(event.eventTypeName);
   }
 
   formatSchedule(event: AcademicEvent): string {
-    return formatSchedule(event.startDate, event.endDate);
+    return formatDateRange(event.startDate, event.endDate);
   }
 
   participationStatusColor(status: ParticipationStatus): BadgeColor {
@@ -212,17 +224,37 @@ export class EventDetailComponent {
     return student ? `${student.lastName}, ${student.firstName}` : 'Estudiante no encontrado';
   }
 
+  requestEdit(): void {
+    const current = this.event();
+    if (!current || !this.auth.can('events', 'MANAGE')) {
+      return;
+    }
+
+    const hasParticipants = this.participationService.countForEvent(current.id, false) > 0;
+
+    if (hasParticipants && this.auth.currentUser()?.role !== 'ADMIN') {
+      this.blockedEdit.set(true);
+      return;
+    }
+
+    void this.router.navigate(['/events', current.id, 'edit']);
+  }
+
+  closeBlockedEdit(): void {
+    this.blockedEdit.set(false);
+  }
+
   export(): void {
-    this.lastExport.set(this.exportService.downloadEventParticipants(this.eventId()));
+    this.lastExport.set(this.exportService.downloadEventParticipants(this.eventIdNumber()));
   }
 
   /** Anula una participacion: deja de sumar creditos, pero conserva el codigo. */
-  cancelParticipation(participationId: string): void {
+  cancelParticipation(participationId: number): void {
     void this.participationService.cancel(participationId);
     this.cancelledId.set(participationId);
   }
 
-  reactivateParticipation(participationId: string): void {
+  reactivateParticipation(participationId: number): void {
     void this.participationService.update(participationId, { status: 'VALID' });
     this.cancelledId.set(null);
   }

@@ -22,7 +22,7 @@
       (change)="onSelect($event)"
       (blur)="onBlur()"
     >
-      <option value="" disabled>{{ placeholder() }}</option>
+      <option value="" disabled [selected]="value() === ''">{{ placeholder() }}</option>
       @for (option of options(); track option.value) {
       <!--
         [selected] es necesario además de [value] en el <select>: Angular aplica
@@ -31,7 +31,7 @@
         formulario tenga otro valor. Marcando la opción explícitamente, lo que
         se ve y lo que se envía siempre coinciden.
       -->
-      <option [value]="option.value" [selected]="option.value === value()">
+      <option [value]="option.value" [selected]="option.value === value()" [disabled]="option.disabled ?? false">
         {{ option.label }}
       </option>
       }

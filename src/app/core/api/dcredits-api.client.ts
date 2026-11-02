@@ -8,6 +8,7 @@ import {
   ApiCatalogPayload,
   ApiEvent,
   ApiEventPayload,
+  ApiEventTypeEntry,
   ApiLoginResponse,
   ApiParticipation,
   ApiParticipationPayload,
@@ -48,7 +49,7 @@ export class DcreditsApiClient {
     return this.http.get<ApiUser[]>(API_ENDPOINTS.users);
   }
 
-  getUser(id: string): Observable<ApiUser> {
+  getUser(id: number): Observable<ApiUser> {
     return this.http.get<ApiUser>(API_ENDPOINTS.user(id));
   }
 
@@ -56,16 +57,16 @@ export class DcreditsApiClient {
     return this.http.post<ApiUser>(API_ENDPOINTS.users, payload);
   }
 
-  updateUser(id: string, payload: ApiUserUpdatePayload): Observable<ApiUser> {
+  updateUser(id: number, payload: ApiUserUpdatePayload): Observable<ApiUser> {
     return this.http.patch<ApiUser>(API_ENDPOINTS.user(id), payload);
   }
 
-  getUserPermissions(id: string): Observable<ApiUserPermissions> {
+  getUserPermissions(id: number): Observable<ApiUserPermissions> {
     return this.http.get<ApiUserPermissions>(API_ENDPOINTS.userPermissions(id));
   }
 
   updateUserPermissions(
-    id: string,
+    id: number,
     payload: ApiUserPermissions
   ): Observable<ApiUserPermissions> {
     return this.http.put<ApiUserPermissions>(API_ENDPOINTS.userPermissions(id), payload);
@@ -131,7 +132,11 @@ export class DcreditsApiClient {
     return this.http.post<ApiEvent>(API_ENDPOINTS.events, payload);
   }
 
-  updateEvent(id: string, payload: Partial<ApiEventPayload>): Observable<ApiEvent> {
+  listEventTypes(): Observable<ApiEventTypeEntry[]> {
+    return this.http.get<ApiEventTypeEntry[]>(API_ENDPOINTS.eventTypes);
+  }
+
+  updateEvent(id: number, payload: Partial<ApiEventPayload>): Observable<ApiEvent> {
     return this.http.patch<ApiEvent>(API_ENDPOINTS.event(id), payload);
   }
 
@@ -149,7 +154,7 @@ export class DcreditsApiClient {
     return this.http.post<ApiStudent>(API_ENDPOINTS.students, payload);
   }
 
-  updateStudent(id: string, payload: Partial<ApiStudentPayload>): Observable<ApiStudent> {
+  updateStudent(id: number, payload: Partial<ApiStudentPayload>): Observable<ApiStudent> {
     return this.http.patch<ApiStudent>(API_ENDPOINTS.student(id), payload);
   }
 
@@ -168,14 +173,14 @@ export class DcreditsApiClient {
   }
 
   updateParticipation(
-    id: string,
+    id: number,
     payload: Partial<ApiParticipationPayload>
   ): Observable<ApiParticipation> {
     return this.http.patch<ApiParticipation>(API_ENDPOINTS.participation(id), payload);
   }
 
   importParticipations(
-    eventId: string,
+    eventId: number,
     rows: { universityCode: string }[]
   ): Observable<ApiParticipationImportResult> {
     return this.http.post<ApiParticipationImportResult>(API_ENDPOINTS.participationImport, {

@@ -78,7 +78,7 @@ export class StudentListComponent {
   readonly searchInput = signal('');
 
   /** Estudiante cuyo certificado se esta previsualizando en el modal. */
-  readonly certificateStudentId = signal<string | null>(null);
+  readonly certificateStudentId = signal<number | null>(null);
 
   /**
    * Texto realmente buscado.
@@ -257,7 +257,7 @@ export class StudentListComponent {
     return term.length > 0 && /\d/.test(term);
   }
 
-  openCertificate(studentId: string): void {
+  openCertificate(studentId: number): void {
     this.certificateStudentId.set(studentId);
   }
 

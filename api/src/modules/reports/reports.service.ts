@@ -18,6 +18,7 @@ const UPCOMING_DAYS = 90;
 const eventInclude = {
   organizer: { select: { name: true } },
   professionalSchool: { select: { name: true } },
+  eventTypeCatalog: { select: { id: true, name: true } },
 } satisfies Prisma.EventInclude;
 
 type EventRow = Prisma.EventGetPayload<{ include: typeof eventInclude }>;
@@ -267,7 +268,8 @@ export class ReportsService {
       id: event.id,
       code: event.code,
       name: event.name,
-      category: event.category,
+      eventTypeId: event.eventTypeCatalog.id,
+      eventTypeName: event.eventTypeCatalog.name,
       startDate: event.startDate,
       endDate: event.endDate,
       modality: event.modality,

@@ -82,7 +82,7 @@ export class CreditService {
    * todavia no.
    */
   private readonly creditsByStudent = computed(() => {
-    const credits = new Map<string, number>();
+    const credits = new Map<number, number>();
 
     for (const [studentId, participations] of this.participationService.participationsByStudent()) {
       let total = 0;
@@ -125,7 +125,7 @@ export class CreditService {
       );
   });
 
-  getStudentCreditSummary(studentId: string): StudentCreditSummary {
+  getStudentCreditSummary(studentId: number): StudentCreditSummary {
     const participations = this.participationService.getByStudent(studentId);
     const valid = participations.filter((participation) => participation.status === 'VALID');
     const cancelled = participations.filter(
@@ -164,8 +164,8 @@ export class CreditService {
    * Una tabla paginada de 200 filas no debe pedir 200 resumenes sueltos: aqui se
    * resuelve el indice una vez y se reparte en un Map.
    */
-  getStudentCreditSummaries(studentIds: readonly string[]): Map<string, StudentCreditSummary> {
-    const summaries = new Map<string, StudentCreditSummary>();
+  getStudentCreditSummaries(studentIds: readonly number[]): Map<number, StudentCreditSummary> {
+    const summaries = new Map<number, StudentCreditSummary>();
     for (const studentId of studentIds) {
       summaries.set(studentId, this.getStudentCreditSummary(studentId));
     }
@@ -173,7 +173,7 @@ export class CreditService {
   }
 
   /** Historial ordenado del estudiante, del evento mas reciente al mas antiguo. */
-  getStudentHistory(studentId: string): Participation[] {
+  getStudentHistory(studentId: number): Participation[] {
     return this.participationService.getByStudent(studentId);
   }
 
@@ -314,8 +314,8 @@ export class CreditService {
    * Se detiene en cuanto se llena el limite: ordenar a 260 000 estudiantes solo
    * para mostrar cinco filas es trabajo tirado a la basura.
    */
-  topStudents(limit = 5): { studentId: string; name: string; credits: number }[] {
-    const best: { studentId: string; name: string; credits: number }[] = [];
+  topStudents(limit = 5): { studentId: number; name: string; credits: number }[] {
+    const best: { studentId: number; name: string; credits: number }[] = [];
 
     for (const student of this.studentService.students()) {
       const credits = this.totalCreditsOf(student.id);
@@ -442,7 +442,7 @@ export class CreditService {
    * nunca puedan discrepar. Se apoya en `creditsByStudent`, que es quien lleva la
    * cuenta; un estudiante sin participaciones no llega al indice y vale cero.
    */
-  totalCreditsOf(studentId: string): number {
+  totalCreditsOf(studentId: number): number {
     return this.creditsByStudent().get(studentId) ?? 0;
   }
 }

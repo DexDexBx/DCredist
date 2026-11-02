@@ -179,7 +179,11 @@ export class ParticipationRegisterComponent {
     { initialValue: this.form.controls.eventId.value }
   );
 
-  readonly selectedEventId = computed(() => this.eventIdSignal() || '');
+  /** Id numerico del evento; 0 mientras no se elige. */
+  readonly selectedEventId = computed(() => {
+    const value = this.eventIdSignal();
+    return value ? Number(value) : 0;
+  });
 
   readonly selectedEvent = computed(() =>
     this.events().find((event) => event.id === this.selectedEventId())
@@ -242,7 +246,7 @@ export class ParticipationRegisterComponent {
 
   readonly eventOptions = computed<DcSelectOption[]>(() =>
     this.openEvents().map((event) => ({
-      value: event.id,
+      value: String(event.id),
       label: `${event.code} · ${event.name}`,
       description: [event.organizer, `${event.credits} crd.`]
         .filter((part): part is string => Boolean(part))
@@ -264,7 +268,7 @@ export class ParticipationRegisterComponent {
         ...(event ? { professionalSchoolId: event.professionalSchoolId } : {}),
       })
       .map((student) => ({
-        value: student.id,
+        value: String(student.id),
         label: `${student.universityCode} · ${student.lastName}, ${student.firstName}`,
         search: `${student.universityCode} ${student.lastName} ${student.firstName}`,
         description: student.professionalSchool
@@ -331,7 +335,7 @@ export class ParticipationRegisterComponent {
 
     const result = await this.participationService.register({
       eventId,
-      studentId: value.studentId,
+      studentId: Number(value.studentId),
       participationType: value.participationType,
       credits: Number(value.credits),
       grade: value.grade === '' ? null : Number(value.grade),
@@ -342,7 +346,7 @@ export class ParticipationRegisterComponent {
       return;
     }
 
-    const student = this.studentService.findById(value.studentId);
+    const student = this.studentService.findById(Number(value.studentId));
     this.createdCode.set(result.participation?.verificationCode ?? null);
     this.successMessage.set(
       `Participación registrada${student ? ` para ${student.lastName}, ${student.firstName}` : ''}.`
@@ -377,7 +381,7 @@ export class ParticipationRegisterComponent {
       return;
     }
     this.foundStudent.set(student);
-    this.form.patchValue({ studentId: student.id });
+    this.form.patchValue({ studentId: String(student.id) });
   }
 
   clearStudentSearch(): void {

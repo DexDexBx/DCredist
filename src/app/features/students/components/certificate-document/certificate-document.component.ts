@@ -45,7 +45,7 @@ export class CertificateDocumentComponent {
   private readonly eventService = inject(EventService);
   private readonly creditService = inject(CreditService);
 
-  readonly studentId = input.required<string>();
+  readonly studentId = input.required<number>();
 
   readonly requiredCredits = REQUIRED_CREDITS;
 

@@ -71,6 +71,27 @@ export class DcInputComponent implements ControlValueAccessor {
     }
   }
 
+  /**
+   * Abre el calendario nativo al tocar el campo de fecha.
+   *
+   * Algunos navegadores solo muestran el selector al pulsar el icono; forzarlo
+   * en todo el campo hace evidente que se puede elegir la fecha con el mouse.
+   */
+  onClick(event: Event): void {
+    if (this.type() !== 'date') {
+      return;
+    }
+
+    const input = event.target;
+    if (input instanceof HTMLInputElement && typeof input.showPicker === 'function') {
+      try {
+        input.showPicker();
+      } catch {
+        // Si el navegador lo bloquea, el input sigue aceptando teclado.
+      }
+    }
+  }
+
   onBlur(): void {
     this.onTouched();
   }

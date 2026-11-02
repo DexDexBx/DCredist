@@ -12,7 +12,7 @@ import { PanelComponent } from '../../../../shared/components/ui/panel/panel.com
 import { ModalComponent } from '../../../../shared/components/ui/modal/modal.component';
 import { CreditProgressComponent } from '../../../../shared/components/ui/credit-progress/credit-progress.component';
 import { StatCardComponent } from '../../../../shared/components/ui/stat-card/stat-card.component';
-import { formatSchedule, isSameDay } from '../../../../shared/utils/date.utils';
+import { formatDateRange, isSameDay } from '../../../../shared/utils/date.utils';
 import { EventStatusBadgeComponent } from '../../../events/components/event-status-badge/event-status-badge.component';
 
 /** Evento de la agenda breve: hoy primero, luego los siguientes. */
@@ -124,7 +124,7 @@ export class DashboardComponent {
   }
 
   formatSchedule(event: AcademicEvent): string {
-    return formatSchedule(event.startDate, event.endDate);
+    return formatDateRange(event.startDate, event.endDate);
   }
 
   maxSchoolCredits(): number {
@@ -136,7 +136,7 @@ export class DashboardComponent {
   }
 
   /** Avance individual, para la barra de cada estudiante en el modal. */
-  progressOf(studentId: string): number {
+  progressOf(studentId: number): number {
     return this.creditService.getStudentCreditSummary(studentId).progress;
   }
 }
