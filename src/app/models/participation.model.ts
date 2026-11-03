@@ -4,21 +4,11 @@ import type { Student } from './student.model';
 /**
  * RELACION ESTUDIANTE <-> EVENTO.
  *
- * Todo lo que depende de un evento vive aqui: tipo de participacion, fecha,
- * creditos, nota y los codigos del certificado: el vigente de DCredits y, para
+ * Todo lo que depende de un evento vive aqui: fecha, creditos, nota y los
+ * codigos del certificado: el vigente de DCredits y, para
  * los registros migrados, el que emitia el sistema anterior.
  */
 export type ParticipationStatus = 'VALID' | 'CANCELLED' | 'PENDING';
-
-export const PARTICIPATION_TYPES = [
-  'ASISTENTE',
-  'PONENTE',
-  'PANELISTA',
-  'INVITADO',
-  'ORGANIZADOR',
-] as const;
-
-export type ParticipationType = (typeof PARTICIPATION_TYPES)[number];
 
 export interface Participation {
   id: number;
@@ -26,7 +16,6 @@ export interface Participation {
   eventId: number;
   studentId: number;
 
-  participationType: ParticipationType;
   participationDate: string;
 
   credits: number;
@@ -73,7 +62,6 @@ export interface Participation {
 export interface ParticipationDraft {
   eventId: number;
   studentId: number;
-  participationType: ParticipationType;
   credits: number;
   grade?: number | null;
   /** Codigo del sistema anterior, cuando se esta reingresando un certificado historico. */
@@ -83,7 +71,6 @@ export interface ParticipationDraft {
 }
 
 export interface ParticipationEdit {
-  participationType?: ParticipationType;
   credits?: number;
   grade?: number | null;
   status?: ParticipationStatus;
@@ -105,7 +92,6 @@ export interface ParticipationQuery {
   eventId?: number;
   studentId?: number;
   status?: ParticipationStatus;
-  participationType?: ParticipationType;
   search?: string;
   /** Solo certificables: participaciones que pueden generar un certificado. */
   withCertificateOnly?: boolean;
@@ -304,12 +290,4 @@ export const PARTICIPATION_STATUS_LABEL: Record<ParticipationStatus, string> = {
   VALID: 'Vigente',
   CANCELLED: 'Anulada',
   PENDING: 'Pendiente',
-};
-
-export const PARTICIPATION_TYPE_LABEL: Record<ParticipationType, string> = {
-  ASISTENTE: 'Asistente',
-  PONENTE: 'Ponente',
-  PANELISTA: 'Panelista',
-  INVITADO: 'Invitado',
-  ORGANIZADOR: 'Organizador',
 };

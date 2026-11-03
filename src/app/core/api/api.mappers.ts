@@ -93,7 +93,6 @@ export function mapApiStudent(row: ApiStudent): Student {
   return {
     id: row.id,
     universityCode: row.universityCode,
-    academicDegree: row.academicDegree,
     lastName: row.lastName,
     firstName: row.firstName,
     professionalSchoolId: row.professionalSchoolId,
@@ -191,7 +190,6 @@ export function mapApiParticipation(row: ApiParticipation): Participation {
     id: row.id,
     eventId: row.eventId,
     studentId: row.studentId,
-    participationType: row.participationType,
     participationDate: toIso(row.participationDate),
     credits: row.credits,
     verificationCode: row.verificationCode,
@@ -277,7 +275,6 @@ export function toApiEventPatch(
 export function toApiStudentPayload(draft: StudentDraft): ApiStudentPayload {
   return {
     universityCode: draft.universityCode.trim(),
-    academicDegree: draft.academicDegree.trim(),
     lastName: draft.lastName.trim(),
     firstName: draft.firstName.trim(),
     professionalSchoolId: draft.professionalSchoolId,
@@ -286,10 +283,39 @@ export function toApiStudentPayload(draft: StudentDraft): ApiStudentPayload {
   };
 }
 
+/** PATCH real: solo envia los campos que cambiaron respecto al estudiante actual. */
+export function toApiStudentPatch(
+  draft: StudentDraft,
+  current: Student,
+): Partial<ApiStudentPayload> {
+  const patch: Partial<ApiStudentPayload> = {};
+  const universityCode = draft.universityCode.trim();
+
+  if (universityCode !== current.universityCode) {
+    patch.universityCode = universityCode;
+  }
+  if (draft.lastName.trim() !== current.lastName) {
+    patch.lastName = draft.lastName.trim();
+  }
+  if (draft.firstName.trim() !== current.firstName) {
+    patch.firstName = draft.firstName.trim();
+  }
+  if (draft.professionalSchoolId !== current.professionalSchoolId) {
+    patch.professionalSchoolId = draft.professionalSchoolId;
+  }
+  if (draft.locationId !== current.locationId) {
+    patch.locationId = draft.locationId;
+  }
+  if (draft.status !== current.status) {
+    patch.status = draft.status;
+  }
+
+  return patch;
+}
+
 export function toApiStudentImportRows(rows: StudentImportRow[]): ApiStudentImportRow[] {
   return rows.map((row) => ({
     universityCode: row.universityCode.trim(),
-    academicDegree: row.academicDegree?.trim() || undefined,
     lastName: row.lastName?.trim() || undefined,
     firstName: row.firstName?.trim() || undefined,
     professionalSchool: row.professionalSchool?.trim() || undefined,
@@ -301,7 +327,6 @@ export function toApiParticipationPayload(draft: ParticipationDraft): ApiPartici
   return {
     eventId: draft.eventId,
     studentId: draft.studentId,
-    participationType: draft.participationType,
     credits: draft.credits,
     grade: draft.grade ?? null,
   };

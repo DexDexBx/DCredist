@@ -119,7 +119,6 @@ export type ApiStudentImportIssueCode =
 export interface ApiStudent {
   id: number;
   universityCode: string;
-  academicDegree: string;
   lastName: string;
   firstName: string;
   professionalSchoolId: number;
@@ -201,20 +200,12 @@ export interface ApiEvent {
   updatedAt?: string;
 }
 
-export type ApiParticipationType =
-  | 'ASISTENTE'
-  | 'PONENTE'
-  | 'PANELISTA'
-  | 'INVITADO'
-  | 'ORGANIZADOR';
-
 export type ApiParticipationStatus = 'VALID' | 'CANCELLED' | 'PENDING';
 
 export interface ApiParticipation {
   id: number;
   eventId: number;
   studentId: number;
-  participationType: ApiParticipationType;
   participationDate: string;
   credits: number;
   verificationCode: string;
@@ -243,7 +234,6 @@ export interface ApiEventPayload {
 
 export interface ApiStudentPayload {
   universityCode: string;
-  academicDegree?: string;
   lastName: string;
   firstName: string;
   professionalSchoolId: number;
@@ -253,7 +243,6 @@ export interface ApiStudentPayload {
 
 export interface ApiStudentImportRow {
   universityCode: string;
-  academicDegree?: string;
   lastName?: string;
   firstName?: string;
   professionalSchool?: string;
@@ -263,7 +252,6 @@ export interface ApiStudentImportRow {
 export interface ApiParticipationPayload {
   eventId: number;
   studentId: number;
-  participationType?: ApiParticipationType;
   participationDate?: string;
   credits?: number;
   grade?: number | null;

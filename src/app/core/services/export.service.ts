@@ -37,8 +37,8 @@ const CSV_MIME = 'text/csv;charset=utf-8';
  * por la institucion. Encabezado de metadatos + columnas obligatorias + filas.
  * Sus columnas no se pueden alterar.
  *
- *       N° ; CÓDIGO UNIVERSITARIO ; GRADO ACADEMICO ; APELLIDOS ; NOMBRES ;
- *       ESCUELA PROFESIONAL ; TIPO DE PARTICIPACIÓN ; CÓDIGO DEL CERTIFICADO ;
+ *       N° ; CÓDIGO UNIVERSITARIO ; APELLIDOS ; NOMBRES ;
+ *       ESCUELA PROFESIONAL ; CÓDIGO DEL CERTIFICADO ;
  *       NÚMERO DE CRÉDITOS ; NOTA ; SEDE
  *
  * El "CÓDIGO DEL CERTIFICADO" es el codigo unico de DCredits
@@ -124,7 +124,6 @@ export class ExportService {
 
     const header = [
       'CÓDIGO UNIVERSITARIO',
-      'GRADO ACADEMICO',
       'APELLIDOS',
       'NOMBRES',
       'ESCUELA PROFESIONAL',
@@ -141,7 +140,6 @@ export class ExportService {
       header,
       ...students.map((student) => [
         student.universityCode,
-        student.academicDegree,
         student.lastName,
         student.firstName,
         student.professionalSchool,
@@ -358,11 +356,9 @@ export class ExportService {
     return [
       String(index + 1),
       student?.universityCode ?? '',
-      student?.academicDegree ?? '',
       student?.lastName ?? '',
       student?.firstName ?? '',
       student?.professionalSchool ?? '',
-      participation.participationType,
       primaryCertificateCode(participation) ?? '',
       formatCredits(participation.credits),
       formatGrade(participation.grade),

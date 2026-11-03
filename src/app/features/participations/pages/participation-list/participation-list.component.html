@@ -80,7 +80,7 @@
   title="Filtros y búsqueda"
   subtitle="Busca por código de verificación, código anterior, estudiante o evento."
 >
-  <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+  <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
     <label class="block">
       <span class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300"
         >Búsqueda</span
@@ -104,21 +104,6 @@
       emptyText="No se encontraron eventos."
     />
 
-    <label class="block">
-      <span class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300"
-        >Tipo de participación</span
-      >
-      <select
-        [ngModel]="type()"
-        (ngModelChange)="type.set($event)"
-        class="h-11 w-full rounded-xl border border-gray-300 bg-white px-3.5 text-sm text-gray-900 shadow-theme-xs focus:border-brand-600 focus:ring-3 focus:ring-brand-500/15 focus:outline-none dark:border-gray-700 dark:bg-white/[0.03] dark:text-white/90"
-      >
-        <option value="">Todos los tipos</option>
-        @for (item of types; track item) {
-        <option [value]="item">{{ typeLabel[item] }}</option>
-        }
-      </select>
-    </label>
 
     <label class="block">
       <span class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300"
@@ -201,7 +186,6 @@
           <th scope="col" class="px-5 py-3">Fecha</th>
           <th scope="col" class="px-5 py-3">Estudiante</th>
           <th scope="col" class="px-5 py-3">Evento</th>
-          <th scope="col" class="px-5 py-3">Tipo</th>
           <th scope="col" class="px-5 py-3 text-right">Créditos</th>
           <th scope="col" class="px-5 py-3 text-right">Nota</th>
           <th scope="col" class="px-5 py-3">C&#243;digo del certificado</th>
@@ -231,9 +215,6 @@
               class="text-gray-700 hover:text-brand-600 dark:text-gray-200 dark:hover:text-brand-300"
               >{{ eventName(row) }}</a
             >
-          </td>
-          <td class="px-5 py-3 text-gray-600 dark:text-gray-300">
-            {{ typeLabel[row.participation.participationType] }}
           </td>
           <td class="px-5 py-3 text-right font-medium text-gray-900 dark:text-white/90">
             {{ row.participation.credits }}

@@ -7,10 +7,8 @@ import {
   AcademicEvent,
   REQUIRED_CREDITS,
   PARTICIPATION_STATUS_LABEL,
-  PARTICIPATION_TYPE_LABEL,
   Participation,
   ParticipationStatus,
-  ParticipationType,
   Student,
   eventDateRangeLabel,
   meetsCertificateRequirement,
@@ -87,10 +85,6 @@ export class StudentConstancyComponent {
         event: this.eventService.findById(participation.eventId),
       }))
   );
-
-  participationTypeLabel(type: ParticipationType): string {
-    return PARTICIPATION_TYPE_LABEL[type];
-  }
 
   participationStatusColor(status: ParticipationStatus) {
     return PARTICIPATION_STATUS_COLOR[status];

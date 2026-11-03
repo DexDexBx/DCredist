@@ -50,14 +50,6 @@ enum EventStatus {
   CANCELLED
 }
 
-enum ParticipationType {
-  ASISTENTE
-  PONENTE
-  PANELISTA
-  INVITADO
-  ORGANIZADOR
-}
-
 /// VALID es la unica que suma creditos al historial del estudiante.
 enum ParticipationStatus {
   VALID
@@ -175,9 +167,6 @@ model Student {
   /// Codigo universitario. Identificador funcional y unico.
   universityCode String @unique
 
-  /// Grado academico. Vacio si la institucion no lo reporta.
-  academicDegree String @default("")
-
   lastName  String
   firstName String
 
@@ -273,7 +262,6 @@ model Participation {
   student   Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
   studentId Int
 
-  participationType ParticipationType @default(ASISTENTE)
   participationDate DateTime
 
   /// Creditos otorgados por ESTA participacion. Nunca negativo.

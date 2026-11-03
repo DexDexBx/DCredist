@@ -96,6 +96,15 @@ export const routes: Routes = [
         canActivate: [permissionGuard('students', 'MANAGE')],
       },
       {
+        path: 'students/:id/edit',
+        loadComponent: () =>
+          import('./features/students/pages/student-edit/student-edit.component').then(
+            (module) => module.StudentEditComponent
+          ),
+        title: 'Editar estudiante | DCredits',
+        canActivate: [permissionGuard('students', 'MANAGE')],
+      },
+      {
         path: 'students/:id',
         loadComponent: () =>
           import('./features/students/pages/student-detail/student-detail.component').then(

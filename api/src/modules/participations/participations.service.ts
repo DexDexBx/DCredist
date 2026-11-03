@@ -7,7 +7,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import type { Prisma } from '../../generated/prisma/client';
-import { EventStatus, ParticipationStatus, ParticipationType } from '../../generated/prisma/client';
+import { EventStatus, ParticipationStatus } from '../../generated/prisma/client';
 import type { Actor } from '../../common/actor/actor.types';
 import { assertCanReadSchool } from '../../common/actor/school-scope';
 import { isUniqueViolation } from '../../common/prisma/prisma-errors';
@@ -59,7 +59,6 @@ export class ParticipationsService {
         ...(query.eventId ? { eventId: query.eventId } : {}),
         ...(query.studentId ? { studentId: query.studentId } : {}),
         ...(query.status ? { status: query.status } : {}),
-        ...(query.participationType ? { participationType: query.participationType } : {}),
         ...(query.verificationCode
           ? { verificationCode: normalizeVerificationCode(query.verificationCode) }
           : {}),
@@ -168,7 +167,8 @@ export class ParticipationsService {
 
     await this.assertCapacity(event.id, event.capacity, event.code);
 
-    const credits = dto.credits ?? event.credits;
+    // Los creditos SIEMPRE salen del evento: el cliente no puede alterarlos.
+    const credits = event.credits;
     const participationDate = dto.participationDate
       ? new Date(dto.participationDate)
       : event.startDate;
@@ -181,7 +181,6 @@ export class ParticipationsService {
         data: {
           eventId: dto.eventId,
           studentId: dto.studentId,
-          participationType: dto.participationType ?? ParticipationType.ASISTENTE,
           participationDate,
           credits,
           verificationCode,
@@ -208,8 +207,7 @@ export class ParticipationsService {
           data: {
             eventId: dto.eventId,
             studentId: dto.studentId,
-            participationType: dto.participationType ?? ParticipationType.ASISTENTE,
-            participationDate,
+              participationDate,
             credits,
             verificationCode: await generateUniqueVerificationCode(this.prisma),
             grade: dto.grade ?? null,
@@ -245,9 +243,6 @@ export class ParticipationsService {
       return await this.prisma.participation.update({
         where: { id },
         data: {
-          ...(dto.participationType !== undefined
-            ? { participationType: dto.participationType }
-            : {}),
           ...(dto.participationDate !== undefined
             ? { participationDate: new Date(dto.participationDate) }
             : {}),
@@ -444,7 +439,6 @@ export class ParticipationsService {
       return 0;
     }
 
-    const defaultType = dto.defaultParticipationType ?? ParticipationType.ASISTENTE;
     const defaultCredits = dto.defaultCredits ?? event.credits;
 
     const data = insertable.map(({ index, studentId }) => {
@@ -453,7 +447,6 @@ export class ParticipationsService {
       return {
         eventId: event.id,
         studentId,
-        participationType: row.participationType ?? defaultType,
         participationDate: row.participationDate ? new Date(row.participationDate) : event.startDate,
         credits: row.credits ?? defaultCredits,
         verificationCode: '',
@@ -529,7 +522,6 @@ export class ParticipationsService {
       studentId: row.studentId,
       eventCode: row.event.code,
       eventName: row.event.name,
-      participationType: row.participationType,
       participationDate: row.participationDate,
       credits: row.credits,
       verificationCode: row.verificationCode,

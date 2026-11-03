@@ -16,7 +16,7 @@ import {
   studentSearchHaystack,
 } from '../../models';
 import { CODE_COLLATOR, NAME_COLLATOR } from '../../shared/utils/text.utils';
-import { mapApiStudent, toApiStudentImportRows, toApiStudentPayload } from '../api/api.mappers';
+import { mapApiStudent, toApiStudentImportRows, toApiStudentPatch, toApiStudentPayload } from '../api/api.mappers';
 import { DcreditsApiClient } from '../api/dcredits-api.client';
 import { CatalogService } from './catalog.service';
 import { DataModeService } from './data-mode.service';
@@ -33,7 +33,6 @@ export interface StudentImportRow {
   firstName: string;
   professionalSchool: string;
   location: string;
-  academicDegree?: string;
 }
 
 export interface StudentImportSummary {
@@ -79,7 +78,25 @@ export class StudentService {
 
   /** Reemplaza el padron con el que devuelve el API (hidratacion al arrancar). */
   replaceAll(students: Student[]): void {
-    this.studentsState.set(students);
+    this.studentsState.set(students.map((student) => this.withCatalogNames(student)));
+  }
+
+  /**
+   * Resuelve escuela y sede contra el catalogo cargado usando sus ids.
+   *
+   * Es una red de seguridad: el API ya devuelve los nombres de las relaciones,
+   * pero si una respuesta llega sin ellos (o con un dato viejo), la vista siempre
+   * muestra el nombre vigente del catalogo.
+   */
+  private withCatalogNames(student: Student): Student {
+    return {
+      ...student,
+      professionalSchool:
+        this.catalogService.nameOf('professionalSchools', student.professionalSchoolId) ||
+        student.professionalSchool,
+      location:
+        this.catalogService.nameOf('locations', student.locationId) || student.location,
+    };
   }
 
   /**
@@ -351,7 +368,7 @@ export class StudentService {
     if (this.dataMode.isApi) {
       try {
         const created = await firstValueFrom(this.api.createStudent(toApiStudentPayload(draft)));
-        const student = mapApiStudent(created);
+        const student = this.withCatalogNames(mapApiStudent(created));
         this.studentsState.update((current) => [...current, student]);
         return student;
       } catch {
@@ -374,11 +391,17 @@ export class StudentService {
     }
 
     if (this.dataMode.isApi) {
+      const current = this.findById(id) as Student;
+      const patch = toApiStudentPatch(draft, current);
+
+      // Sin cambios reales no se toca el API.
+      if (Object.keys(patch).length === 0) {
+        return current;
+      }
+
       try {
-        const updated = await firstValueFrom(
-          this.api.updateStudent(id, toApiStudentPayload(draft))
-        );
-        const student = mapApiStudent(updated);
+        const updated = await firstValueFrom(this.api.updateStudent(id, patch));
+        const student = this.withCatalogNames(mapApiStudent(updated));
         this.replaceById(id, student);
         return student;
       } catch {
@@ -400,7 +423,7 @@ export class StudentService {
     if (this.dataMode.isApi && current.status !== status) {
       try {
         const updated = await firstValueFrom(this.api.updateStudent(id, { status }));
-        this.replaceById(id, mapApiStudent(updated));
+        this.replaceById(id, this.withCatalogNames(mapApiStudent(updated)));
         return;
       } catch {
         // Si el API falla, no se toca el estado local.
@@ -427,7 +450,6 @@ export class StudentService {
         this.catalogService.nameOf('professionalSchools', draft.professionalSchoolId),
       location:
         draft.location.trim() || this.catalogService.nameOf('locations', draft.locationId),
-      academicDegree: draft.academicDegree.trim(),
     };
   }
 
@@ -456,7 +478,7 @@ export class StudentService {
    *
    * Nunca es destructiva ni reemplaza el padron completo:
    *  - codigo nuevo        -> se crea,
-   *  - codigo existente    -> se completa/enriquece solo los campos vacios,
+   *  - codigo existente    -> se conserva sin cambios,
    *  - fila incompleta     -> se reporta en `invalid`, no se crea.
    */
   async importStudents(rows: StudentImportRow[]): Promise<StudentImportSummary> {
@@ -537,7 +559,7 @@ export class StudentService {
   private async refreshFromApi(): Promise<void> {
     try {
       const students = await firstValueFrom(this.api.listStudents());
-      this.studentsState.set(students.map(mapApiStudent));
+      this.studentsState.set(students.map((student) => this.withCatalogNames(mapApiStudent(student))));
     } catch {
       // Si falla la recarga se conserva el padron actual.
     }
@@ -554,7 +576,6 @@ export class StudentService {
       code: string;
       schoolId: number;
       locationId: number;
-      academicDegree: string;
       lastName: string;
       firstName: string;
     }[] = [];
@@ -606,7 +627,6 @@ export class StudentService {
         code: universityCode,
         schoolId: schoolId as number,
         locationId: locationId as number,
-        academicDegree: row.academicDegree?.trim() ?? '',
         lastName: row.lastName,
         firstName: row.firstName,
       });
@@ -637,7 +657,6 @@ export class StudentService {
         const student = this.normalizeDraft(
           {
             universityCode: item.code,
-            academicDegree: item.academicDegree,
             lastName: item.lastName,
             firstName: item.firstName,
             professionalSchoolId: item.schoolId,
@@ -654,11 +673,7 @@ export class StudentService {
         continue;
       }
 
-      // Solo se completa lo que falta: la carga nunca pisa datos existentes.
-      working.set(item.code, {
-        ...existing,
-        academicDegree: existing.academicDegree || item.academicDegree,
-      });
+      // El estudiante ya existe: no se pisa ningun dato.
       updated++;
     }
 
@@ -677,7 +692,7 @@ export class StudentService {
 
   /** Id del catalogo a partir del nombre escrito en el archivo. */
   private catalogIdByName(kind: 'professionalSchools' | 'locations', name: string): number | null {
-    const key = name?.trim().toLowerCase() ?? '';
+    const key = importKey(name);
     if (!key) {
       return null;
     }
@@ -685,7 +700,7 @@ export class StudentService {
     return (
       this.catalogService
         .options(kind)
-        .find((option) => option.name.trim().toLowerCase() === key)?.id ?? null
+        .find((option) => importKey(option.name) === key)?.id ?? null
     );
   }
 
@@ -742,4 +757,14 @@ export class StudentService {
   private nextId(): number {
     return this.lastSequence() + 1;
   }
+}
+
+/** Normaliza nombres de catalogo: sin mayusculas, acentos ni espacios repetidos. */
+function importKey(value: string | undefined): string {
+  return (value ?? '')
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/\s+/g, ' ');
 }

@@ -38,10 +38,34 @@ const NUMBER_PATTERN = /^-?\d+(\.\d+)?$/;
 /** Filas reservadas arriba: logo (2) + separacion (1). */
 const HEADER_OFFSET = 3;
 
+export interface XlsxCatalogSheet {
+  /** Nombre de la hoja que Excel mostrara en la lista desplegable. */
+  name: string;
+  /** Encabezado de la columna A de esa hoja. */
+  header: string;
+  /** Valores validos del catalogo. */
+  values: string[];
+}
+
+export interface XlsxListValidation {
+  /** Columna de la hoja principal (1 = A) que tendra la lista. */
+  column: number;
+  /** Hoja de catalogo que alimenta la lista. */
+  catalog: string;
+  /** Mensaje que Excel muestra si se escribe un valor que no esta en la lista. */
+  error: string;
+}
+
 export interface XlsxExportInput {
   fileName: string;
   rows: string[][];
   sheetName?: string;
+  /** Hojas auxiliares con los valores validos (por ejemplo escuelas y sedes). */
+  catalogSheets?: XlsxCatalogSheet[];
+  /** Listas desplegables de la hoja principal alimentadas por `catalogSheets`. */
+  listValidations?: XlsxListValidation[];
+  /** Cantidad de filas hacia abajo donde se aplican las listas (por defecto 1000). */
+  validationRows?: number;
 }
 
 /** Texto de una celda, cualquiera que sea su tipo interno de ExcelJS. */
@@ -151,6 +175,92 @@ function applyColumnWidths(sheet: ExcelJS.Worksheet, rows: string[][]): void {
   }
 }
 
+/** Hoja auxiliar que alimenta una lista desplegable. */
+function addCatalogSheet(
+  workbook: ExcelJS.Workbook,
+  catalog: XlsxCatalogSheet,
+): void {
+  const sheet = workbook.addWorksheet(catalog.name);
+  const header = sheet.getRow(1);
+  header.getCell(1).value = catalog.header;
+  header.getCell(1).font = {
+    name: FONT,
+    size: 11,
+    bold: true,
+    color: { argb: 'FFFFFFFF' },
+  };
+  header.getCell(1).fill = {
+    type: 'pattern',
+    pattern: 'solid',
+    fgColor: { argb: BRAND },
+  };
+  header.getCell(1).border = {
+    top: { style: 'thin', color: { argb: BORDER } },
+    left: { style: 'thin', color: { argb: BORDER } },
+    bottom: { style: 'thin', color: { argb: BORDER } },
+    right: { style: 'thin', color: { argb: BORDER } },
+  };
+
+  catalog.values.forEach((value, index) => {
+    const row = sheet.getRow(index + 2);
+    row.getCell(1).value = value;
+    row.getCell(1).font = { name: FONT, size: 10, color: { argb: TEXT } };
+    row.getCell(1).border = {
+      top: { style: 'thin', color: { argb: BORDER } },
+      left: { style: 'thin', color: { argb: BORDER } },
+      bottom: { style: 'thin', color: { argb: BORDER } },
+      right: { style: 'thin', color: { argb: BORDER } },
+    };
+  });
+
+  sheet.getColumn(1).width = Math.max(
+    18,
+    Math.min(
+      60,
+      catalog.values.reduce((max, value) => Math.max(max, value.length + 3), 18),
+    ),
+  );
+  sheet.views = [{ state: 'frozen', ySplit: 1 }];
+}
+
+/** Aplica listas desplegables a las columnas indicadas de la hoja principal. */
+function applyListValidations(
+  sheet: ExcelJS.Worksheet,
+  headerRowNumber: number,
+  validations: XlsxListValidation[],
+  catalogs: XlsxCatalogSheet[],
+  rows: number,
+): void {
+  const firstDataRow = headerRowNumber + 1;
+  const lastDataRow = firstDataRow + Math.max(1, rows) - 1;
+
+  for (const validation of validations) {
+    const catalog = catalogs.find((item) => item.name === validation.catalog);
+    if (!catalog || catalog.values.length === 0) {
+      continue;
+    }
+
+    const source = `'${catalog.name}'!$A$2:$A$${catalog.values.length + 1}`;
+    const rule: ExcelJS.DataValidation = {
+      type: 'list',
+      allowBlank: false,
+      formulae: [source],
+      showErrorMessage: true,
+      errorTitle: 'Valor no válido',
+      error: validation.error,
+      showInputMessage: true,
+      promptTitle: 'Catálogo',
+      prompt: 'Selecciona un valor de la lista para evitar errores de importación.',
+    };
+
+    // ExcelJS solo expone la validacion por celda; al escribir el libro agrupa
+    // las celdas contiguas iguales en un unico rango.
+    for (let row = firstDataRow; row <= lastDataRow; row += 1) {
+      sheet.getCell(row, validation.column).dataValidation = rule;
+    }
+  }
+}
+
 /**
  * Genera y descarga un .xlsx con el logo de DCredits, titulos destacados,
  * encabezado con color de marca, bordes, panel congelado y filtro automatico.
@@ -213,8 +323,10 @@ export async function downloadXlsx(input: XlsxExportInput): Promise<void> {
     });
   });
 
+  let headerRowNumber = -1;
+
   if (headerIndex >= 0) {
-    const headerRowNumber = HEADER_OFFSET + headerIndex + 1;
+    headerRowNumber = HEADER_OFFSET + headerIndex + 1;
     const count = Math.max(header.length, 1);
 
     sheet.views = [{ state: 'frozen', ySplit: headerRowNumber }];
@@ -226,6 +338,28 @@ export async function downloadXlsx(input: XlsxExportInput): Promise<void> {
     sheet.getRow(headerRowNumber).height = 30;
   }
 
+  // Hojas de catalogo + listas desplegables: evitan que se escriban valores
+  // que la importacion no podria resolver (escuelas y sedes, por ejemplo).
+  const catalogSheets = input.catalogSheets ?? [];
+  for (const catalog of catalogSheets) {
+    addCatalogSheet(workbook, catalog);
+  }
+
+  if (
+    headerRowNumber > 0 &&
+    input.listValidations &&
+    input.listValidations.length > 0 &&
+    catalogSheets.length > 0
+  ) {
+    applyListValidations(
+      sheet,
+      headerRowNumber,
+      input.listValidations,
+      catalogSheets,
+      input.validationRows ?? 1000,
+    );
+  }
+
   applyColumnWidths(sheet, rows);
 
   const buffer = await workbook.xlsx.writeBuffer();
@@ -235,7 +369,12 @@ export async function downloadXlsx(input: XlsxExportInput): Promise<void> {
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement('a');
   anchor.href = url;
-  anchor.download = input.fileName.replace(/\.csv$/i, '.xlsx');
+  // El nombre siempre termina en .xlsx: sin extension el navegador guarda el
+  // archivo como "sin tipo" y luego el input de importacion lo rechaza.
+  const downloadName = input.fileName
+    .replace(/\.csv$/i, '')
+    .replace(/\.xlsx?$/i, '');
+  anchor.download = `${downloadName}.xlsx`;
   anchor.rel = 'noopener';
   anchor.click();
   URL.revokeObjectURL(url);

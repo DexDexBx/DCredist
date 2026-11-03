@@ -71,7 +71,6 @@ export class VerificationService {
     const base: Omit<VerificationResultDto, 'outcome' | 'message'> = {
       participation: {
         id: participation.id,
-        participationType: participation.participationType,
         participationDate: participation.participationDate,
         credits: participation.credits,
         verificationCode: participation.verificationCode,
@@ -98,7 +97,6 @@ export class VerificationService {
       student: {
         id: participation.student.id,
         universityCode: participation.student.universityCode,
-        academicDegree: participation.student.academicDegree,
         lastName: participation.student.lastName,
         firstName: participation.student.firstName,
         professionalSchoolId: participation.student.professionalSchoolId,

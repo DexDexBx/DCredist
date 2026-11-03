@@ -10,7 +10,6 @@ import { StudentStatus } from '../../../generated/prisma/client';
 export class StudentDetail {
   @ApiProperty({ example: 1 }) id!: number;
   @ApiProperty() universityCode!: string;
-  @ApiProperty() academicDegree!: string;
   @ApiProperty() lastName!: string;
   @ApiProperty() firstName!: string;
 

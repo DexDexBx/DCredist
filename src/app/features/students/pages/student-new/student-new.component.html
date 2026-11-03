@@ -53,13 +53,6 @@
       />
 
       <dc-input
-        formControlName="academicDegree"
-        label="Grado académico"
-        placeholder="Student"
-        hint="Puede quedar vacío si la institución no lo reporta."
-      />
-
-      <dc-input
         formControlName="lastName"
         label="Apellidos"
         placeholder="AGUILAR PEREZ"
@@ -91,13 +84,6 @@
         [placeholder]="'Selecciona la sede'"
         [required]="true"
         [invalid]="isInvalid('locationId')"
-      />
-
-      <dc-select
-        formControlName="status"
-        label="Estado"
-        [options]="statusOptions"
-        hint="Solo los estudiantes activos pueden recibir participaciones."
       />
     </div>
 
@@ -144,7 +130,7 @@
         ¿Qué debe tener el archivo?
       </p>
       <ul class="mt-2 space-y-1 text-xs leading-relaxed text-gray-600 dark:text-gray-300">
-        <li>1. Las cinco columnas obligatorias y, si existe, el grado académico en sexto lugar.</li>
+        <li>1. Las cinco columnas obligatorias, en el orden indicado.</li>
         <li>2. La fila de encabezado va en la primera fila: se ignora automáticamente.</li>
         <li>3. En .xlsx se lee la primera hoja; en .csv o .txt una fila por línea.</li>
         <li>4. El código debe ser numérico, los nombres solo letras; escuela y sede son obligatorias. Las filas que no cumplan se reportan y no se cargan.</li>
@@ -157,6 +143,9 @@
         <dc-icon name="download" [size]="16" />
         Descargar plantilla
       </button>
+      <p class="mt-2 text-xs text-gray-500 dark:text-gray-400">
+        La plantilla incluye listas desplegables con las escuelas y sedes válidas.
+      </p>
     </div>
 
     <div class="mt-4 flex flex-col gap-2">
@@ -234,10 +223,15 @@
       <button
         type="button"
         (click)="onImport()"
-        [disabled]="!importText().trim()"
+        [disabled]="!importText().trim() || importing()"
         class="inline-flex items-center gap-2 rounded-xl border border-brand-200 bg-brand-50 px-4 py-2.5 text-sm font-medium text-brand-700 transition-colors hover:bg-brand-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-brand-500/20 dark:bg-brand-500/10 dark:text-brand-200"
       >
+        @if (importing()) {
+        <dc-icon name="refresh" [size]="16" class="animate-spin" />
+        Importando…
+        } @else {
         Importar
+        }
       </button>
       <button
         type="button"
@@ -280,7 +274,7 @@
       <ul class="mt-2 space-y-1 text-gray-600 dark:text-gray-300">
         <li>{{ summary.total }} fila(s) leída(s)</li>
         <li>{{ summary.created }} estudiante(s) nuevo(s)</li>
-        <li>{{ summary.updated }} estudiante(s) completado(s)</li>
+        <li>{{ summary.updated }} estudiante(s) ya registrado(s) en el padrón</li>
         @if (summary.duplicates.length) {
         <li>{{ summary.duplicates.length }} duplicado(s) ignorado(s)</li>
         }

@@ -13,11 +13,9 @@ import type { Student } from './student.model';
 export const INSTITUTIONAL_EXPORT_COLUMNS = [
   'N°',
   'CÓDIGO UNIVERSITARIO',
-  'GRADO ACADEMICO',
   'APELLIDOS',
   'NOMBRES',
   'ESCUELA PROFESIONAL',
-  'TIPO DE PARTICIPACIÓN',
   'CÓDIGO DEL CERTIFICADO',
   'NÚMERO DE CRÉDITOS',
   'NOTA',

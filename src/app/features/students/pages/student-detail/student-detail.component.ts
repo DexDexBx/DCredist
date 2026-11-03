@@ -1,16 +1,15 @@
 ﻿import { Component, computed, inject, input, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { CreditService } from '../../../../core/services/credit.service';
+import { AuthService } from '../../../../core/services/auth.service';
 import { EventService } from '../../../../core/services/event.service';
 import { StudentService } from '../../../../core/services/student.service';
 import {
   AcademicEvent,
   EventStatus,
   PARTICIPATION_STATUS_LABEL,
-  PARTICIPATION_TYPE_LABEL,
   Participation,
   ParticipationStatus,
-  ParticipationType,
   REQUIRED_CREDITS,
   STUDENT_STATUS_LABEL,
   Student,
@@ -63,6 +62,7 @@ export class StudentDetailComponent {
   private readonly studentService = inject(StudentService);
   private readonly eventService = inject(EventService);
   private readonly creditService = inject(CreditService);
+  readonly auth = inject(AuthService);
 
   /** Identificador tomado de la ruta /students/:id. */
   readonly id = input.required<string>();
@@ -110,10 +110,6 @@ export class StudentDetailComponent {
 
   eventStatusColor(status: EventStatus): BadgeColor {
     return EVENT_STATUS_COLOR[status];
-  }
-
-  participationTypeLabel(type: ParticipationType): string {
-    return PARTICIPATION_TYPE_LABEL[type];
   }
 
   /** Registro que llego por una recarga extemporanea. */

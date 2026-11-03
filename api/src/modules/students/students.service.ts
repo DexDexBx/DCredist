@@ -76,7 +76,6 @@ export class StudentsService {
       return {
         id: row.id,
         universityCode: row.universityCode,
-        academicDegree: row.academicDegree,
         lastName: row.lastName,
         firstName: row.firstName,
         professionalSchoolId: row.professionalSchoolId,
@@ -152,7 +151,6 @@ export class StudentsService {
     return {
       id: student.id,
       universityCode: student.universityCode,
-      academicDegree: student.academicDegree,
       lastName: student.lastName,
       firstName: student.firstName,
       professionalSchoolId: student.professionalSchoolId,
@@ -240,7 +238,6 @@ export class StudentsService {
       return await this.prisma.student.create({
         data: {
           universityCode,
-          academicDegree: dto.academicDegree?.trim() ?? '',
           lastName: dto.lastName.trim(),
           firstName: dto.firstName.trim(),
           professionalSchoolId: dto.professionalSchoolId,
@@ -292,7 +289,6 @@ export class StudentsService {
         where: { id },
         data: {
           universityCode,
-          ...(dto.academicDegree !== undefined ? { academicDegree: dto.academicDegree.trim() } : {}),
           ...(dto.lastName !== undefined ? { lastName: dto.lastName.trim() } : {}),
           ...(dto.firstName !== undefined ? { firstName: dto.firstName.trim() } : {}),
           ...(dto.professionalSchoolId !== undefined
@@ -348,6 +344,16 @@ export class StudentsService {
         return;
       }
 
+      if (!/^\d{4,15}$/.test(code)) {
+        issues.push({
+          row: index + 1,
+          universityCode: code,
+          code: 'INVALID_CODE',
+          message: 'El codigo universitario debe ser numerico (entre 4 y 15 digitos).',
+        });
+        return;
+      }
+
       if (seen.has(code)) {
         issues.push({
           row: index + 1,
@@ -373,10 +379,10 @@ export class StudentsService {
     ]);
 
     const schoolByName = new Map(
-      schools.map((row) => [row.name.trim().toLowerCase(), row])
+      schools.map((row) => [importKey(row.name), row])
     );
     const locationByName = new Map(
-      locations.map((row) => [row.name.trim().toLowerCase(), row])
+      locations.map((row) => [importKey(row.name), row])
     );
 
     const existing = await this.prisma.student.findMany({
@@ -390,7 +396,6 @@ export class StudentsService {
       code: string;
       schoolId: number;
       locationId: number;
-      academicDegree: string;
       lastName: string;
       firstName: string;
       current: (typeof existing)[number] | undefined;
@@ -434,7 +439,7 @@ export class StudentsService {
         continue;
       }
 
-      const school = schoolByName.get(schoolName.toLowerCase());
+      const school = schoolByName.get(importKey(schoolName));
 
       if (!school) {
         issues.push({
@@ -486,7 +491,7 @@ export class StudentsService {
         continue;
       }
 
-      const location = locationByName.get(locationName.toLowerCase());
+      const location = locationByName.get(importKey(locationName));
 
       if (!location) {
         issues.push({
@@ -525,7 +530,6 @@ export class StudentsService {
         locationId: location.id,
         schoolName: school.name,
         locationName: location.name,
-        academicDegree: row.academicDegree?.trim() ?? '',
         lastName: row.lastName.trim(),
         firstName: row.firstName.trim(),
         current,
@@ -548,14 +552,7 @@ export class StudentsService {
     await this.prisma.$transaction(async (tx) => {
       for (const item of resolved) {
         if (item.current) {
-          // Solo se completa lo que falta: la carga nunca pisa datos existentes.
-          if (!item.current.academicDegree && item.academicDegree) {
-            await tx.student.update({
-              where: { id: item.current.id },
-              data: { academicDegree: item.academicDegree },
-            });
-          }
-
+          // El estudiante ya existe: no se reasigna ni se pisa ningun dato.
           enriched++;
           continue;
         }
@@ -563,7 +560,6 @@ export class StudentsService {
         await tx.student.create({
           data: {
             universityCode: item.code,
-            academicDegree: item.academicDegree,
             lastName: item.lastName,
             firstName: item.firstName,
             professionalSchoolId: item.schoolId,
@@ -683,4 +679,18 @@ function summarize(participations: ParticipationForSummary[]) {
 /** Evita errores de coma flotante al sumar creditos (1.5 + 2 + 1 = 4.5). */
 export function roundCredits(value: number): number {
   return Math.round(value * 100) / 100;
+}
+
+/**
+ * Clave tolerante para resolver escuela y sede por nombre en la importacion:
+ * ignora mayusculas, acentos y espacios repetidos. El nombre original se
+ * conserva para el mensaje de error.
+ */
+function importKey(value: string): string {
+  return value
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/\s+/g, ' ');
 }

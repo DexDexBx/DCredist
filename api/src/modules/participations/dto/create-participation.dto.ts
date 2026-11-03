@@ -15,7 +15,7 @@ import {
   Min,
   ValidateNested,
 } from 'class-validator';
-import { ParticipationStatus, ParticipationType } from '../../../generated/prisma/client';
+import { ParticipationStatus } from '../../../generated/prisma/client';
 import { MAX_GRADE } from '../../../common/domain';
 import { blankToUndefined } from '../../../common/dto/blank-query';
 
@@ -38,11 +38,6 @@ export class CreateParticipationDto {
   @Min(1)
   studentId!: number;
 
-  @ApiPropertyOptional({ enum: ParticipationType, default: ParticipationType.ASISTENTE })
-  @IsOptional()
-  @IsEnum(ParticipationType)
-  participationType?: ParticipationType;
-
   @ApiPropertyOptional({
     example: '2026-10-05T09:00:00.000Z',
     description: 'Si se omite, se usa la fecha de inicio del evento.',
@@ -53,7 +48,8 @@ export class CreateParticipationDto {
 
   @ApiPropertyOptional({
     example: 1.5,
-    description: 'Creditos de ESTA participacion. Nunca negativo. Si se omite, se heredan del evento.',
+    description:
+      'Se ignora: los creditos se toman siempre del evento. Se conserva por compatibilidad.',
   })
   @IsOptional()
   @Type(() => Number)
@@ -109,12 +105,6 @@ export class QueryParticipationsDto {
   @blankToUndefined()
   status?: ParticipationStatus;
 
-  @ApiPropertyOptional({ enum: ParticipationType })
-  @IsOptional()
-  @IsEnum(ParticipationType)
-  @blankToUndefined()
-  participationType?: ParticipationType;
-
   @ApiPropertyOptional({ example: 'DC-2026-8F4K2P', description: 'Busca por codigo DCredits exacto.' })
   @IsOptional()
   @IsString()
@@ -140,11 +130,6 @@ export class ParticipationImportRowDto {
   @IsString()
   @MaxLength(32)
   universityCode!: string;
-
-  @ApiPropertyOptional({ enum: ParticipationType, description: 'Si se omite, ASISTENTE.' })
-  @IsOptional()
-  @IsEnum(ParticipationType)
-  participationType?: ParticipationType;
 
   @ApiPropertyOptional({ example: 1.5, description: 'Si se omite, los creditos del evento.' })
   @IsOptional()
@@ -188,15 +173,6 @@ export class ImportParticipationsDto {
   @IsInt()
   @Min(1)
   eventId!: number;
-
-  @ApiPropertyOptional({
-    enum: ParticipationType,
-    default: ParticipationType.ASISTENTE,
-    description: 'Tipo aplicado a las filas que no traen tipo propio.',
-  })
-  @IsOptional()
-  @IsEnum(ParticipationType)
-  defaultParticipationType?: ParticipationType;
 
   @ApiPropertyOptional({
     example: 2,

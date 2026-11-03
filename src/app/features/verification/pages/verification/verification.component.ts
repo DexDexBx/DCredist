@@ -12,7 +12,6 @@ import {
 import { CreditService } from '../../../../core/services/credit.service';
 import {
   PARTICIPATION_STATUS_LABEL,
-  PARTICIPATION_TYPE_LABEL,
   REQUIRED_CREDITS,
   AcademicEvent,
   Participation,
@@ -101,7 +100,6 @@ export class VerificationComponent {
   readonly constancy = signal<ConstancyVerificationResponse | null>(null);
 
   readonly statusLabel = PARTICIPATION_STATUS_LABEL;
-  readonly typeLabel = PARTICIPATION_TYPE_LABEL;
 
   readonly suggestions = computed(() =>
     this.kind() === 'CONSTANCY' || this.response()

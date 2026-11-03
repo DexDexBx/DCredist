@@ -10,12 +10,10 @@ import {
   DEFAULT_PARTICIPATION_PAGE_SIZE,
   PARTICIPATION_SORT_OPTIONS,
   PARTICIPATION_STATUS_LABEL,
-  PARTICIPATION_TYPE_LABEL,
   ParticipationContext,
   ParticipationQuery,
   ParticipationSortKey,
   ParticipationStatus,
-  ParticipationType,
   isLateParticipation,
   primaryCertificateCode,
 } from '../../../../models';
@@ -69,7 +67,6 @@ export class ParticipationListComponent {
   readonly auth = inject(AuthService);
 
   readonly statusLabel = PARTICIPATION_STATUS_LABEL;
-  readonly typeLabel = PARTICIPATION_TYPE_LABEL;
   readonly sortOptions = PARTICIPATION_SORT_OPTIONS;
   readonly pageSizes = [25, 50, 100, 200];
 
@@ -88,7 +85,6 @@ export class ParticipationListComponent {
   );
 
   readonly eventId = signal('');
-  readonly type = signal<ParticipationType | ''>('');
   readonly status = signal<ParticipationStatus | 'Todos'>('Todos');
   readonly sort = signal<ParticipationSortKey>('recent');
   readonly pageSize = signal(DEFAULT_PARTICIPATION_PAGE_SIZE);
@@ -102,12 +98,11 @@ export class ParticipationListComponent {
    */
   readonly page = linkedSignal({
     source: () =>
-      `${this.search()}|${this.eventId()}|${this.type()}|${this.status()}|${this.sort()}`,
+      `${this.search()}|${this.eventId()}|${this.status()}|${this.sort()}`,
     computation: () => 1,
   });
 
   readonly events = this.eventService.events;
-  readonly types = this.participationService.participationTypes;
 
   /**
    * Eventos como opciones del combobox.
@@ -129,7 +124,6 @@ export class ParticipationListComponent {
     return {
       search: this.search(),
       eventId: this.eventId() ? Number(this.eventId()) : undefined,
-      participationType: this.type() || undefined,
       status: currentStatus === 'Todos' ? undefined : currentStatus,
       sort: this.sort(),
       page: this.page(),
@@ -224,12 +218,11 @@ export class ParticipationListComponent {
   clearFilters(): void {
     this.searchInput.set('');
     this.eventId.set('');
-    this.type.set('');
     this.status.set('Todos');
   }
 
   hasFilters(): boolean {
-    return Boolean(this.search() || this.eventId() || this.type() || this.status() !== 'Todos');
+    return Boolean(this.search() || this.eventId() || this.status() !== 'Todos');
   }
 
   studentCount(): number {

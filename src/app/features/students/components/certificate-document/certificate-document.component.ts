@@ -4,9 +4,7 @@ import { EventService } from '../../../../core/services/event.service';
 import { StudentService } from '../../../../core/services/student.service';
 import {
   AcademicEvent,
-  PARTICIPATION_TYPE_LABEL,
   Participation,
-  ParticipationType,
   REQUIRED_CREDITS,
   Student,
   buildCertificateValidationCode,
@@ -86,10 +84,6 @@ export class CertificateDocumentComponent {
 
   /** Fecha de emision del documento. */
   readonly issuedOn = formatLongDate(new Date());
-
-  participationTypeLabel(type: ParticipationType): string {
-    return PARTICIPATION_TYPE_LABEL[type];
-  }
 
   eventDates(event: Pick<AcademicEvent, 'startDate' | 'endDate'>): string {
     return eventDateRangeLabel(event);

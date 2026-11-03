@@ -1,0 +1,165 @@
+<dc-page-header
+  title="Editar estudiante"
+  description="Actualiza los datos del estudiante. Solo se guardan los campos que cambian."
+  [breadcrumbs]="[
+    { label: 'Inicio', link: '/dashboard' },
+    { label: 'Estudiantes', link: '/students' },
+    { label: student()?.universityCode ?? 'Estudiante', link: student() ? '/students/' + student()!.id : '/students' },
+    { label: 'Editar' }
+  ]"
+/>
+
+@if (saved()) {
+<div
+  class="mb-6 flex items-start gap-3 rounded-2xl border border-success-200 bg-success-50 px-4 py-3.5 dark:border-success-500/20 dark:bg-success-500/10"
+>
+  <dc-icon name="check" [size]="20" class="mt-0.5 text-success-600 dark:text-success-500" />
+  <div class="min-w-0">
+    <p class="text-sm font-medium text-success-700 dark:text-success-500">
+      Cambios guardados correctamente.
+    </p>
+    <p class="mt-0.5 text-sm text-success-700/80 dark:text-success-500/80">
+      La ficha del estudiante ya muestra la información actualizada.
+    </p>
+  </div>
+</div>
+}
+
+@if (duplicateCode(); as code) {
+<div
+  class="mb-6 flex items-start gap-3 rounded-2xl border border-warning-200 bg-warning-50 px-4 py-3.5 dark:border-warning-500/20 dark:bg-warning-500/10"
+>
+  <dc-icon name="info" [size]="20" class="mt-0.5 text-warning-600 dark:text-warning-500" />
+  <div class="min-w-0">
+    <p class="text-sm font-medium text-warning-700 dark:text-warning-500">
+      El código {{ code }} ya existe en el padrón.
+    </p>
+    <p class="mt-0.5 text-sm text-warning-700/80 dark:text-warning-500/80">
+      El código universitario es único. Usa otro código.
+    </p>
+  </div>
+</div>
+}
+
+@if (formError(); as message) {
+<div
+  class="mb-6 flex items-start gap-3 rounded-2xl border border-error-200 bg-error-50 px-5 py-4 dark:border-error-500/20 dark:bg-error-500/10"
+>
+  <dc-icon name="info" [size]="20" class="mt-0.5 text-error-600 dark:text-error-500" />
+  <p class="text-sm font-medium text-error-700 dark:text-error-500">{{ message }}</p>
+</div>
+}
+
+@if (!student()) {
+<dc-empty-state
+  title="Estudiante no encontrado"
+  description="El identificador solicitado no existe en el padrón."
+>
+  <a
+    routerLink="/students"
+    class="inline-flex h-10 items-center rounded-xl bg-brand-700 px-4 text-sm font-semibold text-white transition-colors hover:bg-brand-800"
+  >
+    Volver al padrón
+  </a>
+</dc-empty-state>
+} @else {
+<form [formGroup]="form" (ngSubmit)="onSubmit()" class="grid gap-6 xl:grid-cols-3">
+  <dc-panel
+    class="xl:col-span-2"
+    title="Datos del estudiante"
+    subtitle="Código universitario, nombres, escuela y sede."
+  >
+    <div class="grid gap-4 sm:grid-cols-2">
+      <dc-input
+        formControlName="universityCode"
+        label="Código universitario"
+        placeholder="2213271"
+        hint="Identificador único del estudiante."
+        [required]="true"
+        [invalid]="isInvalid('universityCode')"
+      />
+
+      <dc-input
+        formControlName="lastName"
+        label="Apellidos"
+        placeholder="AGUILAR PEREZ"
+        [required]="true"
+        [invalid]="isInvalid('lastName')"
+      />
+
+      <dc-input
+        formControlName="firstName"
+        label="Nombres"
+        placeholder="MARISOL SONIA"
+        [required]="true"
+        [invalid]="isInvalid('firstName')"
+      />
+
+      <dc-select
+        formControlName="professionalSchoolId"
+        label="Escuela profesional"
+        [options]="schoolOptions()"
+        placeholder="Selecciona la escuela"
+        [required]="true"
+        [invalid]="isInvalid('professionalSchoolId')"
+      />
+
+      <dc-select
+        formControlName="locationId"
+        label="Sede"
+        [options]="siteOptions()"
+        placeholder="Selecciona la sede"
+        [required]="true"
+        [invalid]="isInvalid('locationId')"
+      />
+    </div>
+
+    <div class="mt-6 flex flex-wrap items-center gap-2">
+      <button
+        type="submit"
+        [disabled]="saving()"
+        class="inline-flex items-center gap-2 rounded-xl bg-brand-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-60"
+      >
+        <dc-icon name="check" [size]="18" />
+        Guardar cambios
+      </button>
+      <button
+        type="button"
+        (click)="onCancel()"
+        class="rounded-xl border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-white/[0.05]"
+      >
+        Cancelar
+      </button>
+      <a
+        [routerLink]="['/students', student()!.id]"
+        class="inline-flex items-center gap-2 rounded-xl border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-white/[0.05]"
+      >
+        <dc-icon name="arrow-left" [size]="18" />
+        Volver a la ficha
+      </a>
+    </div>
+  </dc-panel>
+
+  <dc-panel title="Información">
+    <dl class="space-y-4 text-sm">
+      <div>
+        <dt class="text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500">
+          Estado
+        </dt>
+        <dd class="mt-1 text-gray-600 dark:text-gray-300">
+          {{ student()!.status === 'ACTIVE' ? 'Activo' : 'Inactivo' }}
+        </dd>
+      </div>
+      <div>
+        <dt class="text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500">
+          Sobre la edición
+        </dt>
+        <dd class="mt-1 leading-relaxed text-gray-600 dark:text-gray-300">
+          El estado se activa o desactiva desde la ficha del estudiante. Aquí solo se actualizan
+          sus datos de identificación y adscripción.
+        </dd>
+      </div>
+    </dl>
+  </dc-panel>
+</form>
+}

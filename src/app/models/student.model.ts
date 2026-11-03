@@ -10,8 +10,6 @@ export interface Student {
   id: number;
   /** Codigo universitario. Identificador funcional y unico. */
   universityCode: string;
-  /** Grado academico. Puede estar vacio si la institucion no lo reporta. */
-  academicDegree: string;
   lastName: string;
   firstName: string;
   /** Id de la escuela profesional en el catalogo. */
@@ -87,7 +85,7 @@ export function normalizeSearchText(value: string): string {
  * usuario escribe como le sale y no como esta cargado en el padron.
  */
 export function studentSearchHaystack(student: Student): string {
-  return `${student.universityCode} ${student.lastName} ${student.firstName} ${student.professionalSchool} ${student.location} ${student.academicDegree}`
+  return `${student.universityCode} ${student.lastName} ${student.firstName} ${student.professionalSchool} ${student.location}`
     .toLowerCase()
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '');

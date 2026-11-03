@@ -22,12 +22,6 @@ export class CreateStudentDto {
   @MaxLength(32)
   universityCode!: string;
 
-  @ApiPropertyOptional({ example: 'QUINTO', description: 'Grado academico. Opcional.' })
-  @IsOptional()
-  @IsString()
-  @MaxLength(64)
-  academicDegree?: string;
-
   @ApiProperty({ example: 'AGUILAR PEREZ' })
   @IsString()
   @MinLength(1)
@@ -73,12 +67,6 @@ export class StudentImportRowDto {
   @MaxLength(32)
   universityCode!: string;
 
-  @ApiPropertyOptional({ example: 'QUINTO' })
-  @IsOptional()
-  @IsString()
-  @MaxLength(64)
-  academicDegree?: string;
-
   @ApiPropertyOptional({ example: 'AGUILAR PEREZ' })
   @IsOptional()
   @IsString()
@@ -107,8 +95,8 @@ export class StudentImportRowDto {
 /**
  * CARGA INCREMENTAL DEL PADRON.
  *
- * Nunca es destructiva: crea los codigos nuevos y completa los datos faltantes
- * de los existentes. No borra estudiantes ni participaciones.
+ * Nunca es destructiva: crea los codigos nuevos e informa los que ya existian.
+ * No borra estudiantes ni participaciones.
  *
  * Es atomica: si una fila tiene un error de validacion, no se escribe ninguna.
  */
@@ -132,7 +120,7 @@ export class StudentImportIssueDto {
   @ApiProperty({
     example: 'UNKNOWN_PROFESSIONAL_SCHOOL',
     description:
-      'MISSING_CODE | DUPLICATE_IN_FILE | MISSING_NAMES | MISSING_PROFESSIONAL_SCHOOL | MISSING_LOCATION | UNKNOWN_PROFESSIONAL_SCHOOL | UNKNOWN_LOCATION | INACTIVE_PROFESSIONAL_SCHOOL | INACTIVE_LOCATION | FOREIGN_PROFESSIONAL_SCHOOL | SCHOOL_MISMATCH | LOCATION_MISMATCH',
+      'MISSING_CODE | INVALID_CODE | DUPLICATE_IN_FILE | MISSING_NAMES | MISSING_PROFESSIONAL_SCHOOL | MISSING_LOCATION | UNKNOWN_PROFESSIONAL_SCHOOL | UNKNOWN_LOCATION | INACTIVE_PROFESSIONAL_SCHOOL | INACTIVE_LOCATION | FOREIGN_PROFESSIONAL_SCHOOL | SCHOOL_MISMATCH | LOCATION_MISMATCH',
   })
   code!: string;
 
@@ -145,7 +133,7 @@ export class StudentImportResultDto {
   total!: number;
 
   @ApiProperty({ example: 35 }) created!: number;
-  @ApiProperty({ example: 205, description: 'Codigos que ya existian y se enriquecieron.' })
+  @ApiProperty({ example: 205, description: 'Codigos que ya existian y se conservaron sin cambios.' })
   enriched!: number;
 
   @ApiProperty({ type: [StudentImportIssueDto] })

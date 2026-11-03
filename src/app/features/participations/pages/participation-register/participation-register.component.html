@@ -139,22 +139,23 @@
             [invalid]="isInvalid('studentId')"
           />
 
-          <div class="grid gap-4 sm:grid-cols-3">
-            <dc-select
-              formControlName="participationType"
-              label="Tipo de participación"
-              [options]="typeOptions"
-              [required]="true"
-            />
-
-            <dc-input
-              formControlName="credits"
-              label="Créditos"
-              type="number"
-              hint="Por defecto toma los créditos del evento."
-              [required]="true"
-              [invalid]="isInvalid('credits')"
-            />
+          <div class="grid gap-4 sm:grid-cols-2">
+            <div>
+              <span class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-200 dark:text-white/90">
+                Créditos
+              </span>
+              <div
+                class="flex h-11 items-center justify-between rounded-xl border border-gray-200 bg-gray-50 px-3.5 text-sm dark:border-gray-800 dark:bg-white/[0.03]"
+              >
+                <span class="font-semibold text-gray-900 dark:text-white/90">
+                  {{ selectedEvent()?.credits ?? 0 }}
+                </span>
+                <span class="text-xs text-gray-500 dark:text-gray-400">Del evento</span>
+              </div>
+              <p class="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
+                Se toman automáticamente del evento y no se pueden modificar.
+              </p>
+            </div>
 
             <dc-input
               formControlName="grade"

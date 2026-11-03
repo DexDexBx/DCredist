@@ -132,7 +132,6 @@ export class EventsService {
         student: {
           select: {
             universityCode: true,
-            academicDegree: true,
             lastName: true,
             firstName: true,
             professionalSchoolId: true,
@@ -149,14 +148,12 @@ export class EventsService {
       participationId: participation.id,
       studentId: participation.studentId,
       universityCode: participation.student.universityCode,
-      academicDegree: participation.student.academicDegree,
       lastName: participation.student.lastName,
       firstName: participation.student.firstName,
       professionalSchoolId: participation.student.professionalSchoolId,
       professionalSchool: participation.student.professionalSchool.name,
       locationId: participation.student.locationId,
       location: participation.student.location.name,
-      participationType: participation.participationType,
       verificationCode: participation.verificationCode,
       credits: participation.credits,
       grade: participation.grade,

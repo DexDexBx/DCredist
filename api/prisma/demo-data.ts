@@ -4,7 +4,6 @@ import {
   EventStatus,
   EventType,
   ParticipationStatus,
-  ParticipationType,
   StudentStatus,
   type PrismaClient,
 } from '../src/generated/prisma/client';
@@ -104,7 +103,6 @@ export async function seedAcademicDemo(
   const students = [
     {
       universityCode: '2213271',
-      academicDegree: 'QUINTO',
       lastName: 'AGUILAR PEREZ',
       firstName: 'MARISOL SONIA',
       professionalSchoolId: schools.get('CIENCIAS FARMACEUTICAS Y BIOQUIMICA')!,
@@ -113,7 +111,6 @@ export async function seedAcademicDemo(
     },
     {
       universityCode: '2213065',
-      academicDegree: 'CUARTO',
       lastName: 'ALLCCAHUAMAN HUAMAN',
       firstName: 'JESUS',
       professionalSchoolId: schools.get('CIENCIAS FARMACEUTICAS Y BIOQUIMICA')!,
@@ -122,7 +119,6 @@ export async function seedAcademicDemo(
     },
     {
       universityCode: '2213099',
-      academicDegree: 'TERCER',
       lastName: 'RAMIREZ',
       firstName: 'CAMILA',
       professionalSchoolId: schools.get('INGENIERIA DE SISTEMAS')!,
@@ -131,7 +127,6 @@ export async function seedAcademicDemo(
     },
     {
       universityCode: '2214012',
-      academicDegree: 'SEXTO',
       lastName: 'QUISPE MONTES',
       firstName: 'ANDRES',
       professionalSchoolId: schools.get('INGENIERIA DE SISTEMAS')!,
@@ -140,7 +135,6 @@ export async function seedAcademicDemo(
     },
     {
       universityCode: '2214550',
-      academicDegree: 'PRIMER',
       lastName: 'TORRES VILLA',
       firstName: 'LUCIA',
       professionalSchoolId: schools.get('DERECHO')!,
@@ -253,7 +247,6 @@ export async function seedAcademicDemo(
     {
       eventCode: 'EVT-2026-001',
       universityCode: '2213271',
-      participationType: ParticipationType.PONENTE,
       participationDate: new Date('2026-10-05T09:00:00.000Z'),
       credits: 1.5,
       verificationCode: 'DC-2026-8F4K2P',
@@ -263,7 +256,6 @@ export async function seedAcademicDemo(
     {
       eventCode: 'EVT-2026-002',
       universityCode: '2213271',
-      participationType: ParticipationType.ASISTENTE,
       participationDate: new Date('2026-09-15T09:00:00.000Z'),
       credits: 2,
       verificationCode: 'DC-2026-3K9M7Q',
@@ -273,7 +265,6 @@ export async function seedAcademicDemo(
     {
       eventCode: 'EVT-2026-004',
       universityCode: '2213271',
-      participationType: ParticipationType.ASISTENTE,
       participationDate: new Date('2026-06-12T10:00:00.000Z'),
       credits: 1,
       verificationCode: 'DC-2026-7T2B5X',
@@ -284,7 +275,6 @@ export async function seedAcademicDemo(
     {
       eventCode: 'EVT-2026-001',
       universityCode: '2213065',
-      participationType: ParticipationType.ASISTENTE,
       participationDate: new Date('2026-10-05T08:30:00.000Z'),
       credits: 2,
       verificationCode: 'DC-2026-5R8W3N',
@@ -294,7 +284,6 @@ export async function seedAcademicDemo(
     {
       eventCode: 'EVT-2026-003',
       universityCode: '2213099',
-      participationType: ParticipationType.PANELISTA,
       participationDate: new Date('2026-07-20T17:00:00.000Z'),
       credits: 2,
       verificationCode: 'DC-2026-2H6C4V',
@@ -305,7 +294,6 @@ export async function seedAcademicDemo(
     {
       eventCode: 'EVT-2026-003',
       universityCode: '2214012',
-      participationType: ParticipationType.INVITADO,
       participationDate: new Date('2026-07-20T17:00:00.000Z'),
       credits: 1.5,
       verificationCode: 'DC-2026-9J3L6Y',
@@ -318,7 +306,6 @@ export async function seedAcademicDemo(
     const data = {
       eventId: eventIds[participation.eventCode],
       studentId: studentIds[participation.universityCode],
-      participationType: participation.participationType,
       participationDate: participation.participationDate,
       credits: participation.credits,
       verificationCode: participation.verificationCode,

@@ -49,7 +49,7 @@
  *   GET    /events/:id/summary
  *   GET    /events/:id/participations
  *
- *   GET    /participations?eventId=&studentId=&status=&participationType=&search=
+ *   GET    /participations?eventId=&studentId=&status=&search=
  *   POST   /participations
  *   PATCH  /participations/:id
  *   POST   /participations/import            (codigos universitarios)

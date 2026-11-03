@@ -19,11 +19,9 @@ import {
   IMPORT_MODE_LABEL,
   LOAD_REQUEST_STATUS_LABEL,
   LoadRequestStatus,
-  PARTICIPATION_TYPE_LABEL,
   ParticipationImportBatch,
   ParticipationImportMode,
   ParticipationLoadRequest,
-  ParticipationType,
   acceptsParticipations,
   eventLoadState,
   isImportCompleted,
@@ -33,7 +31,7 @@ import {
 import { formatMediumDate, formatTime } from '../../../../shared/utils/date.utils';
 import { DcInputComponent } from '../../../../shared/components/form/dc-input/dc-input.component';
 import { DcComboboxComponent } from '../../../../shared/components/form/dc-combobox/dc-combobox.component';
-import { DcSelectComponent, DcSelectOption } from '../../../../shared/components/form/dc-select/dc-select.component';
+import { DcSelectOption } from '../../../../shared/components/form/dc-select/dc-select.component';
 import { BadgeComponent, BadgeColor } from '../../../../shared/components/ui/badge/badge.component';
 import { DcCodeComponent } from '../../../../shared/components/ui/dc-code/dc-code.component';
 import { IconComponent } from '../../../../shared/components/ui/icon/icon.component';
@@ -68,7 +66,6 @@ type ImportStep = 1 | 2 | 3;
     DcCodeComponent,
     DcComboboxComponent,
     DcInputComponent,
-    DcSelectComponent,
     IconComponent,
     ModalComponent,
     PageHeaderComponent,
@@ -168,9 +165,6 @@ export class ParticipationRegisterComponent {
   readonly form = this.fb.nonNullable.group({
     eventId: ['', [Validators.required]],
     studentId: ['', [Validators.required]],
-    participationType: ['ASISTENTE' as ParticipationType, [Validators.required]],
-    // dc-input es un ControlValueAccessor de texto: se coacciona al enviar.
-    credits: ['0', [Validators.required]],
     grade: [''],
   });
 
@@ -277,10 +271,6 @@ export class ParticipationRegisterComponent {
       }));
   });
 
-  readonly typeOptions: DcSelectOption[] = (
-    Object.keys(PARTICIPATION_TYPE_LABEL) as ParticipationType[]
-  ).map((type) => ({ value: type, label: PARTICIPATION_TYPE_LABEL[type] }));
-
   /** Codigos detectados en el texto/archivo cargado (vista previa en vivo). */
   readonly importPreviewCount = computed(() => {
     const text = this.importText().trim();
@@ -308,15 +298,6 @@ export class ParticipationRegisterComponent {
         this.form.controls.eventId.setValue(value);
       }
     });
-
-    // Los creditos por defecto siguen al evento elegido, pero el valor siempre
-    // puede ser ajustado a mano antes de registrar.
-    effect(() => {
-      const event = this.selectedEvent();
-      if (event) {
-        this.form.patchValue({ credits: String(event.credits) });
-      }
-    });
   }
 
   async onSubmit(): Promise<void> {
@@ -325,8 +306,8 @@ export class ParticipationRegisterComponent {
     this.successMessage.set(null);
     this.createdCode.set(null);
 
-    const eventId = this.selectedEventId();
-    if (!eventId) {
+    const event = this.selectedEvent();
+    if (!event) {
       this.errorMessage.set('Selecciona el evento del registro.');
       return;
     }
@@ -334,10 +315,10 @@ export class ParticipationRegisterComponent {
     const value = this.form.getRawValue();
 
     const result = await this.participationService.register({
-      eventId,
+      eventId: event.id,
       studentId: Number(value.studentId),
-      participationType: value.participationType,
-      credits: Number(value.credits),
+      // Los creditos SIEMPRE vienen del evento: no se editan aqui.
+      credits: event.credits,
       grade: value.grade === '' ? null : Number(value.grade),
     });
 
@@ -352,7 +333,14 @@ export class ParticipationRegisterComponent {
       `Participación registrada${student ? ` para ${student.lastName}, ${student.firstName}` : ''}.`
     );
 
-    this.form.patchValue({ grade: '' });
+    this.form.reset({
+      eventId: '',
+      studentId: '',
+      grade: '',
+    });
+    this.foundStudent.set(null);
+    this.studentSearchCode.set('');
+    this.studentSearchError.set(null);
   }
 
   /** Importa codigos universitarios al evento seleccionado. */
@@ -832,7 +820,7 @@ export class ParticipationRegisterComponent {
     return valid ? 'success' : 'error';
   }
 
-  isInvalid(control: 'eventId' | 'studentId' | 'credits'): boolean {
+  isInvalid(control: 'eventId' | 'studentId'): boolean {
     const field = this.form.controls[control];
     return field.touched && field.invalid;
   }

@@ -9,7 +9,7 @@ import {
 import { CatalogService } from '../../../../core/services/catalog.service';
 import { AuthService } from '../../../../core/services/auth.service';
 import { CatalogOption } from '../../../../models/catalog.model';
-import { StudentDraft, StudentStatus } from '../../../../models';
+import { StudentDraft } from '../../../../models';
 import { DcInputComponent } from '../../../../shared/components/form/dc-input/dc-input.component';
 import { DcSelectComponent, DcSelectOption } from '../../../../shared/components/form/dc-select/dc-select.component';
 import { IconComponent } from '../../../../shared/components/ui/icon/icon.component';
@@ -71,6 +71,7 @@ export class StudentNewComponent {
   readonly isDragging = signal(false);
   readonly importFileError = signal<string | null>(null);
   readonly importSummary = signal<StudentImportSummary | null>(null);
+  readonly importing = signal(false);
 
   /** Las escuelas y sedes salen del catalogo administrable. */
   readonly schools = computed<CatalogOption[]>(() =>
@@ -79,13 +80,6 @@ export class StudentNewComponent {
   readonly sites = computed<CatalogOption[]>(() =>
     this.catalogService.options('locations'),
   );
-
-  readonly statusOptions: DcSelectOption[] = (
-    ['ACTIVE', 'INACTIVE'] as StudentStatus[]
-  ).map((status) => ({
-    value: status,
-    label: status === 'ACTIVE' ? 'Activo' : 'Inactivo',
-  }));
 
   readonly schoolOptions = computed<DcSelectOption[]>(() =>
     this.schools().map((school) => ({ value: String(school.id), label: school.name }))
@@ -97,12 +91,10 @@ export class StudentNewComponent {
 
   readonly form = this.fb.nonNullable.group({
     universityCode: ['', [Validators.required]],
-    academicDegree: [''],
     lastName: ['', [Validators.required]],
     firstName: ['', [Validators.required]],
     professionalSchoolId: ['', [Validators.required]],
     locationId: ['', [Validators.required]],
-    status: ['ACTIVE' as StudentStatus, [Validators.required]],
   });
 
   /** Un actor de escuela solo puede registrar estudiantes de su escuela. */
@@ -133,7 +125,6 @@ export class StudentNewComponent {
     const locationId = Number(value.locationId);
     const draft: StudentDraft = {
       universityCode: value.universityCode,
-      academicDegree: value.academicDegree,
       lastName: value.lastName,
       firstName: value.firstName,
       professionalSchoolId,
@@ -143,7 +134,8 @@ export class StudentNewComponent {
       ),
       locationId,
       location: this.catalogService.nameOf('locations', locationId),
-      status: value.status,
+      // Todo estudiante nuevo nace activo.
+      status: 'ACTIVE',
     };
 
     const student = await this.studentService.create(draft);
@@ -152,12 +144,10 @@ export class StudentNewComponent {
       this.createdCode.set(student.universityCode);
       this.form.reset({
         universityCode: '',
-        academicDegree: '',
         lastName: '',
         firstName: '',
         professionalSchoolId: '',
         locationId: '',
-        status: 'ACTIVE',
       });
     }
   }
@@ -168,20 +158,44 @@ export class StudentNewComponent {
 
   /** Importa el texto pegado. Solo agrega o completa, nunca borra. */
   async onImport(): Promise<void> {
+    if (this.importing()) {
+      return;
+    }
+
+    this.importSummary.set(null);
+    this.importing.set(true);
+
     // Se parsea con una sola columna para que las filas incompletas lleguen a la
     // validacion y se reporten como invalidas, en vez de descartarse en silencio.
     const parsed = parseDelimitedText(this.importText(), 1);
+    const dataRows = parsed.filter((cells) => !isStudentHeaderRow(cells));
 
-    const rows: StudentImportRow[] = parsed.map((cells) => ({
+    if (dataRows.length === 0) {
+      this.importSummary.set({
+        total: 0,
+        created: 0,
+        updated: 0,
+        duplicates: [],
+        invalid: [],
+        message: 'El archivo no contiene filas de estudiantes para importar.',
+      });
+      this.importing.set(false);
+      return;
+    }
+
+    const rows: StudentImportRow[] = dataRows.map((cells) => ({
       universityCode: cells[0] ?? '',
       lastName: cells[1] ?? '',
       firstName: cells[2] ?? '',
       professionalSchool: cells[3] ?? '',
       location: cells[4] ?? '',
-      academicDegree: cells[5] ?? '',
     }));
 
-    this.importSummary.set(await this.studentService.importStudents(rows));
+    try {
+      this.importSummary.set(await this.studentService.importStudents(rows));
+    } finally {
+      this.importing.set(false);
+    }
   }
 
   isInvalid(
@@ -264,7 +278,35 @@ export class StudentNewComponent {
     void downloadXlsx({
       fileName: 'DCredits_plantilla_padron_estudiantes',
       sheetName: 'Padron',
-      rows: [[...IMPORT_COLUMNS, 'GRADO ACADÉMICO (opcional)']],
+      rows: [[...IMPORT_COLUMNS]],
+      // Hojas de apoyo + listas desplegables en Escuela y Sede. Asi el archivo
+      // no puede traer valores que el catalogo no reconozca.
+      catalogSheets: [
+        {
+          name: 'Escuelas',
+          header: 'Escuela profesional',
+          values: this.schools().map((school) => school.name),
+        },
+        {
+          name: 'Sedes',
+          header: 'Sede',
+          values: this.sites().map((site) => site.name),
+        },
+      ],
+      listValidations: [
+        {
+          column: 4,
+          catalog: 'Escuelas',
+          error: 'Selecciona una escuela profesional de la lista.',
+        },
+        {
+          column: 5,
+          catalog: 'Sedes',
+          error: 'Selecciona una sede de la lista.',
+        },
+      ],
+    }).catch(() => {
+      this.importFileError.set('No se pudo generar la plantilla. Intenta nuevamente.');
     });
   }
 }
@@ -272,4 +314,24 @@ export class StudentNewComponent {
 /** `general` es la escuela de las cuentas globales, no una escuela real. */
 function isGeneralSchool(name: string | undefined): boolean {
   return (name ?? '').trim().toLowerCase() === 'general';
+}
+
+/**
+ * Descarta filas de encabezado o titulo que Excel/CSV pueda dejar antes de los
+ * datos. Un codigo universitario valido siempre es numerico.
+ */
+function isStudentHeaderRow(cells: string[]): boolean {
+  const first = (cells[0] ?? '').trim();
+  if (!first || /^\d{4,15}$/.test(first)) {
+    return false;
+  }
+
+  const normalizedFirst = first
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
+
+  // La plantilla y los archivos de Excel suelen repetir el encabezado
+  // "Código universitario" después de una fila de título.
+  return normalizedFirst.includes('codigo');
 }

@@ -79,7 +79,7 @@
   <dc-stat-card
     label="Participaciones vigentes"
     [value]="summary().validParticipations"
-    hint="Suma de participaciones VALID"
+    hint="Suma de participaciones VÁLIDAS"
     tone="success"
   />
   <dc-stat-card
@@ -103,12 +103,6 @@
         <dt class="text-gray-500 dark:text-gray-400">Código universitario</dt>
         <dd class="font-mono font-medium text-gray-900 dark:text-white/90">
           {{ item.universityCode }}
-        </dd>
-      </div>
-      <div class="flex items-start justify-between gap-4">
-        <dt class="text-gray-500 dark:text-gray-400">Grado académico</dt>
-        <dd class="text-right text-gray-900 dark:text-white/90">
-          {{ item.academicDegree || 'No registrado' }}
         </dd>
       </div>
       <div class="flex items-start justify-between gap-4">
@@ -152,7 +146,6 @@
             class="border-b border-gray-200 bg-gray-50 text-xs font-semibold tracking-wide text-gray-500 uppercase dark:border-gray-800 dark:bg-white/[0.02] dark:text-gray-400"
           >
             <th scope="col" class="px-5 py-3">Evento</th>
-            <th scope="col" class="px-5 py-3">Tipo</th>
             <th scope="col" class="px-5 py-3 text-right">Créditos</th>
             <th scope="col" class="px-5 py-3">Código</th>
             <th scope="col" class="px-5 py-3">Estado</th>
@@ -168,9 +161,6 @@
               } @else {
               <span class="text-gray-400">Evento no disponible</span>
               }
-            </td>
-            <td class="px-5 py-3 text-gray-600 dark:text-gray-300">
-              {{ participationTypeLabel(row.participation.participationType) }}
             </td>
             <td class="px-5 py-3 text-right font-medium text-gray-900 dark:text-white/90">
               {{ row.participation.credits }}

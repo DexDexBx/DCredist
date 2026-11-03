@@ -270,7 +270,6 @@
             <th class="px-5 py-3 text-start font-medium">N°</th>
             <th class="px-5 py-3 text-start font-medium">Código universitario</th>
             <th class="px-5 py-3 text-start font-medium">Estudiante</th>
-            <th class="px-5 py-3 text-start font-medium">Tipo</th>
             <th class="px-5 py-3 text-start font-medium">C&#243;digo del certificado</th>
             <th class="px-5 py-3 text-end font-medium">Créditos</th>
             <th class="px-5 py-3 text-end font-medium">Nota</th>
@@ -302,9 +301,6 @@
               } @else {
               <span class="text-gray-400">Estudiante no encontrado</span>
               }
-            </td>
-            <td class="px-5 py-3.5 text-gray-600 dark:text-gray-300">
-              {{ typeLabel[row.participation.participationType] }}
             </td>
             <td class="px-5 py-3.5">
               <dc-certificate-code [codes]="row.participation" />

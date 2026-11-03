@@ -1,7 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import {
   ParticipationStatus,
-  ParticipationType,
   EventStatus,
   EventModality,
   StudentStatus,
@@ -28,7 +27,6 @@ export class VerificationResultDto {
   @ApiProperty({ nullable: true, description: 'Participacion encontrada. null si no existe.' })
   participation!: {
     id: number;
-    participationType: ParticipationType;
     participationDate: Date;
     credits: number;
     verificationCode: string;
@@ -59,7 +57,6 @@ export class VerificationResultDto {
   student!: {
     id: number;
     universityCode: string;
-    academicDegree: string;
     lastName: string;
     firstName: string;
     professionalSchoolId: number;

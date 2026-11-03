@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { ParticipationStatus, ParticipationType } from '../../../generated/prisma/client';
+import { ParticipationStatus } from '../../../generated/prisma/client';
 
 /**
  * Estudiante registrado en un evento, con los datos que necesita la
@@ -15,7 +15,6 @@ export class EventParticipantDto {
   @ApiProperty({ example: 1 }) studentId!: number;
 
   @ApiProperty({ example: '2213271' }) universityCode!: string;
-  @ApiProperty({ example: 'QUINTO' }) academicDegree!: string;
   @ApiProperty({ example: 'AGUILAR PEREZ' }) lastName!: string;
   @ApiProperty({ example: 'MARISOL SONIA' }) firstName!: string;
   @ApiProperty({ example: 1 }) professionalSchoolId!: number;
@@ -23,7 +22,6 @@ export class EventParticipantDto {
   @ApiProperty({ example: 1 }) locationId!: number;
   @ApiProperty({ example: 'FILIAL LIMA' }) location!: string;
 
-  @ApiProperty({ enum: ParticipationType }) participationType!: ParticipationType;
   @ApiProperty({
     example: 'DC-2026-8F4K2P',
     description: 'Codigo unico y estable de DCredits. Es tambien el codigo del certificado.',

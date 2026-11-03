@@ -274,6 +274,17 @@
                 Ver ficha
                 <dc-icon name="chevron-right" [size]="16" />
               </a>
+              @if (auth.can('students', 'MANAGE')) {
+              <a
+                [routerLink]="['/students', row.student.id, 'edit']"
+                aria-label="Editar estudiante"
+                title="Editar estudiante"
+                class="inline-flex items-center gap-1 text-xs font-medium text-gray-500 transition-colors hover:text-brand-600 dark:text-gray-400 dark:hover:text-brand-300"
+              >
+                <dc-icon name="pencil" [size]="15" />
+                Editar
+              </a>
+              }
             </div>
           </td>
         </tr>
@@ -340,6 +351,15 @@
           class="inline-flex items-center gap-1 text-xs font-medium text-gray-500 transition-colors hover:text-brand-600 dark:text-gray-400 dark:hover:text-brand-300"
         >
           Ver constancia de avance
+        </a>
+        }
+        @if (auth.can('students', 'MANAGE')) {
+        <a
+          [routerLink]="['/students', row.student.id, 'edit']"
+          class="inline-flex items-center gap-1 rounded-lg border border-gray-200 px-2.5 py-1 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-100 dark:border-gray-800 dark:text-gray-300 dark:hover:bg-white/5"
+        >
+          <dc-icon name="pencil" [size]="14" />
+          Editar
         </a>
         }
       </div>

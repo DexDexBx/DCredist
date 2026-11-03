@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { ParticipationStatus, ParticipationType } from '../../../generated/prisma/client';
+import { ParticipationStatus } from '../../../generated/prisma/client';
 
 /**
  * Participacion con su evento resuelto: es la vista que necesita la ficha del
@@ -16,7 +16,6 @@ export class StudentParticipationDto {
   @ApiProperty() eventCode!: string;
   @ApiProperty() eventName!: string;
 
-  @ApiProperty({ enum: ParticipationType }) participationType!: ParticipationType;
   @ApiProperty() participationDate!: Date;
   @ApiProperty({ example: 1.5 }) credits!: number;
 

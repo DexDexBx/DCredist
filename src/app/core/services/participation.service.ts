@@ -3,7 +3,6 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
 import {
   DEFAULT_PARTICIPATION_PAGE_SIZE,
-  PARTICIPATION_TYPES,
   CodeReissueResult,
   Participation,
   ParticipationContext,
@@ -16,7 +15,6 @@ import {
   ParticipationSortKey,
   ParticipationStatus,
   ParticipationSummary,
-  ParticipationType,
   acceptsParticipations,
   codeContains,
   compactCode,
@@ -291,8 +289,6 @@ export class ParticipationService {
     () => new Set(this.participationsByStudent().keys())
   );
 
-  readonly participationTypes: readonly ParticipationType[] = PARTICIPATION_TYPES;
-
   readonly totalCredits = computed(() =>
     this.participationsState()
       .filter((participation) => participation.status === 'VALID')
@@ -507,12 +503,6 @@ getParticipations(query: ParticipationQuery = {}): Participation[] {
       }
     }
 
-    // Los tipos se resuelven una vez contra las cinco opciones existentes. Si lo
-    // escrito no es un tipo, no hay que comparar el tipo fila por fila.
-    const matchingTypes = new Set<ParticipationType>(
-      PARTICIPATION_TYPES.filter((type) => normalizeForSearch(type).includes(normalizedNeedle))
-    );
-
     const checkCodes = compactNeedle.length > 0;
     const matched: Participation[] = [];
     const ids = new Set<number>();
@@ -527,7 +517,6 @@ getParticipations(query: ParticipationQuery = {}): Participation[] {
       if (
         studentIds.has(participation.studentId) ||
         eventIds.has(participation.eventId) ||
-        matchingTypes.has(participation.participationType) ||
         (codes !== null && codes[index].includes(compactNeedle))
       ) {
         matched.push(participation);
@@ -555,9 +544,6 @@ getParticipations(query: ParticipationQuery = {}): Participation[] {
       return false;
     }
     if (query.status && participation.status !== query.status) {
-      return false;
-    }
-    if (query.participationType && participation.participationType !== query.participationType) {
       return false;
     }
     if (query.withCertificateOnly && primaryCertificateCode(participation) === null) {
@@ -918,7 +904,8 @@ getParticipations(query: ParticipationQuery = {}): Participation[] {
       };
     }
 
-    if (event.capacity !== null && event.capacity !== undefined) {
+    // Capacidad 0 o nula significa "sin limite".
+    if (event.capacity !== null && event.capacity !== undefined && event.capacity > 0) {
       const registered = this.countForEvent(event.id, true);
       if (registered >= event.capacity) {
         return {
@@ -960,7 +947,6 @@ getParticipations(query: ParticipationQuery = {}): Participation[] {
       id: this.nextId(),
       eventId: draft.eventId,
       studentId: draft.studentId,
-      participationType: draft.participationType,
       participationDate: this.resolveParticipationDate(draft.eventId),
       credits: draft.credits,
       verificationCode: generateVerificationCode(this.existingCodes()),
@@ -1004,7 +990,6 @@ getParticipations(query: ParticipationQuery = {}): Participation[] {
 
     const next: Participation = {
       ...current,
-      participationType: edit.participationType ?? current.participationType,
       credits: edit.credits ?? current.credits,
       grade: edit.grade !== undefined ? edit.grade : current.grade,
       status: edit.status ?? current.status,
@@ -1022,7 +1007,6 @@ getParticipations(query: ParticipationQuery = {}): Participation[] {
       try {
         const updated = await firstValueFrom(
           this.api.updateParticipation(id, {
-            participationType: next.participationType,
             credits: next.credits,
             grade: next.grade,
             status: next.status,
@@ -1125,7 +1109,7 @@ getParticipations(query: ParticipationQuery = {}): Participation[] {
         continue;
       }
 
-      if (event.capacity !== null && event.capacity !== undefined) {
+      if (event.capacity !== null && event.capacity !== undefined && event.capacity > 0) {
         const registered = this.countForEvent(event.id, true);
         const currentValid = items.filter(i => i.valid && i.studentId).length + validCount;
         if (registered + currentValid >= event.capacity) {
@@ -1242,7 +1226,6 @@ getParticipations(query: ParticipationQuery = {}): Participation[] {
       const result = await this.register({
         eventId,
         studentId: item.studentId,
-        participationType: 'ASISTENTE',
         credits: this.eventService.findById(eventId)?.credits ?? 0,
         grade: null,
       });

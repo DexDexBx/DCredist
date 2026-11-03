@@ -8,7 +8,6 @@ import {
   CERTIFICATE_CODE_ORIGIN_LABEL,
   CodeReissueResult,
   PARTICIPATION_STATUS_LABEL,
-  PARTICIPATION_TYPE_LABEL,
   Participation,
   ParticipationContext,
   certificateOrigin,
@@ -63,7 +62,6 @@ export class CertificateCodesComponent {
   private readonly studentService = inject(StudentService);
 
   readonly statusLabel = PARTICIPATION_STATUS_LABEL;
-  readonly typeLabel = PARTICIPATION_TYPE_LABEL;
   readonly originLabel = CERTIFICATE_CODE_ORIGIN_LABEL;
 
   /** Lo que escribe la persona: un codigo anterior o un codigo DC. */

@@ -9,7 +9,6 @@ import {
   ExportResult,
   INSTITUTIONAL_EXPORT_COLUMNS,
   PARTICIPATION_STATUS_LABEL,
-  PARTICIPATION_TYPE_LABEL,
   ParticipationContext,
   ParticipationStatus,
   eventTypeLabel,
@@ -72,7 +71,6 @@ export class EventDetailComponent {
   private readonly eventIdNumber = computed(() => Number(this.eventId()));
 
   readonly statusLabel = PARTICIPATION_STATUS_LABEL;
-  readonly typeLabel = PARTICIPATION_TYPE_LABEL;
   readonly institutionalColumns = INSTITUTIONAL_EXPORT_COLUMNS;
 
   readonly lastExport = signal<ExportResult | null>(null);

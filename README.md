@@ -72,6 +72,7 @@ frontend arranca igual con datos de demostracion.
 | `/students`                 | Padron de estudiantes           |
 | `/students/new`             | Nuevo estudiante               |
 | `/students/:id`             | Ficha del estudiante           |
+| `/students/:id/edit`        | Editar estudiante              |
 | `/participations`           | Participaciones registradas    |
 | `/participations/register`  | Registrar participacion        |
 | `/verify`                   | Verificar codigo de participacion |

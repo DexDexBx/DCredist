@@ -100,6 +100,10 @@ export function printCertificate(selector = '.dc-certificate-print'): void {
   frameDoc.open();
   frameDoc.write(
     `<!doctype html><html lang="es"><head><meta charset="utf-8" />` +
+      // Las hojas de estilo del build de produccion son relativas
+      // ("styles-XXXX.css"). Sin <base>, el iframe las resuelve contra
+      // about:blank y la constancia se imprime sin estilos.
+      `<base href="${document.baseURI}" />` +
       `<title>Constancia de créditos · DCredits</title>` +
       headMarkup +
       `<style>` +
@@ -128,9 +132,20 @@ export function printCertificate(selector = '.dc-certificate-print'): void {
     }
     printed = true;
     shrinkIfBarelyOver(frameDoc, contentWidthPx);
+
+    let cleanupTimer = 0;
+    const cleanup = (): void => {
+      window.clearTimeout(cleanupTimer);
+      // Se retira despues de cerrar la vista previa: quitarlo antes puede
+      // cortar la impresion o desmaquetar la hoja en algunos navegadores.
+      cleanupTimer = window.setTimeout(() => frame.remove(), 400);
+    };
+
+    frameWin.addEventListener('afterprint', cleanup, { once: true });
     frameWin.focus();
     frameWin.print();
-    window.setTimeout(() => frame.remove(), 1500);
+    // Red de seguridad si el navegador no dispara `afterprint`.
+    cleanupTimer = window.setTimeout(() => frame.remove(), 60000);
   };
 
   const schedule = (): void => {
