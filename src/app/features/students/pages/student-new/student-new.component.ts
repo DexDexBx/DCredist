@@ -90,9 +90,9 @@ export class StudentNewComponent {
   );
 
   readonly form = this.fb.nonNullable.group({
-    universityCode: ['', [Validators.required]],
-    lastName: ['', [Validators.required]],
-    firstName: ['', [Validators.required]],
+    universityCode: ['', [Validators.required, Validators.pattern(/^\d{7}$/)]],
+    lastName: ['', [Validators.required, Validators.minLength(2)]],
+    firstName: ['', [Validators.required, Validators.minLength(2)]],
     professionalSchoolId: ['', [Validators.required]],
     locationId: ['', [Validators.required]],
   });

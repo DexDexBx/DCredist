@@ -344,12 +344,12 @@ export class StudentsService {
         return;
       }
 
-      if (!/^\d{4,15}$/.test(code)) {
+      if (!/^\d{7}$/.test(code)) {
         issues.push({
           row: index + 1,
           universityCode: code,
           code: 'INVALID_CODE',
-          message: 'El codigo universitario debe ser numerico (entre 4 y 15 digitos).',
+          message: 'El codigo universitario debe tener exactamente 7 digitos.',
         });
         return;
       }
@@ -409,12 +409,18 @@ export class StudentsService {
       const schoolName = row.professionalSchool?.trim() ?? '';
       const locationName = row.location?.trim() ?? '';
 
-      if (!row.lastName?.trim() || !row.firstName?.trim()) {
+      if (
+        !row.lastName?.trim() ||
+        !row.firstName?.trim() ||
+        row.lastName.trim().length < 2 ||
+        row.firstName.trim().length < 2
+      ) {
         issues.push({
           row: item.index + 1,
           universityCode: item.code,
           code: 'MISSING_NAMES',
-          message: 'La fila no trae apellidos ni nombres: no se puede crear el estudiante.',
+          message:
+            'La fila debe traer apellidos y nombres de al menos 2 caracteres cada uno.',
         });
         continue;
       }

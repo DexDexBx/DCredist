@@ -337,16 +337,22 @@ export class StudentService {
 
     if (!draft.universityCode.trim()) {
       errors.universityCode = 'El código universitario es obligatorio.';
+    } else if (!/^\d{7}$/.test(draft.universityCode.trim())) {
+      errors.universityCode = 'El código universitario debe tener exactamente 7 dígitos.';
     } else if (this.existsUniversityCode(draft.universityCode, exceptId)) {
       errors.universityCode = 'Ya existe un estudiante con este código universitario.';
     }
 
     if (!draft.lastName.trim()) {
       errors.lastName = 'Los apellidos son obligatorios.';
+    } else if (draft.lastName.trim().length < 2) {
+      errors.lastName = 'Los apellidos deben tener al menos 2 caracteres.';
     }
 
     if (!draft.firstName.trim()) {
       errors.firstName = 'Los nombres son obligatorios.';
+    } else if (draft.firstName.trim().length < 2) {
+      errors.firstName = 'Los nombres deben tener al menos 2 caracteres.';
     }
 
     if (!draft.professionalSchoolId) {
@@ -483,6 +489,22 @@ export class StudentService {
    */
   async importStudents(rows: StudentImportRow[]): Promise<StudentImportSummary> {
     if (this.dataMode.isApi) {
+      // Validacion local de estructura antes de viajar al API. Evita mensajes
+      // viejos del backend y da feedback inmediato con las reglas actuales.
+      const structureIssues = this.importStructureIssues(rows);
+
+      if (structureIssues.length > 0) {
+        return {
+          total: rows.length,
+          created: 0,
+          updated: 0,
+          duplicates: [],
+          invalid: structureIssues.map((issue) => issue.universityCode).filter(Boolean),
+          issues: structureIssues,
+          message: `La importación no se aplicó: ${structureIssues.length} fila(s) con errores. No se creó ni modificó ningún estudiante.`,
+        };
+      }
+
       try {
         const result = await firstValueFrom(
           this.api.importStudents(toApiStudentImportRows(rows))
@@ -563,6 +585,40 @@ export class StudentService {
     } catch {
       // Si falla la recarga se conserva el padron actual.
     }
+  }
+
+  /** Errores de estructura de cada fila, sin consultar la base. */
+  private importStructureIssues(
+    rows: StudentImportRow[],
+  ): { row: number; universityCode: string; message: string }[] {
+    const issues: { row: number; universityCode: string; message: string }[] = [];
+
+    rows.forEach((row, index) => {
+      const universityCode = row.universityCode?.trim() ?? '';
+      const lastName = row.lastName?.trim() ?? '';
+      const firstName = row.firstName?.trim() ?? '';
+      let message: string | null = null;
+
+      if (!universityCode) {
+        message = 'La fila no tiene código universitario.';
+      } else if (!/^\d{7}$/.test(universityCode)) {
+        message = 'El código universitario debe tener exactamente 7 dígitos.';
+      } else if (!lastName || !firstName) {
+        message = 'La fila debe traer apellidos y nombres.';
+      } else if (lastName.length < 2 || firstName.length < 2) {
+        message = 'Los apellidos y nombres deben tener al menos 2 caracteres cada uno.';
+      } else if (!row.professionalSchool?.trim()) {
+        message = 'La fila no trae escuela profesional.';
+      } else if (!row.location?.trim()) {
+        message = 'La fila no trae sede.';
+      }
+
+      if (message) {
+        issues.push({ row: index + 1, universityCode, message });
+      }
+    });
+
+    return issues;
   }
 
   private importStudentsLocal(rows: StudentImportRow[]): StudentImportSummary {
@@ -720,12 +776,17 @@ export class StudentService {
       return 'La fila no tiene código universitario.';
     }
 
-    if (!/^\d{4,15}$/.test(universityCode)) {
-      return 'El código universitario debe ser numérico (entre 4 y 15 dígitos).';
+    if (!/^\d{7}$/.test(universityCode)) {
+      return 'El código universitario debe tener exactamente 7 dígitos.';
     }
 
-    if (!this.isPersonName(row.lastName) || !this.isPersonName(row.firstName)) {
-      return 'Los apellidos y nombres solo admiten letras, espacios, puntos, guiones o apóstrofes.';
+    if (
+      !this.isPersonName(row.lastName) ||
+      !this.isPersonName(row.firstName) ||
+      (row.lastName?.trim().length ?? 0) < 2 ||
+      (row.firstName?.trim().length ?? 0) < 2
+    ) {
+      return 'Los apellidos y nombres deben tener al menos 2 caracteres y solo letras, espacios, puntos, guiones o apóstrofes.';
     }
 
     if (!row.professionalSchool?.trim()) {

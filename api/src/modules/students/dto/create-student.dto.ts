@@ -8,6 +8,7 @@ import {
   IsInt,
   IsOptional,
   IsString,
+  Matches,
   MaxLength,
   Min,
   MinLength,
@@ -16,21 +17,22 @@ import {
 import { StudentStatus } from '../../../generated/prisma/client';
 
 export class CreateStudentDto {
-  @ApiProperty({ example: '2213271', description: 'Codigo universitario, unico.' })
+  @ApiProperty({ example: '2213271', description: 'Codigo universitario, unico. Exactamente 7 digitos.' })
   @IsString()
-  @MinLength(1)
-  @MaxLength(32)
+  @Matches(/^\d{7}$/, {
+    message: 'El codigo universitario debe tener exactamente 7 digitos.',
+  })
   universityCode!: string;
 
   @ApiProperty({ example: 'AGUILAR PEREZ' })
   @IsString()
-  @MinLength(1)
+  @MinLength(2, { message: 'Los apellidos deben tener al menos 2 caracteres.' })
   @MaxLength(120)
   lastName!: string;
 
   @ApiProperty({ example: 'MARISOL SONIA' })
   @IsString()
-  @MinLength(1)
+  @MinLength(2, { message: 'Los nombres deben tener al menos 2 caracteres.' })
   @MaxLength(120)
   firstName!: string;
 

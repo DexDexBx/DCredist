@@ -43,48 +43,77 @@
 <form [formGroup]="form" (ngSubmit)="onSubmit()" class="grid gap-6 xl:grid-cols-3">
   <dc-panel class="xl:col-span-2" title="Registro manual" subtitle="Datos permanentes del estudiante.">
     <div class="grid gap-4 sm:grid-cols-2">
-      <dc-input
-        formControlName="universityCode"
-        label="Código universitario"
-        placeholder="2213271"
-        hint="Identificador único del estudiante."
-        [required]="true"
-        [invalid]="isInvalid('universityCode')"
-      />
+      <div>
+        <dc-input
+          formControlName="universityCode"
+          label="Código universitario"
+          placeholder="2213271"
+          hint="Exactamente 7 dígitos."
+          [required]="true"
+          [invalid]="isInvalid('universityCode')"
+        />
+        @if (isInvalid('universityCode')) {
+        <p class="mt-1 text-xs text-error-500">
+          El código universitario debe tener exactamente 7 dígitos.
+        </p>
+        }
+      </div>
 
-      <dc-input
-        formControlName="lastName"
-        label="Apellidos"
-        placeholder="AGUILAR PEREZ"
-        [required]="true"
-        [invalid]="isInvalid('lastName')"
-      />
+      <div>
+        <dc-input
+          formControlName="lastName"
+          label="Apellidos"
+          placeholder="AGUILAR PEREZ"
+          hint="Mínimo 2 caracteres."
+          [required]="true"
+          [invalid]="isInvalid('lastName')"
+        />
+        @if (isInvalid('lastName')) {
+        <p class="mt-1 text-xs text-error-500">Los apellidos deben tener al menos 2 caracteres.</p>
+        }
+      </div>
 
-      <dc-input
-        formControlName="firstName"
-        label="Nombres"
-        placeholder="MARISOL SONIA"
-        [required]="true"
-        [invalid]="isInvalid('firstName')"
-      />
+      <div>
+        <dc-input
+          formControlName="firstName"
+          label="Nombres"
+          placeholder="MARISOL SONIA"
+          hint="Mínimo 2 caracteres."
+          [required]="true"
+          [invalid]="isInvalid('firstName')"
+        />
+        @if (isInvalid('firstName')) {
+        <p class="mt-1 text-xs text-error-500">Los nombres deben tener al menos 2 caracteres.</p>
+        }
+      </div>
 
-      <dc-select
-        formControlName="professionalSchoolId"
-        label="Escuela profesional"
-        [options]="schoolOptions()"
-        [placeholder]="'Selecciona la escuela'"
-        [required]="true"
-        [invalid]="isInvalid('professionalSchoolId')"
-      />
+      <div>
+        <dc-select
+          formControlName="professionalSchoolId"
+          label="Escuela profesional"
+          [options]="schoolOptions()"
+          placeholder="Selecciona la escuela"
+          [required]="true"
+          [invalid]="isInvalid('professionalSchoolId')"
+        />
+        @if (isInvalid('professionalSchoolId')) {
+        <p class="mt-1 text-xs text-error-500">Selecciona la escuela profesional.</p>
+        }
+      </div>
 
-      <dc-select
-        formControlName="locationId"
-        label="Sede"
-        [options]="siteOptions()"
-        [placeholder]="'Selecciona la sede'"
-        [required]="true"
-        [invalid]="isInvalid('locationId')"
-      />
+      <div>
+        <dc-select
+          formControlName="locationId"
+          label="Sede"
+          [options]="siteOptions()"
+          placeholder="Selecciona la sede"
+          [required]="true"
+          [invalid]="isInvalid('locationId')"
+        />
+        @if (isInvalid('locationId')) {
+        <p class="mt-1 text-xs text-error-500">Selecciona la sede.</p>
+        }
+      </div>
     </div>
 
     <div class="mt-6 flex flex-wrap items-center gap-2">
@@ -133,7 +162,7 @@
         <li>1. Las cinco columnas obligatorias, en el orden indicado.</li>
         <li>2. La fila de encabezado va en la primera fila: se ignora automáticamente.</li>
         <li>3. En .xlsx se lee la primera hoja; en .csv o .txt una fila por línea.</li>
-        <li>4. El código debe ser numérico, los nombres solo letras; escuela y sede son obligatorias. Las filas que no cumplan se reportan y no se cargan.</li>
+        <li>4. El código debe tener exactamente 7 dígitos, los nombres al menos 2 caracteres; escuela y sede son obligatorias. Las filas que no cumplan se reportan y no se cargan.</li>
       </ul>
       <button
         type="button"

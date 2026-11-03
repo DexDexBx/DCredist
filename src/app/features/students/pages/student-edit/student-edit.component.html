@@ -70,48 +70,77 @@
     subtitle="Código universitario, nombres, escuela y sede."
   >
     <div class="grid gap-4 sm:grid-cols-2">
-      <dc-input
-        formControlName="universityCode"
-        label="Código universitario"
-        placeholder="2213271"
-        hint="Identificador único del estudiante."
-        [required]="true"
-        [invalid]="isInvalid('universityCode')"
-      />
+      <div>
+        <dc-input
+          formControlName="universityCode"
+          label="Código universitario"
+          placeholder="2213271"
+          hint="Exactamente 7 dígitos."
+          [required]="true"
+          [invalid]="isInvalid('universityCode')"
+        />
+        @if (isInvalid('universityCode')) {
+        <p class="mt-1 text-xs text-error-500">
+          El código universitario debe tener exactamente 7 dígitos.
+        </p>
+        }
+      </div>
 
-      <dc-input
-        formControlName="lastName"
-        label="Apellidos"
-        placeholder="AGUILAR PEREZ"
-        [required]="true"
-        [invalid]="isInvalid('lastName')"
-      />
+      <div>
+        <dc-input
+          formControlName="lastName"
+          label="Apellidos"
+          placeholder="AGUILAR PEREZ"
+          hint="Mínimo 2 caracteres."
+          [required]="true"
+          [invalid]="isInvalid('lastName')"
+        />
+        @if (isInvalid('lastName')) {
+        <p class="mt-1 text-xs text-error-500">Los apellidos deben tener al menos 2 caracteres.</p>
+        }
+      </div>
 
-      <dc-input
-        formControlName="firstName"
-        label="Nombres"
-        placeholder="MARISOL SONIA"
-        [required]="true"
-        [invalid]="isInvalid('firstName')"
-      />
+      <div>
+        <dc-input
+          formControlName="firstName"
+          label="Nombres"
+          placeholder="MARISOL SONIA"
+          hint="Mínimo 2 caracteres."
+          [required]="true"
+          [invalid]="isInvalid('firstName')"
+        />
+        @if (isInvalid('firstName')) {
+        <p class="mt-1 text-xs text-error-500">Los nombres deben tener al menos 2 caracteres.</p>
+        }
+      </div>
 
-      <dc-select
-        formControlName="professionalSchoolId"
-        label="Escuela profesional"
-        [options]="schoolOptions()"
-        placeholder="Selecciona la escuela"
-        [required]="true"
-        [invalid]="isInvalid('professionalSchoolId')"
-      />
+      <div>
+        <dc-select
+          formControlName="professionalSchoolId"
+          label="Escuela profesional"
+          [options]="schoolOptions()"
+          placeholder="Selecciona la escuela"
+          [required]="true"
+          [invalid]="isInvalid('professionalSchoolId')"
+        />
+        @if (isInvalid('professionalSchoolId')) {
+        <p class="mt-1 text-xs text-error-500">Selecciona la escuela profesional.</p>
+        }
+      </div>
 
-      <dc-select
-        formControlName="locationId"
-        label="Sede"
-        [options]="siteOptions()"
-        placeholder="Selecciona la sede"
-        [required]="true"
-        [invalid]="isInvalid('locationId')"
-      />
+      <div>
+        <dc-select
+          formControlName="locationId"
+          label="Sede"
+          [options]="siteOptions()"
+          placeholder="Selecciona la sede"
+          [required]="true"
+          [invalid]="isInvalid('locationId')"
+        />
+        @if (isInvalid('locationId')) {
+        <p class="mt-1 text-xs text-error-500">Selecciona la sede.</p>
+        }
+      </div>
     </div>
 
     <div class="mt-6 flex flex-wrap items-center gap-2">
