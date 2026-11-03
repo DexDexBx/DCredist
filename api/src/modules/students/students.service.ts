@@ -648,7 +648,7 @@ export class StudentsService {
 type ParticipationForSummary = {
   status: ParticipationStatus;
   credits: number;
-  grade: number | null;
+  grade: string;
   eventId: number;
 };
 
@@ -678,7 +678,7 @@ function summarize(participations: ParticipationForSummary[]) {
     pendingParticipations: participations.filter((item) => item.status === ParticipationStatus.PENDING)
       .length,
     eventsParticipated: new Set(valid.map((item) => item.eventId)).size,
-    pendingGrades: valid.filter((item) => item.grade === null || item.grade === undefined).length,
+    pendingGrades: valid.filter((item) => item.grade === 'sin nota').length,
   };
 }
 

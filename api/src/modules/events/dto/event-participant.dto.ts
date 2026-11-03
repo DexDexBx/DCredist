@@ -28,7 +28,8 @@ export class EventParticipantDto {
   })
   verificationCode!: string;
   @ApiProperty({ example: 1.5 }) credits!: number;
-  @ApiProperty({ example: 16, nullable: true, description: 'null significa sin nota, no 0.' }) grade!: number | null;
+  @ApiProperty({ example: '16', description: 'Nota entre 0 y 20, o "sin nota".' })
+  grade!: string;
   @ApiProperty({ enum: ParticipationStatus }) status!: ParticipationStatus;
 
   @ApiProperty() participationDate!: Date;

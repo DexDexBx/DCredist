@@ -318,13 +318,7 @@
               {{ row.participation.credits }}
             </td>
             <td class="px-5 py-3.5 text-end text-gray-600 dark:text-gray-300">
-              @if (
-                row.participation.grade !== null && row.participation.grade !== undefined
-              ) {
-                {{ row.participation.grade }}
-              } @else {
-                <span class="text-gray-400 dark:text-gray-500">Sin nota</span>
-              }
+              {{ row.participation.grade }}
             </td>
             <td class="px-5 py-3.5">
               <app-badge

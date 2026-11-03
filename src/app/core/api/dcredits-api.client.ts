@@ -181,7 +181,7 @@ export class DcreditsApiClient {
 
   importParticipations(
     eventId: number,
-    rows: { universityCode: string }[]
+    rows: { universityCode: string; grade?: string }[]
   ): Observable<ApiParticipationImportResult> {
     return this.http.post<ApiParticipationImportResult>(API_ENDPOINTS.participationImport, {
       eventId,

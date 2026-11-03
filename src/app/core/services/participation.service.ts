@@ -107,6 +107,8 @@ export interface ParticipationImportError {
 export interface ParticipationImportStagedItem {
   row: number;
   code: string;
+  /** Nota opcional leida del archivo; vacia se normaliza a "sin nota". */
+  grade?: string;
   studentId?: number;
   student?: any;
   error?: string;
@@ -358,7 +360,7 @@ getParticipations(query: ParticipationQuery = {}): Participation[] {
       if (participation.status === 'VALID') {
         valid++;
         totalCredits += participation.credits;
-        if (participation.grade === null || participation.grade === undefined) {
+        if (participation.grade === 'sin nota') {
           pendingGrades++;
         }
         if (primaryCertificateCode(participation) !== null) {
@@ -837,12 +839,15 @@ getParticipations(query: ParticipationQuery = {}): Participation[] {
       };
     }
 
-    if (draft.grade !== null && draft.grade !== undefined) {
-      if (draft.grade < 0 || draft.grade > 20) {
+    const grade = (draft.grade ?? '').trim();
+
+    if (grade && grade.toLowerCase() !== 'sin nota') {
+      const numeric = Number(grade.replace(',', '.'));
+      if (!Number.isFinite(numeric) || numeric < 0 || numeric > 20) {
         return {
           valid: false,
           error: 'INVALID_GRADE',
-          message: 'La nota debe estar entre 0 y 20. Déjala vacía si aún no está registrada.',
+          message: 'La nota debe estar entre 0 y 20, o quedar vacía para "sin nota".',
         };
       }
     }
@@ -951,7 +956,7 @@ getParticipations(query: ParticipationQuery = {}): Participation[] {
       credits: draft.credits,
       verificationCode: generateVerificationCode(this.existingCodes()),
       legacyCode,
-      grade: draft.grade ?? null,
+      grade: normalizeGrade(draft.grade),
       status: 'VALID',
       // Los registros que llegan por una recarga quedan marcados como
       // extemporaneos; el resto como carga regular.
@@ -991,7 +996,7 @@ getParticipations(query: ParticipationQuery = {}): Participation[] {
     const next: Participation = {
       ...current,
       credits: edit.credits ?? current.credits,
-      grade: edit.grade !== undefined ? edit.grade : current.grade,
+      grade: edit.grade !== undefined ? normalizeGrade(edit.grade) : current.grade,
       status: edit.status ?? current.status,
     };
 
@@ -999,8 +1004,11 @@ getParticipations(query: ParticipationQuery = {}): Participation[] {
       return null;
     }
 
-    if (next.grade !== null && next.grade !== undefined && (next.grade < 0 || next.grade > 20)) {
-      return null;
+    if (next.grade !== 'sin nota') {
+      const numeric = Number(next.grade.replace(',', '.'));
+      if (!Number.isFinite(numeric) || numeric < 0 || numeric > 20) {
+        return null;
+      }
     }
 
     if (this.dataMode.isApi) {
@@ -1034,15 +1042,19 @@ getParticipations(query: ParticipationQuery = {}): Participation[] {
   /**
    * Etapa 1: Carga inicial de registros a estado temporal (en memoria)
    */
-  importStage1(codes: string[]): ParticipationImportStage1Result {
+  importStage1(
+    rows: (string | { code: string; grade?: string })[],
+  ): ParticipationImportStage1Result {
     const items: ParticipationImportStagedItem[] = [];
     let row = 0;
-    for (const rawCode of codes) {
+    for (const raw of rows) {
       row++;
-      const code = rawCode?.trim() ?? '';
+      const code = (typeof raw === 'string' ? raw : raw.code)?.trim() ?? '';
+      const grade = typeof raw === 'string' ? undefined : raw.grade;
       items.push({
         row,
         code,
+        grade,
         valid: false,
       });
     }
@@ -1091,6 +1103,19 @@ getParticipations(query: ParticipationQuery = {}): Participation[] {
         continue;
       }
 
+      const grade = (item.grade ?? '').trim();
+      if (grade && grade.toLowerCase() !== 'sin nota') {
+        const numeric = Number(grade.replace(',', '.'));
+        if (!Number.isFinite(numeric) || numeric < 0 || numeric > 20) {
+          item.valid = false;
+          item.error = 'La nota debe estar entre 0 y 20 o quedar vacía';
+          errors.push({ row: item.row, code, reason: item.error });
+          invalidCount++;
+          continue;
+        }
+      }
+      item.grade = grade || undefined;
+
       if (!event) {
         item.valid = false;
         item.error = 'Evento no válido';
@@ -1111,8 +1136,9 @@ getParticipations(query: ParticipationQuery = {}): Participation[] {
 
       if (event.capacity !== null && event.capacity !== undefined && event.capacity > 0) {
         const registered = this.countForEvent(event.id, true);
-        const currentValid = items.filter(i => i.valid && i.studentId).length + validCount;
-        if (registered + currentValid >= event.capacity) {
+        // Solo se suman las filas ya aprobadas; no se debe contar dos veces
+        // la misma fila (eso rechazaba la segunda cuando la capacidad era 2).
+        if (registered + validCount >= event.capacity) {
           item.valid = false;
           item.error = 'El evento alcanzó su capacidad máxima';
           errors.push({ row: item.row, code, reason: item.error });
@@ -1165,14 +1191,14 @@ getParticipations(query: ParticipationQuery = {}): Participation[] {
     const total = validItems.length;
 
     if (this.dataMode.isApi) {
-      const codes = validItems.filter((item) => item.valid).map((item) => item.code);
+      const rows = validItems
+        .filter((item) => item.valid)
+        .map((item) => ({
+          universityCode: item.code,
+          ...(item.grade?.trim() ? { grade: item.grade.trim() } : {}),
+        }));
       try {
-        const result = await firstValueFrom(
-          this.api.importParticipations(
-            eventId,
-            codes.map((universityCode) => ({ universityCode }))
-          )
-        );
+        const result = await firstValueFrom(this.api.importParticipations(eventId, rows));
         await this.refreshFromApi();
 
         const errors: ParticipationImportError[] = [];
@@ -1227,7 +1253,7 @@ getParticipations(query: ParticipationQuery = {}): Participation[] {
         eventId,
         studentId: item.studentId,
         credits: this.eventService.findById(eventId)?.credits ?? 0,
-        grade: null,
+        grade: item.grade,
       });
 
       if (result.ok) {
@@ -1372,4 +1398,13 @@ getParticipations(query: ParticipationQuery = {}): Participation[] {
     const numbers = this.participationsState().map((participation) => participation.id);
     return numbers.length > 0 ? Math.max(...numbers) + 1 : 1;
   }
+}
+
+/** Normaliza la nota: vacia o "sin nota" se conserva como texto legible. */
+function normalizeGrade(value: string | null | undefined): string {
+  const text = (value ?? '').trim();
+  if (!text || text.toLowerCase() === 'sin nota') {
+    return 'sin nota';
+  }
+  return text.replace(',', '.');
 }

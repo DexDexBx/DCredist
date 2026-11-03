@@ -85,7 +85,6 @@ export class ParticipationListComponent {
   );
 
   readonly eventId = signal('');
-  readonly status = signal<ParticipationStatus | 'Todos'>('Todos');
   readonly sort = signal<ParticipationSortKey>('recent');
   readonly pageSize = signal(DEFAULT_PARTICIPATION_PAGE_SIZE);
 
@@ -98,7 +97,7 @@ export class ParticipationListComponent {
    */
   readonly page = linkedSignal({
     source: () =>
-      `${this.search()}|${this.eventId()}|${this.status()}|${this.sort()}`,
+      `${this.search()}|${this.eventId()}|${this.sort()}`,
     computation: () => 1,
   });
 
@@ -120,11 +119,9 @@ export class ParticipationListComponent {
   );
 
   readonly query = computed<ParticipationQuery>(() => {
-    const currentStatus = this.status();
     return {
       search: this.search(),
       eventId: this.eventId() ? Number(this.eventId()) : undefined,
-      status: currentStatus === 'Todos' ? undefined : currentStatus,
       sort: this.sort(),
       page: this.page(),
       pageSize: this.pageSize(),
@@ -218,11 +215,10 @@ export class ParticipationListComponent {
   clearFilters(): void {
     this.searchInput.set('');
     this.eventId.set('');
-    this.status.set('Todos');
   }
 
   hasFilters(): boolean {
-    return Boolean(this.search() || this.eventId() || this.status() !== 'Todos');
+    return Boolean(this.search() || this.eventId());
   }
 
   studentCount(): number {

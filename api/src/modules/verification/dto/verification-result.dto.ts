@@ -30,7 +30,7 @@ export class VerificationResultDto {
     participationDate: Date;
     credits: number;
     verificationCode: string;
-    grade: number | null;
+    grade: string;
     status: ParticipationStatus;
   } | null;
 

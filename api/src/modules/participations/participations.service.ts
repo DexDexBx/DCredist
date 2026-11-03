@@ -185,7 +185,7 @@ export class ParticipationsService {
           credits,
           verificationCode,
           // undefined se guarda como NULL. Nunca se convierte en 0.
-          grade: dto.grade ?? null,
+          grade: normalizeGrade(dto.grade),
           status: dto.status ?? ParticipationStatus.VALID,
         },
         include: EVENT_INCLUDE,
@@ -210,7 +210,7 @@ export class ParticipationsService {
               participationDate,
             credits,
             verificationCode: await generateUniqueVerificationCode(this.prisma),
-            grade: dto.grade ?? null,
+            grade: normalizeGrade(dto.grade),
             status: dto.status ?? ParticipationStatus.VALID,
           },
           include: EVENT_INCLUDE,
@@ -248,7 +248,7 @@ export class ParticipationsService {
             : {}),
           ...(dto.credits !== undefined && dto.credits !== null ? { credits: dto.credits } : {}),
           // null es un valor valido: significa "sin nota registrada".
-          ...(dto.grade !== undefined ? { grade: dto.grade } : {}),
+          ...(dto.grade !== undefined ? { grade: normalizeGrade(dto.grade) } : {}),
           ...(dto.status !== undefined ? { status: dto.status } : {}),
         },
         include: EVENT_INCLUDE,
@@ -450,7 +450,7 @@ export class ParticipationsService {
         participationDate: row.participationDate ? new Date(row.participationDate) : event.startDate,
         credits: row.credits ?? defaultCredits,
         verificationCode: '',
-        grade: row.grade ?? null,
+        grade: normalizeGrade(row.grade),
         status: row.status ?? ParticipationStatus.VALID,
       };
     });
@@ -534,3 +534,25 @@ export class ParticipationsService {
 }
 
 export type { ParticipationRow };
+
+/**
+ * Normaliza la nota recibida.
+ *
+ * Acepta un numero entre 0 y 20 (con punto o coma) o el texto "sin nota".
+ * Si llega vacia, se guarda exactamente "sin nota".
+ */
+function normalizeGrade(value: string | null | undefined): string {
+  const text = (value ?? '').trim();
+
+  if (!text || text.toLowerCase() === 'sin nota') {
+    return 'sin nota';
+  }
+
+  const numeric = Number(text.replace(',', '.'));
+
+  if (!Number.isFinite(numeric) || numeric < 0 || numeric > 20) {
+    throw new BadRequestException('La nota debe ser un numero entre 0 y 20 o "sin nota".');
+  }
+
+  return String(numeric);
+}

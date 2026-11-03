@@ -166,8 +166,7 @@ export class EventDetailComponent {
     () =>
       this.rows().filter(
         (row) =>
-          row.participation.status === 'VALID' &&
-          (row.participation.grade === null || row.participation.grade === undefined)
+          row.participation.status === 'VALID' && row.participation.grade === 'sin nota'
       ).length
   );
 

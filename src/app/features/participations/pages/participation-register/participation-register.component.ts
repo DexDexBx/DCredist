@@ -100,7 +100,6 @@ export class ParticipationRegisterComponent {
   readonly importFileName = signal<string | null>(null);
   readonly isDragging = signal(false);
   /** Cantidad de estudiantes activos del padron que carga "Cargar ejemplo". */
-  readonly exampleCount = signal(2500);
   readonly importError = signal<string | null>(null);
   readonly importStage1 = signal<ParticipationImportStage1Result | null>(null);
   readonly importStage2 = signal<ParticipationImportStage2Result | null>(null);
@@ -250,17 +249,26 @@ export class ParticipationRegisterComponent {
   );
 
   /**
-   * Estudiantes ofrecidos al registrar: solo los activos de la escuela del
-   * evento. El API rechaza mezclar escuelas, asi que ni siquiera se listan.
+   * Estudiantes ofrecidos al registrar: activos, de la escuela del evento y
+   * que todavia no tengan una participacion en ese evento. Asi el selector no
+   * vuelve a ofrecer a quien ya fue registrado.
    */
   readonly studentOptions = computed<DcSelectOption[]>(() => {
     const event = this.selectedEvent();
+    const registered = event
+      ? new Set(
+          this.participationService
+            .getByEvent(event.id)
+            .map((participation) => participation.studentId),
+        )
+      : new Set<number>();
 
     return this.studentService
       .getStudents({
         status: 'ACTIVE',
         ...(event ? { professionalSchoolId: event.professionalSchoolId } : {}),
       })
+      .filter((student) => !registered.has(student.id))
       .map((student) => ({
         value: String(student.id),
         label: `${student.universityCode} · ${student.lastName}, ${student.firstName}`,
@@ -319,7 +327,7 @@ export class ParticipationRegisterComponent {
       studentId: Number(value.studentId),
       // Los creditos SIEMPRE vienen del evento: no se editan aqui.
       credits: event.credits,
-      grade: value.grade === '' ? null : Number(value.grade),
+      grade: value.grade.trim() || undefined,
     });
 
     if (!result.ok) {
@@ -366,6 +374,10 @@ export class ParticipationRegisterComponent {
       this.studentSearchError.set(
         'El estudiante pertenece a otra escuela profesional que el evento.',
       );
+      return;
+    }
+    if (event && this.participationService.exists(event.id, student.id)) {
+      this.studentSearchError.set('El estudiante ya está registrado en este evento.');
       return;
     }
     this.foundStudent.set(student);
@@ -627,13 +639,15 @@ export class ParticipationRegisterComponent {
       return;
     }
 
-    const codes = parseDelimitedText(this.importText(), 1).map((row) => (row[0] ?? ''));
-    if (codes.length === 0) {
+    const rows = parseDelimitedText(this.importText(), 1)
+      .map((row) => ({ code: row[0] ?? '', grade: row[1] ?? '' }))
+      .filter((row) => row.code.trim().length > 0 || row.grade.trim().length > 0);
+    if (rows.length === 0) {
       this.importError.set('No se detectaron códigos para validar.');
       return;
     }
 
-    const stage1 = this.participationService.importStage1(codes);
+    const stage1 = this.participationService.importStage1(rows);
     const stage2 = this.participationService.importStage2(eventId, stage1.items);
 
     this.importStage1.set(stage1);
@@ -724,42 +738,14 @@ export class ParticipationRegisterComponent {
   }
 
   /**
-   * Carga estudiantes reales del padron como ejemplo de lista. El texto lleva
-   * codigo y nombre (la segunda columna es solo referencia: al importar se usa
-   * el codigo de la primera columna).
-   */
-  loadExample(): void {
-    const requested = Math.max(1, Math.trunc(this.exampleCount() || 0));
-    const students = this.studentService.getStudents({ status: 'ACTIVE' }).slice(0, requested);
-
-    this.importFileName.set(null);
-    this.importText.set(
-      students
-        .map(
-          (student) =>
-            `${student.universityCode};${student.lastName}, ${student.firstName}`
-        )
-        .join('\n')
-    );
-    this.exampleCount.set(students.length);
-  }
-
-  /**
    * Plantilla en blanco para rellenar en Excel: una sola fila de encabezado,
-   * que el parser descarta al importar. Nombre y nota son columnas de
-   * referencia: la nota se deja en blanco cuando no se requiere.
+   * que el parser descarta al importar. La nota es opcional.
    */
   downloadImportTemplate(): void {
     void downloadXlsx({
       fileName: 'DCredits_plantilla_codigos_participacion',
       sheetName: 'Codigos',
-      rows: [
-        [
-          'CÓDIGO UNIVERSITARIO',
-          'NOMBRE DEL ESTUDIANTE (referencia, no se importa)',
-          'NOTA (opcional, no se importa)',
-        ],
-      ],
+      rows: [['CÓDIGO UNIVERSITARIO', 'NOTA (opcional)']],
     });
   }
 

@@ -38,7 +38,7 @@ async function bootstrap(): Promise<void> {
         '- Los creditos no se almacenan: se derivan de las participaciones VALID.',
         '- verificationCode es unico y se genera una sola vez en el servidor.',
         '- El codigo DC (DC-2026-XXXXXX) es el unico codigo: tambien es el del certificado.',
-        '- grade admite null: nunca se convierte en 0.',
+        '- grade es texto: "sin nota" o un numero entre 0 y 20.',
         '- Un estudiante no puede registrarse dos veces en el mismo evento.',
       ].join('\n')
     )

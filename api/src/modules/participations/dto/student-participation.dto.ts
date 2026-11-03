@@ -22,8 +22,8 @@ export class StudentParticipationDto {
   @ApiProperty({ example: 'DC-2026-8F4K2P', description: 'Codigo unico y estable de DCredits.' })
   verificationCode!: string;
 
-  @ApiProperty({ example: 16, nullable: true, description: 'null significa sin nota, no 0.' })
-  grade!: number | null;
+  @ApiProperty({ example: '16', description: 'Nota entre 0 y 20, o "sin nota".' })
+  grade!: string;
 
   @ApiProperty({ enum: ParticipationStatus }) status!: ParticipationStatus;
   @ApiProperty() createdAt!: Date;

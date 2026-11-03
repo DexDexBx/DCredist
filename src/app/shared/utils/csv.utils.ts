@@ -46,11 +46,9 @@ export function formatCredits(value: number): string {
  * Nota: 16 -> "16", 17.5 -> "17.5". Si la nota no esta registrada se devuelve
  * cadena vacia, NUNCA 0: una participacion sin nota se exporta con celda vacia.
  */
-export function formatGrade(value: number | null | undefined): string {
-  if (value === null || value === undefined) {
-    return '';
-  }
-  return formatDecimal(value);
+export function formatGrade(value: string | number | null | undefined): string {
+  const text = value === null || value === undefined ? '' : String(value).trim();
+  return text || 'sin nota';
 }
 
 /** Normaliza un valor opcional a cadena, devolviendo "" cuando no existe. */

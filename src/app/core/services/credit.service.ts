@@ -153,7 +153,7 @@ export class CreditService {
         (participation) => primaryCertificateCode(participation) !== null
       ).length,
       pendingGrades: valid.filter(
-        (participation) => participation.grade === null || participation.grade === undefined
+        (participation) => participation.grade === 'sin nota'
       ).length,
     };
   }

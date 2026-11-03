@@ -16,7 +16,6 @@ import {
   ValidateNested,
 } from 'class-validator';
 import { ParticipationStatus } from '../../../generated/prisma/client';
-import { MAX_GRADE } from '../../../common/domain';
 import { blankToUndefined } from '../../../common/dto/blank-query';
 
 /**
@@ -59,15 +58,14 @@ export class CreateParticipationDto {
   credits?: number;
 
   @ApiPropertyOptional({
-    example: 16,
-    description: 'Nota. Admite null: "sin nota registrada" jamas se convierte en 0.',
+    example: '16',
+    description:
+      'Nota entre 0 y 20, como texto. Si se omite o queda vacia se guarda "sin nota".',
   })
   @IsOptional()
-  @Type(() => Number)
-  @IsNumber()
-  @Min(0)
-  @Max(MAX_GRADE)
-  grade?: number | null;
+  @IsString()
+  @MaxLength(10)
+  grade?: string;
 
   @ApiPropertyOptional({ enum: ParticipationStatus, default: ParticipationStatus.VALID })
   @IsOptional()
@@ -139,13 +137,14 @@ export class ParticipationImportRowDto {
   @Max(100)
   credits?: number;
 
-  @ApiPropertyOptional({ example: 16, description: 'La celda vacia se envia como null.' })
+  @ApiPropertyOptional({
+    example: '16',
+    description: 'Nota entre 0 y 20, como texto. Vacia equivale a "sin nota".',
+  })
   @IsOptional()
-  @Type(() => Number)
-  @IsNumber()
-  @Min(0)
-  @Max(MAX_GRADE)
-  grade?: number | null;
+  @IsString()
+  @MaxLength(10)
+  grade?: string;
 
   @ApiPropertyOptional({ example: '2026-10-05T09:00:00.000Z' })
   @IsOptional()

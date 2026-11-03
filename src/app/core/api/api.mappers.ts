@@ -327,7 +327,7 @@ export function toApiParticipationPayload(draft: ParticipationDraft): ApiPartici
     eventId: draft.eventId,
     studentId: draft.studentId,
     credits: draft.credits,
-    grade: draft.grade ?? null,
+    grade: draft.grade?.trim() || undefined,
   };
 }
 

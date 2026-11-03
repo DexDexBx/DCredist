@@ -250,7 +250,7 @@ export async function seedAcademicDemo(
       participationDate: new Date('2026-10-05T09:00:00.000Z'),
       credits: 1.5,
       verificationCode: 'DC-2026-8F4K2P',
-      grade: 16,
+      grade: '16',
       status: ParticipationStatus.VALID,
     },
     {
@@ -259,7 +259,7 @@ export async function seedAcademicDemo(
       participationDate: new Date('2026-09-15T09:00:00.000Z'),
       credits: 2,
       verificationCode: 'DC-2026-3K9M7Q',
-      grade: null,
+      grade: 'sin nota',
       status: ParticipationStatus.VALID,
     },
     {
@@ -268,7 +268,7 @@ export async function seedAcademicDemo(
       participationDate: new Date('2026-06-12T10:00:00.000Z'),
       credits: 1,
       verificationCode: 'DC-2026-7T2B5X',
-      grade: 18,
+      grade: '18',
       status: ParticipationStatus.VALID,
     },
     // Pendiente: no suma creditos.
@@ -278,7 +278,7 @@ export async function seedAcademicDemo(
       participationDate: new Date('2026-10-05T08:30:00.000Z'),
       credits: 2,
       verificationCode: 'DC-2026-5R8W3N',
-      grade: null,
+      grade: 'sin nota',
       status: ParticipationStatus.PENDING,
     },
     {
@@ -287,7 +287,7 @@ export async function seedAcademicDemo(
       participationDate: new Date('2026-07-20T17:00:00.000Z'),
       credits: 2,
       verificationCode: 'DC-2026-2H6C4V',
-      grade: 14,
+      grade: '14',
       status: ParticipationStatus.VALID,
     },
     // Anulada: existe y conserva su codigo, pero no otorga creditos.
@@ -297,7 +297,7 @@ export async function seedAcademicDemo(
       participationDate: new Date('2026-07-20T17:00:00.000Z'),
       credits: 1.5,
       verificationCode: 'DC-2026-9J3L6Y',
-      grade: null,
+      grade: 'sin nota',
       status: ParticipationStatus.CANCELLED,
     },
   ];

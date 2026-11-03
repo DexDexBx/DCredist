@@ -39,8 +39,8 @@ export interface Participation {
    */
   legacyCode: string | null;
 
-  /** Nota opcional. null / undefined significa "sin nota registrada", no 0. */
-  grade?: number | null;
+  /** Nota como texto: "sin nota" o un numero entre 0 y 20. */
+  grade: string;
 
   status: ParticipationStatus;
 
@@ -63,7 +63,7 @@ export interface ParticipationDraft {
   eventId: number;
   studentId: number;
   credits: number;
-  grade?: number | null;
+  grade?: string;
   /** Codigo del sistema anterior, cuando se esta reingresando un certificado historico. */
   legacyCode?: string | null;
   /** Origen de la carga. Si se omite, el servicio lo deduce del estado del evento. */
@@ -72,7 +72,7 @@ export interface ParticipationDraft {
 
 export interface ParticipationEdit {
   credits?: number;
-  grade?: number | null;
+  grade?: string;
   status?: ParticipationStatus;
 }
 

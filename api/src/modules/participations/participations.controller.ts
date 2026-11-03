@@ -54,7 +54,7 @@ export class ParticipationsController {
       'Rechaza eventos cancelados y eventos que alcanzaron su capacidad.',
       'Rechaza credits < 0.',
       'El verificationCode lo genera el servidor y se conserva siempre.',
-      'grade admite null: nunca se convierte en 0.',
+      'grade es texto: "sin nota" o un numero entre 0 y 20.',
     ].join(' '),
   })
   @ApiCreatedResponse({ description: 'Participacion creada con su codigo DCredits.' })

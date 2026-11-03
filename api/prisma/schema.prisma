@@ -271,8 +271,8 @@ model Participation {
   /// Se genera una vez y se conserva para siempre.
   verificationCode String @unique
 
-  /// Nota. NULL significa "sin nota registrada", jamas 0.
-  grade Float?
+  /// Nota como texto: "sin nota" o un valor numerico entre 0 y 20.
+  grade String @default("sin nota") @db.VarChar(10)
 
   status ParticipationStatus @default(VALID)
 

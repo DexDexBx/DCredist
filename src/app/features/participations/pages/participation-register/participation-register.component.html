@@ -133,7 +133,7 @@
             label="Estudiante"
             [options]="studentOptions()"
             placeholder="Selecciona o busca al estudiante"
-            hint="Busca por código, nombre, escuela profesional o sede."
+            hint="Solo aparecen estudiantes activos de la escuela del evento que aún no han sido registrados."
             emptyText="No se encontraron estudiantes."
             [required]="true"
             [invalid]="isInvalid('studentId')"
@@ -160,8 +160,9 @@
             <dc-input
               formControlName="grade"
               label="Nota"
-              type="number"
-              hint="Opcional."
+              type="text"
+              placeholder="0 - 20"
+              hint='Opcional. Si se deja vacío se registra "sin nota".'
             />
           </div>
         </div>
@@ -627,11 +628,10 @@
             ¿Qué debe tener el archivo?
           </p>
           <ul class="mt-2 space-y-1 text-xs leading-relaxed text-gray-600 dark:text-gray-300">
-            <li>1. Una fila por participante y su código universitario en la primera columna.</li>
-            <li>2. Las columnas de nombre y nota son solo referencia: no se importan.</li>
-            <li>3. La nota es opcional: si no se requiere, se deja en blanco.</li>
-            <li>4. La fila de encabezado va en la primera fila: se ignora automáticamente.</li>
-            <li>5. En .xlsx se lee la primera hoja; en .csv o .txt una fila por línea.</li>
+            <li>1. Una fila por participante, con el código universitario en la primera columna.</li>
+            <li>2. La segunda columna es NOTA (opcional): si se informa se registra; si queda vacía se guarda “sin nota”.</li>
+            <li>3. La fila de encabezado va en la primera fila: se ignora automáticamente.</li>
+            <li>4. En .xlsx se lee la primera hoja; en .csv o .txt una fila por línea.</li>
           </ul>
           <button
             type="button"
@@ -710,27 +710,6 @@
             <span class="font-semibold text-gray-900 dark:text-white/90">{{ importPreviewCount() }}</span>
             código(s) detectado(s)
           </span>
-          <div class="flex flex-wrap items-center gap-2">
-            <label class="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
-              Estudiantes de ejemplo
-              <input
-                type="number"
-                min="1"
-                step="1"
-                [value]="exampleCount()"
-                (input)="exampleCount.set($any($event.target).valueAsNumber)"
-                class="h-9 w-24 rounded-lg border border-gray-300 bg-white px-2.5 text-right text-sm tabular-nums text-gray-900 focus:border-brand-600 focus:ring-3 focus:ring-brand-500/15 focus:outline-none dark:border-gray-700 dark:bg-white/[0.03] dark:text-white/90"
-              />
-            </label>
-            <button
-              type="button"
-              (click)="loadExample()"
-              class="inline-flex items-center gap-2 rounded-xl border border-gray-300 px-3.5 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-white/[0.05]"
-            >
-              <dc-icon name="refresh" [size]="16" />
-              Cargar ejemplo
-            </button>
-          </div>
         </div>
       </div>
       }
@@ -1033,11 +1012,10 @@
         ¿Qué debe tener el archivo?
       </p>
       <ul class="mt-2 space-y-1 text-xs leading-relaxed text-gray-600 dark:text-gray-300">
-        <li>1. Una fila por participante y su código universitario en la primera columna.</li>
-        <li>2. Las columnas de nombre y nota son solo referencia: no se importan.</li>
-        <li>3. La nota es opcional: si no se requiere, se deja en blanco.</li>
-        <li>4. La fila de encabezado va en la primera fila: se ignora automáticamente.</li>
-        <li>5. En .xlsx se lee la primera hoja; en .csv o .txt una fila por línea.</li>
+        <li>1. Una fila por participante, con el código universitario en la primera columna.</li>
+        <li>2. La segunda columna es NOTA (opcional): si se informa se registra; si queda vacía se guarda “sin nota”.</li>
+        <li>3. La fila de encabezado va en la primera fila: se ignora automáticamente.</li>
+        <li>4. En .xlsx se lee la primera hoja; en .csv o .txt una fila por línea.</li>
       </ul>
       <button
         type="button"

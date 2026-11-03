@@ -210,7 +210,7 @@ export interface ApiParticipation {
   participationDate: string;
   credits: number;
   verificationCode: string;
-  grade: number | null;
+  grade: string;
   status: ApiParticipationStatus;
   createdAt?: string;
   updatedAt?: string;
@@ -255,6 +255,6 @@ export interface ApiParticipationPayload {
   studentId: number;
   participationDate?: string;
   credits?: number;
-  grade?: number | null;
+  grade?: string;
   status?: ApiParticipationStatus;
 }
