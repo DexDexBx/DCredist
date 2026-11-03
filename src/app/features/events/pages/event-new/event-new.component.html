@@ -144,11 +144,11 @@
             hint="Créditos que otorga el evento a cada participante."
             [required]="true"
             [invalid]="isInvalid('credits')"
-            [min]="0"
+            [min]="1"
           />
           @if (isInvalid('credits')) {
           <p class="mt-1.5 text-xs text-error-500">
-            Solo se admiten números (ej. 1 o 0.5); no se permiten valores negativos.
+            Los créditos deben ser un número entre 1 y 21.
           </p>
           }
         </div>
@@ -164,20 +164,6 @@
         />
       </div>
 
-      <div>
-        <dc-input
-          formControlName="tags"
-          label="Etiquetas"
-          placeholder="Congreso, Internacional"
-          hint="Separa las etiquetas con comas. Solo letras."
-          [invalid]="isInvalid('tags')"
-        />
-        @if (isInvalid('tags')) {
-        <p class="mt-1.5 text-xs text-error-500">
-          Las etiquetas solo pueden contener letras y comas, sin números ni símbolos.
-        </p>
-        }
-      </div>
     </div>
   </dc-panel>
 
@@ -210,7 +196,7 @@
             placeholder="0"
             hint="Usa 0 cuando el evento no tenga límite de participantes."
             [invalid]="isInvalid('capacity')"
-            [min]="0"
+            [min]="1"
           />
           @if (isInvalid('capacity')) {
           <p class="mt-1.5 text-xs text-error-500">

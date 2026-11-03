@@ -173,7 +173,7 @@ export function mapApiEvent(row: ApiEvent): AcademicEvent {
     modality: MODALITY_FROM_API[row.modality] ?? 'Presencial',
     location: row.location,
     status: STATUS_FROM_API[row.status] ?? 'Programado',
-    capacity: row.capacity,
+    capacity: row.capacity ?? 0,
     organizerId: row.organizerId,
     organizer: row.organizer,
     professionalSchoolId: row.professionalSchoolId,
@@ -181,7 +181,6 @@ export function mapApiEvent(row: ApiEvent): AcademicEvent {
     credits: row.credits,
     userCreate: row.userCreate ?? '',
     userUpdate: row.userUpdate ?? '',
-    tags: [],
   };
 }
 
@@ -253,7 +252,7 @@ export function toApiEventPatch(
   if ((full.location ?? '') !== (current.location ?? '')) {
     patch.location = full.location;
   }
-  if ((full.capacity ?? null) !== (current.capacity ?? null)) {
+  if ((full.capacity ?? 0) !== (current.capacity ?? 0)) {
     patch.capacity = full.capacity;
   }
   if (full.organizerId !== current.organizerId) {

@@ -217,7 +217,7 @@ model Event {
   /// Lugar fisico del evento (auditorio, aula, campus). No es la sede del
   /// estudiante: esa vive en Location y solo aplica al padron.
   location String @default("")
-  capacity Int?
+  capacity Int @default(0)
 
   /// Organizador y escuela a la que pertenece el evento. La escuela acota lo
   /// que cada usuario puede ver y modificar.
@@ -226,8 +226,8 @@ model Event {
   professionalSchoolId Int
   professionalSchool   ProfessionalSchool @relation(fields: [professionalSchoolId], references: [id], onDelete: Restrict)
 
-  /// Creditos que otorga el evento. Nunca negativo.
-  credits Float @default(0)
+  /// Creditos que otorga el evento. Siempre entre 1 y 21.
+  credits Float @default(1)
 
   status EventStatus @default(DRAFT)
 

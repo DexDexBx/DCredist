@@ -1,5 +1,4 @@
 import { Component, computed, effect, inject, input, signal } from '@angular/core';
-import { toSignal } from '@angular/core/rxjs-interop';
 import {
   AbstractControl,
   FormBuilder,
@@ -141,46 +140,56 @@ export class EventEditComponent {
       location: ['', [Validators.required, Validators.minLength(3)]],
       status: ['', [Validators.required]],
       capacity: ['0', [Validators.pattern(/^(\d{1,9})?$/)]],
-      credits: ['1', [Validators.required, Validators.pattern(/^\d{1,7}(\.\d{1,2})?$/)]],
+      credits: [
+        '1',
+        [
+          Validators.required,
+          Validators.min(1),
+          Validators.max(21),
+          Validators.pattern(/^\d{1,2}(\.\d{1,2})?$/),
+        ],
+      ],
       organizerId: ['', [Validators.required]],
       professionalSchoolId: ['', [Validators.required]],
     },
     { validators: [endAfterStartDate] },
   );
 
-  /** Estado elegido en el formulario (puede diferir del guardado). */
-  private readonly statusValue = toSignal(this.form.controls.status.valueChanges, {
-    initialValue: this.form.controls.status.value,
-  });
-
   readonly isAdmin = computed(() => this.auth.currentUser()?.role === 'ADMIN');
 
   /**
-   * Transiciones permitidas para quien no es administrador. El estado actual
-   * se muestra como opcion deshabilitada; solo se ofrecen los pasos posibles.
+   * Opciones de estado segun el estado GUARDADO del evento.
+   *
+   * Mientras no se guarde, el formulario no se bloquea: se puede elegir
+   * Cancelado o Finalizado y luego cambiar de opinion. La secuencia solo avanza
+   * cuando el cambio queda guardado.
    */
   readonly statusOptions = computed<DcSelectOption[]>(() => {
     if (this.isAdmin()) {
       return EVENT_STATUSES.map((status) => ({ value: status, label: status }));
     }
 
-    const current = (this.statusValue() || this.event()?.status || 'Programado') as EventStatus;
+    const current = (this.event()?.status ?? 'Programado') as EventStatus;
     const next = STATUS_TRANSITIONS[current] ?? [];
 
-    return [current, ...next].map((status, index) => ({
+    // El estado guardado se puede volver a elegir mientras no se guarde el
+    // cambio: asi el usuario puede arrepentirse antes de confirmar.
+    return [current, ...next].map((status) => ({
       value: status,
       label: status,
-      disabled: index === 0,
     }));
   });
 
-  /** Finalizado y Cancelado cierran la secuencia: el estado queda bloqueado. */
+  /**
+   * Finalizado y Cancelado cierran la secuencia SOLO si ya estan guardados.
+   * Un cambio pendiente en el formulario aun se puede corregir.
+   */
   readonly statusLocked = computed(() => {
     if (this.isAdmin()) {
       return false;
     }
-    const current = this.statusValue();
-    return current === 'Finalizado' || current === 'Cancelado';
+    const saved = this.event()?.status;
+    return saved === 'Finalizado' || saved === 'Cancelado';
   });
 
   private initialized = false;
@@ -216,7 +225,7 @@ export class EventEditComponent {
         modality: event.modality,
         location: event.location ?? '',
         status: event.status,
-        capacity: event.capacity ? String(event.capacity) : '0',
+        capacity: String(event.capacity ?? 0),
         credits: String(event.credits),
         organizerId: String(event.organizerId),
         professionalSchoolId: String(event.professionalSchoolId),
@@ -247,11 +256,10 @@ export class EventEditComponent {
       modality: value.modality as EventModality,
       location: value.location,
       status: value.status as EventStatus,
-      capacity: value.capacity ? Number(value.capacity) : null,
+      capacity: value.capacity ? Number(value.capacity) : 0,
       credits: Number(value.credits),
       organizerId: Number(value.organizerId),
       professionalSchoolId: Number(value.professionalSchoolId),
-      tags: [],
     };
 
     const validation = this.eventService.validate(draft);

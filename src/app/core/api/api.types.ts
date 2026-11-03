@@ -187,7 +187,8 @@ export interface ApiEvent {
   endDate: string;
   modality: ApiEventModality;
   location: string;
-  capacity: number | null;
+  /** 0 significa sin limite. */
+  capacity: number;
   organizerId: number;
   organizer: string;
   professionalSchoolId: number;
@@ -224,7 +225,7 @@ export interface ApiEventPayload {
   endDate: string;
   modality?: ApiEventModality;
   location?: string;
-  capacity?: number | null;
+  capacity?: number;
   eventTypeId?: number;
   organizerId?: number;
   professionalSchoolId?: number;

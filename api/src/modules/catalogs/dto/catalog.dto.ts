@@ -1,19 +1,20 @@
 import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
-import { IsEnum, IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
+import { IsEnum, IsOptional, IsString, Matches, MaxLength, MinLength } from 'class-validator';
 
 import { CatalogStatus } from '../../../generated/prisma/client';
 
 /** Campos editables de una entrada de catalogo. */
 export class CreateCatalogEntryDto {
   @ApiProperty({ example: 'Ingenieria de Sistemas', maxLength: 150 })
-  @IsString()
-  @MinLength(2)
-  @MaxLength(150)
+  @IsString({ message: 'El nombre debe ser texto.' })
+  @Matches(/^[^0-9]*$/, { message: 'El nombre no puede contener números.' })
+  @MinLength(2, { message: 'El nombre debe tener al menos 2 caracteres.' })
+  @MaxLength(150, { message: 'El nombre no puede superar los 150 caracteres.' })
   name!: string;
 
   @ApiPropertyOptional({ enum: CatalogStatus, default: CatalogStatus.ACTIVE })
   @IsOptional()
-  @IsEnum(CatalogStatus)
+  @IsEnum(CatalogStatus, { message: 'El estado debe ser ACTIVE o INACTIVE.' })
   status?: CatalogStatus;
 }
 

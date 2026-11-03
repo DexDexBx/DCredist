@@ -116,10 +116,17 @@ export class EventNewComponent {
       location: ['', [Validators.required, Validators.minLength(3)]],
       status: ['', [Validators.required]],
       capacity: ['0', [Validators.pattern(/^(\d{1,9})?$/)]],
-      credits: ['1', [Validators.required, Validators.pattern(/^\d{1,7}(\.\d{1,2})?$/)]],
+      credits: [
+        '1',
+        [
+          Validators.required,
+          Validators.min(1),
+          Validators.max(21),
+          Validators.pattern(/^\d{1,2}(\.\d{1,2})?$/),
+        ],
+      ],
       organizerId: ['', [Validators.required]],
       professionalSchoolId: ['', [Validators.required]],
-      tags: ['', [Validators.pattern(/^[a-zA-ZáéíóúñÁÉÍÓÚÑüÜ\s,]*$/)]],
     },
     { validators: [endAfterStartDate] }
   );
@@ -153,14 +160,10 @@ export class EventNewComponent {
       modality: value.modality as EventModality,
       location: value.location,
       status: value.status as EventStatus,
-      capacity: value.capacity ? Number(value.capacity) : null,
+      capacity: value.capacity ? Number(value.capacity) : 0,
       credits: Number(value.credits),
       organizerId: Number(value.organizerId),
       professionalSchoolId: Number(value.professionalSchoolId),
-      tags: value.tags
-        .split(',')
-        .map((tag) => tag.trim())
-        .filter(Boolean),
     };
 
     const validation = this.eventService.validate(draft);
@@ -190,7 +193,6 @@ export class EventNewComponent {
         credits: '1',
         organizerId: '',
         professionalSchoolId: '',
-        tags: '',
       });
     } else {
       this.formError.set('No se pudo registrar el evento. Intenta nuevamente.');
@@ -215,7 +217,6 @@ export class EventNewComponent {
       | 'professionalSchoolId'
       | 'credits'
       | 'capacity'
-      | 'tags'
   ): boolean {
     const field = this.form.controls[control];
     if (!field.touched) {

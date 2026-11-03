@@ -193,7 +193,7 @@ export async function seedAcademicDemo(
       endDate: new Date('2026-07-20T12:00:00.000Z'),
       modality: EventModality.VIRTUAL,
       location: 'Plataforma virtual institucional',
-      capacity: null,
+      capacity: 0,
       organizerId: organizers.get('COMITE DE EVENTOS ACADEMICOS')!,
       professionalSchoolId: schools.get('INGENIERIA DE SISTEMAS')!,
       credits: 1.5,

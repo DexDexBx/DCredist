@@ -167,8 +167,13 @@ export class EventService {
       errors.professionalSchoolId = 'La escuela profesional del evento es obligatoria.';
     }
 
-    if (draft.credits === null || draft.credits === undefined || draft.credits < 0) {
-      errors.credits = 'Los créditos no pueden ser negativos.';
+    if (
+      draft.credits === null ||
+      draft.credits === undefined ||
+      draft.credits < 1 ||
+      draft.credits > 21
+    ) {
+      errors.credits = 'Los créditos deben estar entre 1 y 21.';
     }
 
     if (draft.capacity !== null && draft.capacity !== undefined && draft.capacity < 0) {
@@ -223,7 +228,6 @@ export class EventService {
       credits: draft.credits,
       userCreate: actorName,
       userUpdate: actorName,
-      tags: draft.tags,
     };
 
     this.eventsState.update((current) => [...current, event]);
@@ -281,7 +285,6 @@ export class EventService {
       ),
       credits: draft.credits,
       userUpdate: this.auth.currentUser()?.fullName ?? current.userUpdate,
-      tags: draft.tags,
     };
 
     this.eventsState.update((current) =>

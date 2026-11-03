@@ -81,7 +81,7 @@ export class EventListComponent {
   /** Columnas de la tabla. `key: null` = columna que no se ordena. */
   readonly columns: { key: EventSortKey | null; label: string }[] = [
     { key: 'name', label: 'Evento' },
-    { key: 'date', label: 'Fecha y horario' },
+    { key: 'date', label: 'Fecha' },
     { key: 'type', label: 'Tipo' },
     { key: 'modality', label: 'Modalidad' },
     { key: 'credits', label: 'Créditos' },

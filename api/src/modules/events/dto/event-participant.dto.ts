@@ -45,7 +45,7 @@ export class EventSummaryDto {
   @ApiProperty() endDate!: Date;
   @ApiProperty() modality!: string;
   @ApiProperty() location!: string;
-  @ApiProperty({ nullable: true }) capacity!: number | null;
+  @ApiProperty({ example: 400, description: '0 significa sin limite.' }) capacity!: number;
   @ApiProperty({ example: 1 }) organizerId!: number;
   @ApiProperty() organizer!: string;
   @ApiProperty({ example: 1 }) professionalSchoolId!: number;

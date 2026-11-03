@@ -201,8 +201,12 @@ export class EventsService {
       throw new BadRequestException('La capacidad no puede ser negativa.');
     }
 
-    if (dto.credits !== undefined && dto.credits !== null && dto.credits < 0) {
-      throw new BadRequestException('Los créditos del evento no pueden ser negativos.');
+    if (
+      dto.credits !== undefined &&
+      dto.credits !== null &&
+      (dto.credits < 1 || dto.credits > 21)
+    ) {
+      throw new BadRequestException('Los créditos del evento deben estar entre 1 y 21.');
     }
 
     const code = dto.code?.trim() || (await this.generateCode(startDate));
@@ -228,10 +232,11 @@ export class EventsService {
           endDate,
           modality: dto.modality,
           location: dto.location?.trim() ?? '',
-          capacity: dto.capacity ?? null,
+          // 0 = sin limite. No se guardan capacidades nulas.
+          capacity: dto.capacity ?? 0,
           organizerId: dto.organizerId,
           professionalSchoolId: dto.professionalSchoolId,
-          credits: dto.credits ?? 0,
+          credits: dto.credits ?? 1,
           status: dto.status ?? EventStatus.SCHEDULED,
           // Sello de autoria: el backend usa el actor de la peticion.
           userCreate: actor.fullName,
@@ -290,8 +295,12 @@ export class EventsService {
       throw new BadRequestException('La capacidad no puede ser negativa.');
     }
 
-    if (dto.credits !== undefined && dto.credits !== null && dto.credits < 0) {
-      throw new BadRequestException('Los créditos del evento no pueden ser negativos.');
+    if (
+      dto.credits !== undefined &&
+      dto.credits !== null &&
+      (dto.credits < 1 || dto.credits > 21)
+    ) {
+      throw new BadRequestException('Los créditos del evento deben estar entre 1 y 21.');
     }
 
     if (dto.professionalSchoolId !== undefined) {
@@ -338,12 +347,12 @@ export class EventsService {
           endDate,
           ...(dto.modality !== undefined ? { modality: dto.modality } : {}),
           ...(dto.location !== undefined ? { location: dto.location.trim() } : {}),
-          ...(dto.capacity !== undefined ? { capacity: dto.capacity } : {}),
+          ...(dto.capacity !== undefined ? { capacity: dto.capacity ?? 0 } : {}),
           ...(dto.organizerId !== undefined ? { organizerId: dto.organizerId } : {}),
           ...(dto.professionalSchoolId !== undefined
             ? { professionalSchoolId: dto.professionalSchoolId }
             : {}),
-          ...(dto.credits !== undefined ? { credits: dto.credits } : {}),
+          ...(dto.credits !== undefined ? { credits: dto.credits ?? 1 } : {}),
           ...(dto.status !== undefined ? { status: dto.status } : {}),
           // Cada modificacion actualiza quien la hizo; userCreate no se toca.
           userUpdate: actor.fullName,

@@ -130,6 +130,18 @@ export class CatalogService {
       return { ok: false, message: 'Escribe un nombre antes de agregar.' };
     }
 
+    if (/\d/.test(trimmed)) {
+      return { ok: false, message: 'El nombre no puede contener números.' };
+    }
+
+    if (trimmed.length < 2) {
+      return { ok: false, message: 'El nombre debe tener al menos 2 caracteres.' };
+    }
+
+    if (trimmed.length > 150) {
+      return { ok: false, message: 'El nombre no puede superar los 150 caracteres.' };
+    }
+
     if (this.existsByName(kind, trimmed)) {
       return { ok: false, message: 'Ya existe una entrada con ese nombre.' };
     }
@@ -151,6 +163,18 @@ export class CatalogService {
 
     if (!trimmed) {
       return { ok: false, message: 'El nombre no puede quedar vacío.' };
+    }
+
+    if (/\d/.test(trimmed)) {
+      return { ok: false, message: 'El nombre no puede contener números.' };
+    }
+
+    if (trimmed.length < 2) {
+      return { ok: false, message: 'El nombre debe tener al menos 2 caracteres.' };
+    }
+
+    if (trimmed.length > 150) {
+      return { ok: false, message: 'El nombre no puede superar los 150 caracteres.' };
     }
 
     if (this.existsByName(kind, trimmed, id)) {

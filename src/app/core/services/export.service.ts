@@ -300,7 +300,7 @@ export class ExportService {
       optionalText(event.location),
       optionalText(event.organizer),
       formatCredits(event.credits),
-      event.capacity ? String(event.capacity) : '',
+      event.capacity > 0 ? String(event.capacity) : 'Sin límite',
       String(this.participationService.countForEvent(event.id, true)),
       event.status,
     ]);

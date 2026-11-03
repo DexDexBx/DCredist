@@ -45,7 +45,8 @@ export interface AcademicEvent {
   modality: EventModality;
   location?: string;
   status: EventStatus;
-  capacity?: number | null;
+  /** 0 significa sin limite de participantes. */
+  capacity: number;
 
   /** Id y nombre del organizador en el catalogo. */
   organizerId: number;
@@ -61,8 +62,6 @@ export interface AcademicEvent {
 
   /** Creditos que otorga el evento a cada participante. */
   credits: number;
-
-  tags?: string[];
 
   // --- Estado de importacion de participantes ---
 
@@ -115,11 +114,10 @@ export interface EventDraft {
   modality: EventModality;
   location: string;
   status: EventStatus;
-  capacity: number | null;
+  capacity: number;
   organizerId: number | null;
   professionalSchoolId: number | null;
   credits: number;
-  tags: string[];
 }
 
 export interface EventValidation {

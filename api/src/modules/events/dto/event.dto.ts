@@ -33,7 +33,8 @@ export class EventDto {
   })
   location!: string;
 
-  @ApiProperty({ nullable: true, example: 400 }) capacity!: number | null;
+  @ApiProperty({ example: 400, description: '0 significa sin limite de participantes.' })
+  capacity!: number;
 
   @ApiProperty({ example: 1 }) organizerId!: number;
   @ApiProperty({ example: 'VICERRECTORIA ACADEMICA' }) organizer!: string;

@@ -96,11 +96,6 @@
           <app-event-status-badge [status]="currentEvent.status" />
           <app-badge size="sm" color="light">{{ eventTypeName(currentEvent) }}</app-badge>
           <app-badge size="sm" color="primary">{{ currentEvent.credits }} créditos</app-badge>
-          @if (currentEvent.tags?.length) {
-          @for (tag of currentEvent.tags; track tag) {
-          <app-badge size="sm" color="light">{{ tag }}</app-badge>
-          }
-          }
         </div>
 
         <p class="text-sm leading-relaxed text-gray-600 dark:text-gray-300">
@@ -112,7 +107,7 @@
             <dc-icon name="clock" [size]="18" class="mt-0.5 text-gray-400" />
             <div>
               <dt class="text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                Fecha y horario
+                Fecha
               </dt>
               <dd class="mt-0.5 text-sm text-gray-900 dark:text-white/90">
                 {{ formatRange(currentEvent) }}
@@ -151,6 +146,7 @@
             </div>
           </div>
 
+          @if (auth.currentUser()?.role === 'ADMIN') {
           <div class="flex items-start gap-3">
             <dc-icon name="clock" [size]="18" class="mt-0.5 text-gray-400" />
             <div>
@@ -162,6 +158,19 @@
               </dd>
               <dd class="text-xs text-gray-500 dark:text-gray-400">
                 Última edición: {{ currentEvent.userUpdate || 'No registrada' }}
+              </dd>
+            </div>
+          </div>
+          }
+
+          <div class="flex items-start gap-3">
+            <dc-icon name="graduation" [size]="18" class="mt-0.5 text-gray-400" />
+            <div>
+              <dt class="text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                Escuela profesional
+              </dt>
+              <dd class="mt-0.5 text-sm text-gray-900 dark:text-white/90">
+                {{ currentEvent.professionalSchool }}
               </dd>
             </div>
           </div>

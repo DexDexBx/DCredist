@@ -81,7 +81,7 @@ export class EventFieldsDto {
   @Type(() => Number)
   @IsInt()
   @Min(0)
-  capacity?: number | null;
+  capacity?: number;
 
   @ApiProperty({
     example: 1,
@@ -106,8 +106,8 @@ export class EventFieldsDto {
   @IsOptional()
   @Type(() => Number)
   @IsNumber()
-  @Min(0)
-  @Max(100)
+  @Min(1, { message: 'Los créditos deben ser como mínimo 1.' })
+  @Max(21, { message: 'Los créditos no pueden superar 21.' })
   credits?: number;
 
   @ApiPropertyOptional({ enum: EventStatus, default: EventStatus.SCHEDULED })
