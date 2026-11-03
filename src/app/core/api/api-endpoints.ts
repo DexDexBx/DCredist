@@ -93,6 +93,8 @@ export const API_ENDPOINTS = {
   eventTypes: `${API_BASE_URL}/event-types`,
 
   participations: `${API_BASE_URL}/participations`,
+  eligibleStudents: `${API_BASE_URL}/participations/eligible-students`,
+  participationStudents: `${API_BASE_URL}/participations/students`,
   participation: (id: number) => `${API_BASE_URL}/participations/${id}`,
   participationImport: `${API_BASE_URL}/participations/import`,
 

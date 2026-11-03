@@ -81,6 +81,7 @@ export class ApiHydrationService {
         ),
         this.catalogService.loadAll(),
         this.eventTypeService.load(),
+        this.participationService.loadStudentDirectory(),
       ]);
 
       this.eventService.replaceAll(events.map(mapApiEvent));

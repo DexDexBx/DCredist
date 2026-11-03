@@ -16,6 +16,9 @@ export interface Participation {
   eventId: number;
   studentId: number;
 
+  /** Estudiante resuelto que llega con el listado del API (solo lectura). */
+  student?: Student;
+
   participationDate: string;
 
   credits: number;

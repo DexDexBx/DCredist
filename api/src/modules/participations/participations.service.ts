@@ -7,7 +7,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import type { Prisma } from '../../generated/prisma/client';
-import { EventStatus, ParticipationStatus } from '../../generated/prisma/client';
+import { EventStatus, ParticipationStatus, StudentStatus } from '../../generated/prisma/client';
 import type { Actor } from '../../common/actor/actor.types';
 import { assertCanReadSchool } from '../../common/actor/school-scope';
 import { isUniqueViolation } from '../../common/prisma/prisma-errors';
@@ -25,6 +25,7 @@ import {
   UpdateParticipationDto,
 } from './dto/create-participation.dto';
 import { StudentParticipationDto } from './dto/student-participation.dto';
+import { EligibleStudentDto } from './dto/eligible-student.dto';
 
 type ParticipationRow = Prisma.ParticipationGetPayload<object>;
 type ParticipationWithEvent = Prisma.ParticipationGetPayload<{ include: { event: true } }>;
@@ -33,7 +34,15 @@ type ParticipationWithEventAndStudent = Prisma.ParticipationGetPayload<{
 }>;
 
 const EVENT_INCLUDE = { event: true } as const;
-const CONTEXT_INCLUDE = { event: true, student: true } as const;
+const CONTEXT_INCLUDE = {
+  event: true,
+  student: {
+    include: {
+      professionalSchool: { select: { name: true } },
+      location: { select: { name: true } },
+    },
+  },
+} as const;
 
 @Injectable()
 export class ParticipationsService {
@@ -116,6 +125,96 @@ export class ParticipationsService {
     return rows.map((row) => this.toStudentParticipation(row));
   }
 
+  /**
+   * Estudiantes disponibles para un evento.
+   *
+   * Es el unico punto donde se consultan estudiantes de TODAS las escuelas:
+   * un evento de una escuela puede recibir asistentes de otras. El actor sigue
+   * limitado a operar eventos de su propia escuela.
+   *
+   * Excluye a quienes ya tienen cualquier participacion en el evento.
+   */
+  async findEligibleStudents(eventId: number, actor: Actor): Promise<EligibleStudentDto[]> {
+    const event = await this.prisma.event.findUnique({
+      where: { id: eventId },
+      select: { professionalSchoolId: true },
+    });
+
+    if (!event) {
+      throw new NotFoundException(`No existe un evento con id "${eventId}".`);
+    }
+
+    assertCanReadSchool(actor, event.professionalSchoolId);
+
+    const rows = await this.prisma.student.findMany({
+      where: {
+        status: StudentStatus.ACTIVE,
+        participations: { none: { eventId } },
+      },
+      select: {
+        id: true,
+        universityCode: true,
+        lastName: true,
+        firstName: true,
+        professionalSchoolId: true,
+        professionalSchool: { select: { name: true } },
+        locationId: true,
+        location: { select: { name: true } },
+        status: true,
+      },
+      orderBy: [{ lastName: 'asc' }, { firstName: 'asc' }],
+    });
+
+    return rows.map((row) => ({
+      id: row.id,
+      universityCode: row.universityCode,
+      lastName: row.lastName,
+      firstName: row.firstName,
+      professionalSchoolId: row.professionalSchoolId,
+      professionalSchool: row.professionalSchool.name,
+      locationId: row.locationId,
+      location: row.location.name,
+      status: row.status,
+    }));
+  }
+
+  /**
+   * Directorio ligero de estudiantes para el modulo de participaciones.
+   *
+   * Permite resolver el nombre, escuela y sede de participaciones de estudiantes
+   * de otras escuelas, sin exponer ese padron en el modulo de estudiantes.
+   */
+  async findStudentDirectory(): Promise<EligibleStudentDto[]> {
+    const rows = await this.prisma.student.findMany({
+      // Solo se necesitan quienes ya aparecen en alguna participacion.
+      where: { participations: { some: {} } },
+      select: {
+        id: true,
+        universityCode: true,
+        lastName: true,
+        firstName: true,
+        professionalSchoolId: true,
+        professionalSchool: { select: { name: true } },
+        locationId: true,
+        location: { select: { name: true } },
+        status: true,
+      },
+      orderBy: [{ lastName: 'asc' }, { firstName: 'asc' }],
+    });
+
+    return rows.map((row) => ({
+      id: row.id,
+      universityCode: row.universityCode,
+      lastName: row.lastName,
+      firstName: row.firstName,
+      professionalSchoolId: row.professionalSchoolId,
+      professionalSchool: row.professionalSchool.name,
+      locationId: row.locationId,
+      location: row.location.name,
+      status: row.status,
+    }));
+  }
+
   async create(dto: CreateParticipationDto, actor: Actor): Promise<ParticipationWithEvent> {
     // Las dos referencias deben existir: la FK lo garantizaria, pero un 404
     // explicito es mas util que un error de constraint.
@@ -134,12 +233,6 @@ export class ParticipationsService {
 
     if (!actor.isGlobal && event.professionalSchoolId !== actor.professionalSchoolId) {
       throw new ForbiddenException('Solo puedes registrar participaciones de tu propia escuela.');
-    }
-
-    if (event.professionalSchoolId !== student.professionalSchoolId) {
-      throw new BadRequestException(
-        'El estudiante y el evento pertenecen a escuelas profesionales distintas.'
-      );
     }
 
     if (event.status === EventStatus.CANCELLED) {
@@ -363,16 +456,6 @@ export class ParticipationsService {
       }
 
       found++;
-
-      if (student.professionalSchoolId !== event.professionalSchoolId) {
-        issues.push({
-          row: item.index + 1,
-          universityCode: item.code,
-          code: 'STUDENT_OTHER_SCHOOL',
-          message: `El estudiante ${item.code} pertenece a otra escuela profesional y no puede participar en este evento.`,
-        });
-        continue;
-      }
 
       if (student.status !== 'ACTIVE') {
         issues.push({

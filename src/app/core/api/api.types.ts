@@ -139,6 +139,19 @@ export interface ApiStudent {
   pendingGrades: number;
 }
 
+/** Estudiante disponible para registrar en un evento (todas las escuelas). */
+export interface ApiEligibleStudent {
+  id: number;
+  universityCode: string;
+  lastName: string;
+  firstName: string;
+  professionalSchoolId: number;
+  professionalSchool: string;
+  locationId: number;
+  location: string;
+  status: ApiStudentStatus;
+}
+
 export interface ApiCatalogFacet {
   id: number;
   name: string;
@@ -203,10 +216,24 @@ export interface ApiEvent {
 
 export type ApiParticipationStatus = 'VALID' | 'CANCELLED' | 'PENDING';
 
+export interface ApiParticipationStudent {
+  id: number;
+  universityCode: string;
+  lastName: string;
+  firstName: string;
+  professionalSchoolId: number;
+  professionalSchool: { name: string };
+  locationId: number;
+  location: { name: string };
+  status: ApiStudentStatus;
+}
+
 export interface ApiParticipation {
   id: number;
   eventId: number;
   studentId: number;
+  /** Estudiante embebido por el API para evitar otra consulta al mostrarlo. */
+  student?: ApiParticipationStudent;
   participationDate: string;
   credits: number;
   verificationCode: string;

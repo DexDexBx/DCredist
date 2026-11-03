@@ -22,6 +22,7 @@ import {
   ParticipationImportBatch,
   ParticipationImportMode,
   ParticipationLoadRequest,
+  Student,
   acceptsParticipations,
   eventLoadState,
   isImportCompleted,
@@ -99,7 +100,6 @@ export class ParticipationRegisterComponent {
   readonly importText = signal('');
   readonly importFileName = signal<string | null>(null);
   readonly isDragging = signal(false);
-  /** Cantidad de estudiantes activos del padron que carga "Cargar ejemplo". */
   readonly importError = signal<string | null>(null);
   readonly importStage1 = signal<ParticipationImportStage1Result | null>(null);
   readonly importStage2 = signal<ParticipationImportStage2Result | null>(null);
@@ -160,6 +160,10 @@ export class ParticipationRegisterComponent {
   readonly studentSearchCode = signal('');
   readonly foundStudent = signal<any | null>(null);
   readonly studentSearchError = signal<string | null>(null);
+
+  /** Estudiantes de todas las escuelas que aun pueden entrar al evento. */
+  readonly eligibleStudents = signal<Student[]>([]);
+  readonly loadingEligible = signal(false);
 
   readonly form = this.fb.nonNullable.group({
     eventId: ['', [Validators.required]],
@@ -255,24 +259,22 @@ export class ParticipationRegisterComponent {
    */
   readonly studentOptions = computed<DcSelectOption[]>(() => {
     const event = this.selectedEvent();
-    const registered = event
-      ? new Set(
-          this.participationService
-            .getByEvent(event.id)
-            .map((participation) => participation.studentId),
-        )
-      : new Set<number>();
+    if (!event) {
+      return [];
+    }
 
-    return this.studentService
-      .getStudents({
-        status: 'ACTIVE',
-        ...(event ? { professionalSchoolId: event.professionalSchoolId } : {}),
-      })
+    const registered = new Set(
+      this.participationService
+        .getByEvent(event.id)
+        .map((participation) => participation.studentId),
+    );
+
+    return this.eligibleStudents()
       .filter((student) => !registered.has(student.id))
       .map((student) => ({
         value: String(student.id),
         label: `${student.universityCode} · ${student.lastName}, ${student.firstName}`,
-        search: `${student.universityCode} ${student.lastName} ${student.firstName}`,
+        search: `${student.universityCode} ${student.lastName} ${student.firstName} ${student.professionalSchool} ${student.location}`,
         description: student.professionalSchool
           ? `${student.professionalSchool}${student.location ? ' · ' + student.location : ''}`
           : student.location,
@@ -306,6 +308,34 @@ export class ParticipationRegisterComponent {
         this.form.controls.eventId.setValue(value);
       }
     });
+
+    // Al cambiar de evento se cargan los estudiantes de todas las escuelas.
+    effect(() => {
+      const eventId = this.selectedEventId();
+      this.form.controls.studentId.setValue('');
+      this.foundStudent.set(null);
+      this.studentSearchCode.set('');
+      this.studentSearchError.set(null);
+      this.eligibleStudents.set([]);
+
+      if (!eventId) {
+        this.loadingEligible.set(false);
+        return;
+      }
+
+      this.loadingEligible.set(true);
+      void this.loadEligibleFor(eventId);
+    });
+  }
+
+  private async loadEligibleFor(eventId: number): Promise<void> {
+    const students = await this.participationService.loadEligibleStudents(eventId);
+    // Si el evento cambio mientras respondia el API, se descarta la respuesta.
+    if (this.selectedEventId() !== eventId) {
+      return;
+    }
+    this.eligibleStudents.set(students);
+    this.loadingEligible.set(false);
   }
 
   async onSubmit(): Promise<void> {
@@ -321,10 +351,17 @@ export class ParticipationRegisterComponent {
     }
 
     const value = this.form.getRawValue();
+    const studentId = Number(value.studentId);
+    const selectedStudent =
+      this.studentService.findById(studentId) ??
+      this.eligibleStudents().find((item) => item.id === studentId);
+    if (selectedStudent) {
+      this.participationService.rememberStudent(selectedStudent);
+    }
 
     const result = await this.participationService.register({
       eventId: event.id,
-      studentId: Number(value.studentId),
+      studentId,
       // Los creditos SIEMPRE vienen del evento: no se editan aqui.
       credits: event.credits,
       grade: value.grade.trim() || undefined,
@@ -335,7 +372,13 @@ export class ParticipationRegisterComponent {
       return;
     }
 
-    const student = this.studentService.findById(Number(value.studentId));
+    const student =
+      this.studentService.findById(studentId) ??
+      this.eligibleStudents().find((item) => item.id === studentId);
+    if (student) {
+      this.participationService.rememberStudent(student);
+    }
+
     this.createdCode.set(result.participation?.verificationCode ?? null);
     this.successMessage.set(
       `Participación registrada${student ? ` para ${student.lastName}, ${student.firstName}` : ''}.`
@@ -360,20 +403,16 @@ export class ParticipationRegisterComponent {
       this.studentSearchError.set('Ingrese el código de estudiante');
       return;
     }
-    const student = this.studentService.findByUniversityCode(code);
+    const event = this.selectedEvent();
+    const student =
+      this.eligibleStudents().find((item) => item.universityCode === code) ??
+      this.studentService.findByUniversityCode(code);
     if (!student) {
       this.studentSearchError.set('Estudiante no encontrado');
       return;
     }
     if (student.status !== 'ACTIVE') {
       this.studentSearchError.set('El estudiante se encuentra inactivo');
-      return;
-    }
-    const event = this.selectedEvent();
-    if (event && student.professionalSchoolId !== event.professionalSchoolId) {
-      this.studentSearchError.set(
-        'El estudiante pertenece a otra escuela profesional que el evento.',
-      );
       return;
     }
     if (event && this.participationService.exists(event.id, student.id)) {

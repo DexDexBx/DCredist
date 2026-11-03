@@ -8,6 +8,7 @@ import {
   ApiCatalogPayload,
   ApiEvent,
   ApiEventPayload,
+  ApiEligibleStudent,
   ApiEventTypeEntry,
   ApiLoginResponse,
   ApiParticipation,
@@ -166,6 +167,16 @@ export class DcreditsApiClient {
 
   listParticipations(): Observable<ApiParticipation[]> {
     return this.http.get<ApiParticipation[]>(API_ENDPOINTS.participations);
+  }
+
+  listEligibleStudents(eventId: number): Observable<ApiEligibleStudent[]> {
+    return this.http.get<ApiEligibleStudent[]>(API_ENDPOINTS.eligibleStudents, {
+      params: new HttpParams().set('eventId', String(eventId)),
+    });
+  }
+
+  listParticipationStudents(): Observable<ApiEligibleStudent[]> {
+    return this.http.get<ApiEligibleStudent[]>(API_ENDPOINTS.participationStudents);
   }
 
   createParticipation(payload: ApiParticipationPayload): Observable<ApiParticipation> {

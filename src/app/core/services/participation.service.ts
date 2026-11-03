@@ -15,6 +15,7 @@ import {
   ParticipationSortKey,
   ParticipationStatus,
   ParticipationSummary,
+  Student,
   acceptsParticipations,
   codeContains,
   compactCode,
@@ -35,7 +36,11 @@ import {
 } from '../../shared/utils/text.utils';
 import { EventService } from './event.service';
 import { StudentService } from './student.service';
-import { mapApiParticipation, toApiParticipationPayload } from '../api/api.mappers';
+import {
+  mapApiEligibleStudent,
+  mapApiParticipation,
+  toApiParticipationPayload,
+} from '../api/api.mappers';
 import { DcreditsApiClient } from '../api/dcredits-api.client';
 import { DataModeService } from './data-mode.service';
 
@@ -178,11 +183,26 @@ export class ParticipationService {
 
   private readonly participationsState = signal<Participation[]>([]);
 
+  /** Estudiantes de todas las escuelas, solo para resolver nombres en participaciones. */
+  private readonly studentDirectory = signal<Map<number, Student>>(new Map());
+
   readonly participations = this.participationsState.asReadonly();
 
   /** Reemplaza el historial con el que devuelve el API (hidratacion al arrancar). */
   replaceAll(participations: Participation[]): void {
     this.participationsState.set(participations);
+
+    // Aprovecha el estudiante embebido que ya devuelve el listado. Esto resuelve
+    // nombres de estudiantes externos sin exponer el padron completo.
+    this.studentDirectory.update((current) => {
+      const next = new Map(current);
+      for (const participation of participations) {
+        if (participation.student) {
+          next.set(participation.student.id, participation.student);
+        }
+      }
+      return next;
+    });
   }
 
   /** Lotes de importacion confirmados, del mas reciente al mas antiguo. */
@@ -762,7 +782,9 @@ getParticipations(query: ParticipationQuery = {}): Participation[] {
     return {
       participation,
       event: this.eventService.findById(participation.eventId),
-      student: this.studentService.findById(participation.studentId),
+      student:
+        this.studentService.findById(participation.studentId) ??
+        this.studentDirectory().get(participation.studentId),
     };
   }
 
@@ -882,7 +904,9 @@ getParticipations(query: ParticipationQuery = {}): Participation[] {
       };
     }
 
-    const student = this.studentService.findById(draft.studentId);
+    const student =
+      this.studentService.findById(draft.studentId) ??
+      this.studentDirectory().get(draft.studentId);
     if (!student) {
       return {
         ok: false,
@@ -1040,6 +1064,72 @@ getParticipations(query: ParticipationQuery = {}): Participation[] {
   }
 
   /**
+   * Estudiantes disponibles para registrar en un evento.
+   *
+   * Consulta el endpoint exclusivo del modulo de participaciones, que devuelve
+   * estudiantes de TODAS las escuelas y excluye a los ya registrados.
+   */
+  /** Carga el directorio de estudiantes que usa el modulo de participaciones. */
+  async loadStudentDirectory(): Promise<void> {
+    if (!this.dataMode.isApi) {
+      return;
+    }
+
+    try {
+      const rows = await firstValueFrom(this.api.listParticipationStudents());
+      this.studentDirectory.set(
+        new Map(rows.map((row) => [row.id, mapApiEligibleStudent(row)])),
+      );
+    } catch {
+      // Sin directorio se conserva el padron propio.
+    }
+  }
+
+  /** Recuerda un estudiante para resolver su nombre sin recargar el directorio. */
+  rememberStudent(student: Student): void {
+    this.studentDirectory.update((current) => {
+      const next = new Map(current);
+      next.set(student.id, student);
+      return next;
+    });
+  }
+
+  async loadEligibleStudents(eventId: number): Promise<Student[]> {
+    if (!this.dataMode.isApi) {
+      return this.studentService.getStudents({ status: 'ACTIVE' });
+    }
+
+    try {
+      const rows = await firstValueFrom(this.api.listEligibleStudents(eventId));
+      const students = rows.map(mapApiEligibleStudent);
+
+      // Se guardan tambien en el directorio para resolver nombre al registrar
+      // y para la importacion por codigo.
+      this.studentDirectory.update((current) => {
+        const next = new Map(current);
+        for (const student of students) {
+          next.set(student.id, student);
+        }
+        return next;
+      });
+
+      return students;
+    } catch {
+      return [];
+    }
+  }
+
+  /** Busca por codigo en el padron propio o en el directorio de participaciones. */
+  private findStudentByCode(code: string): Student | undefined {
+    return (
+      this.studentService.findByUniversityCode(code) ??
+      [...this.studentDirectory().values()].find(
+        (student) => student.universityCode === code.trim(),
+      )
+    );
+  }
+
+  /**
    * Etapa 1: Carga inicial de registros a estado temporal (en memoria)
    */
   importStage1(
@@ -1085,7 +1175,7 @@ getParticipations(query: ParticipationQuery = {}): Participation[] {
         continue;
       }
 
-      const student = this.studentService.findByUniversityCode(code);
+      const student = this.findStudentByCode(code);
       if (!student) {
         item.valid = false;
         item.error = 'Código de estudiante no encontrado';

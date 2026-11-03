@@ -18,6 +18,7 @@ import {
   QueryParticipationsDto,
   UpdateParticipationDto,
 } from './dto/create-participation.dto';
+import { EligibleStudentDto } from './dto/eligible-student.dto';
 import { ParticipationsService } from './participations.service';
 
 @ApiTags('participations')
@@ -35,6 +36,32 @@ export class ParticipationsController {
     @CurrentActor() actor: Actor
   ) {
     return this.participationsService.findAll(query, actor);
+  }
+
+  @Get('students')
+  @ApiOperation({
+    summary: 'Directorio ligero de estudiantes para participaciones.',
+    description:
+      'Permite mostrar participaciones de estudiantes de otras escuelas. No sustituye al padron del modulo de estudiantes.',
+  })
+  @ApiOkResponse({ type: EligibleStudentDto, isArray: true })
+  findStudentDirectory(): Promise<EligibleStudentDto[]> {
+    return this.participationsService.findStudentDirectory();
+  }
+
+  @Get('eligible-students')
+  @ApiOperation({
+    summary: 'Estudiantes disponibles para un evento.',
+    description:
+      'Incluye estudiantes de todas las escuelas, porque un evento puede recibir asistentes externos. Excluye a quienes ya tienen una participacion en el evento.',
+  })
+  @ApiOkResponse({ type: EligibleStudentDto, isArray: true })
+  @ApiNotFoundResponse({ description: 'El evento no existe.' })
+  findEligibleStudents(
+    @Query('eventId', ParseIntPipe) eventId: number,
+    @CurrentActor() actor: Actor
+  ): Promise<EligibleStudentDto[]> {
+    return this.participationsService.findEligibleStudents(eventId, actor);
   }
 
   @Get(':id')

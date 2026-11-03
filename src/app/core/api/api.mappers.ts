@@ -22,6 +22,7 @@ import {
   ApiCatalogEntry,
   ApiEvent,
   ApiEventModality,
+  ApiEligibleStudent,
   ApiEventPayload,
   ApiEventStatus,
   ApiModule,
@@ -87,6 +88,20 @@ function toDateOnly(value: string): string {
   const month = String(date.getUTCMonth() + 1).padStart(2, '0');
   const day = String(date.getUTCDate()).padStart(2, '0');
   return `${year}-${month}-${day}`;
+}
+
+export function mapApiEligibleStudent(row: ApiEligibleStudent): Student {
+  return {
+    id: row.id,
+    universityCode: row.universityCode,
+    lastName: row.lastName,
+    firstName: row.firstName,
+    professionalSchoolId: row.professionalSchoolId,
+    professionalSchool: row.professionalSchool,
+    locationId: row.locationId,
+    location: row.location,
+    status: row.status,
+  };
 }
 
 export function mapApiStudent(row: ApiStudent): Student {
@@ -189,6 +204,19 @@ export function mapApiParticipation(row: ApiParticipation): Participation {
     id: row.id,
     eventId: row.eventId,
     studentId: row.studentId,
+    student: row.student
+      ? {
+          id: row.student.id,
+          universityCode: row.student.universityCode,
+          lastName: row.student.lastName,
+          firstName: row.student.firstName,
+          professionalSchoolId: row.student.professionalSchoolId,
+          professionalSchool: row.student.professionalSchool?.name ?? '',
+          locationId: row.student.locationId,
+          location: row.student.location?.name ?? '',
+          status: row.student.status,
+        }
+      : undefined,
     participationDate: toIso(row.participationDate),
     credits: row.credits,
     verificationCode: row.verificationCode,
