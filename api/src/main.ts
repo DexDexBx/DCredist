@@ -4,11 +4,18 @@ import 'reflect-metadata';
 import 'dotenv/config';
 import { Logger, ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
+import type { NestExpressApplication } from '@nestjs/platform-express';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { AppModule } from './app.module';
 
 async function bootstrap(): Promise<void> {
-  const app = await NestFactory.create(AppModule);
+  // Las importaciones masivas mandan miles de filas en un solo JSON: el
+  // limite por defecto (100 KB) las rechazaria antes de procesarlas.
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, {
+    bodyParser: false,
+  });
+  app.useBodyParser('json', { limit: '20mb' });
+  app.useBodyParser('urlencoded', { limit: '20mb', extended: true });
 
   // Todo cuelga de /api: es el prefijo que consume el frontend de DCredits y el
   // que usa el proxy de desarrollo. Swagger queda fuera del prefijo.

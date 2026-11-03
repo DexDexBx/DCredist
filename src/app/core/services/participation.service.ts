@@ -186,6 +186,15 @@ export class ParticipationService {
   /** Estudiantes de todas las escuelas, solo para resolver nombres en participaciones. */
   private readonly studentDirectory = signal<Map<number, Student>>(new Map());
 
+  /** Indice por codigo universitario para las importaciones masivas. */
+  private readonly studentDirectoryByCode = computed(() => {
+    const index = new Map<string, Student>();
+    for (const student of this.studentDirectory().values()) {
+      index.set(student.universityCode, student);
+    }
+    return index;
+  });
+
   readonly participations = this.participationsState.asReadonly();
 
   /** Reemplaza el historial con el que devuelve el API (hidratacion al arrancar). */
@@ -1121,11 +1130,10 @@ getParticipations(query: ParticipationQuery = {}): Participation[] {
 
   /** Busca por codigo en el padron propio o en el directorio de participaciones. */
   private findStudentByCode(code: string): Student | undefined {
+    const normalized = code.trim();
     return (
-      this.studentService.findByUniversityCode(code) ??
-      [...this.studentDirectory().values()].find(
-        (student) => student.universityCode === code.trim(),
-      )
+      this.studentService.findByUniversityCode(normalized) ??
+      this.studentDirectoryByCode().get(normalized)
     );
   }
 
@@ -1165,12 +1173,33 @@ getParticipations(query: ParticipationQuery = {}): Participation[] {
     let validCount = 0;
     let invalidCount = 0;
 
+    // Se resuelven una sola vez por evento: evita recorrer todo el historial
+    // por cada fila de una carga de miles de lineas.
+    const registeredIds = new Set(
+      (this.participationsByEvent().get(eventId) ?? []).map(
+        (participation) => participation.studentId,
+      ),
+    );
+    const registeredCount =
+      event && event.capacity !== null && event.capacity !== undefined && event.capacity > 0
+        ? this.countForEvent(eventId, true)
+        : 0;
+    const validCodes = new Set<string>();
+
     for (const item of items) {
       const code = item.code;
       if (!code) {
         item.valid = false;
         item.error = 'Campo de código obligatorio no proporcionado';
         errors.push({ row: item.row, code: '[VACÍO]', reason: item.error });
+        invalidCount++;
+        continue;
+      }
+
+      if (validCodes.has(code)) {
+        item.valid = false;
+        item.error = 'Código duplicado en la carga';
+        errors.push({ row: item.row, code, reason: item.error });
         invalidCount++;
         continue;
       }
@@ -1184,8 +1213,7 @@ getParticipations(query: ParticipationQuery = {}): Participation[] {
         continue;
       }
 
-      const existing = this.exists(eventId, student.id);
-      if (existing) {
+      if (registeredIds.has(student.id)) {
         item.valid = false;
         item.error = 'El estudiante ya está registrado en este evento';
         errors.push({ row: item.row, code, reason: item.error });
@@ -1225,10 +1253,7 @@ getParticipations(query: ParticipationQuery = {}): Participation[] {
       }
 
       if (event.capacity !== null && event.capacity !== undefined && event.capacity > 0) {
-        const registered = this.countForEvent(event.id, true);
-        // Solo se suman las filas ya aprobadas; no se debe contar dos veces
-        // la misma fila (eso rechazaba la segunda cuando la capacidad era 2).
-        if (registered + validCount >= event.capacity) {
+        if (registeredCount + validCount >= event.capacity) {
           item.valid = false;
           item.error = 'El evento alcanzó su capacidad máxima';
           errors.push({ row: item.row, code, reason: item.error });
@@ -1237,19 +1262,10 @@ getParticipations(query: ParticipationQuery = {}): Participation[] {
         }
       }
 
-      const duplicateInBatch = items.filter(i => i.row < item.row && i.code === code && i.valid).length > 0 || 
-                               items.filter(i => i.row !== item.row && i.code === code).some(i => i.valid);
-      if (duplicateInBatch) {
-        item.valid = false;
-        item.error = 'Código duplicado en la carga';
-        errors.push({ row: item.row, code, reason: item.error });
-        invalidCount++;
-        continue;
-      }
-
       item.valid = true;
       item.studentId = student.id;
       item.student = student;
+      validCodes.add(code);
       validCount++;
     }
 

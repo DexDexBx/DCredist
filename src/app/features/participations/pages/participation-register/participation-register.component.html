@@ -437,7 +437,7 @@
                 </tr>
               </thead>
               <tbody class="divide-y divide-gray-200 dark:divide-gray-800">
-                @for (item of stage2.items; track item.row) {
+                @for (item of stage2PreviewItems(); track item.row) {
                 <tr class="align-top">
                   <td class="px-3 py-2.5 text-gray-500 dark:text-gray-400">{{ item.row }}</td>
                   <td class="px-3 py-2.5 font-mono text-gray-900 dark:text-white/90">{{ item.code || '—' }}</td>
@@ -462,6 +462,13 @@
             </table>
           </div>
         </div>
+
+        @if (stage2.items.length > importPreviewLimit) {
+        <p class="text-xs text-gray-500 dark:text-gray-400">
+          Mostrando las primeras {{ importPreviewLimit }} filas de {{ stage2.total }}. Los totales
+          de arriba incluyen todas.
+        </p>
+        }
 
         @if (stage2.valid === 0) {
         <p class="text-sm text-gray-500 dark:text-gray-400">
@@ -547,7 +554,7 @@
                 </tr>
               </thead>
               <tbody class="divide-y divide-gray-200 dark:divide-gray-800">
-                @for (err of importErrors(); track err.row + err.code + err.reason) {
+                @for (err of importErrorsPreview(); track err.row + err.code + err.reason) {
                 <tr>
                   <td class="px-3 py-2 text-gray-500 dark:text-gray-400">{{ err.row }}</td>
                   <td class="px-3 py-2 font-mono text-gray-700 dark:text-gray-300">{{ err.code }}</td>
@@ -557,6 +564,12 @@
               </tbody>
             </table>
           </div>
+          @if (importErrors().length > importPreviewLimit) {
+          <p class="text-xs text-gray-500 dark:text-gray-400">
+            Mostrando los primeros {{ importPreviewLimit }} de {{ importErrors().length }}. Descarga
+            el reporte para verlos todos.
+          </p>
+          }
         </div>
         }
       </div>

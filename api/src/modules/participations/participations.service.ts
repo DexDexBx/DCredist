@@ -10,10 +10,12 @@ import type { Prisma } from '../../generated/prisma/client';
 import { EventStatus, ParticipationStatus, StudentStatus } from '../../generated/prisma/client';
 import type { Actor } from '../../common/actor/actor.types';
 import { assertCanReadSchool } from '../../common/actor/school-scope';
+import { BULK_INSERT_BATCH_SIZE, chunk } from '../../common/prisma/bulk';
 import { isUniqueViolation } from '../../common/prisma/prisma-errors';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import {
   generateUniqueVerificationCode,
+  generateUniqueVerificationCodes,
   normalizeVerificationCode,
 } from '../../common/verification-code';
 import {
@@ -538,46 +540,57 @@ export class ParticipationsService {
       };
     });
 
-    // Un codigo por fila: se generan antes de insertar para que el INSERT sea
-    // una sola sentencia.
-    for (let index = 0; index < data.length; index++) {
-      data[index].verificationCode = await generateUniqueVerificationCode(this.prisma);
-    }
+    // Un codigo por fila, generados en lote para no hacer una consulta por
+    // cada estudiante de una carga de miles de filas.
+    const codes = await generateUniqueVerificationCodes(this.prisma, data.length);
+    data.forEach((item, index) => {
+      item.verificationCode = codes[index];
+    });
 
-    try {
-      const result = await this.prisma.participation.createMany({ data });
-      return result.count;
-    } catch (error) {
-      this.logger.warn(
-        `La carga por lotes de ${data.length} filas fallo; se reintenta fila a fila.`,
-        error
-      );
+    // Tandas de tamano seguro: miles de filas en un solo INSERT superan el
+    // limite de parametros por sentencia de PostgreSQL. Si una tanda falla por
+    // una constraint, solo esa tanda se reintenta fila a fila para no perder
+    // el resto de la carga.
+    let registered = 0;
 
-      let registered = 0;
+    for (let start = 0; start < data.length; start += BULK_INSERT_BATCH_SIZE) {
+      const batch = data.slice(start, start + BULK_INSERT_BATCH_SIZE);
 
-      for (let index = 0; index < data.length; index++) {
-        try {
-          await this.prisma.participation.create({ data: data[index] });
-          registered++;
-        } catch (rowError) {
-          const code = dto.rows[insertable[index].index].universityCode.trim();
-          const duplicate =
-            isUniqueViolation(rowError, 'eventId,studentId') ||
-            isUniqueViolation(rowError, 'verificationCode');
+      try {
+        const result = await this.prisma.participation.createMany({ data: batch });
+        registered += result.count;
+      } catch (error) {
+        this.logger.warn(
+          `La carga por lotes de ${batch.length} filas fallo; se reintenta fila a fila.`,
+          error
+        );
 
-          issues.push({
-            row: insertable[index].index + 1,
-            universityCode: code,
-            code: duplicate ? 'ALREADY_REGISTERED' : 'DB_ERROR',
-            message: duplicate
-              ? `No se pudo registrar ${code}: el registro ya existe.`
-              : `No se pudo registrar ${code}: error de base de datos.`,
-          });
+        for (let offset = 0; offset < batch.length; offset++) {
+          const index = start + offset;
+
+          try {
+            await this.prisma.participation.create({ data: data[index] });
+            registered++;
+          } catch (rowError) {
+            const code = dto.rows[insertable[index].index].universityCode.trim();
+            const duplicate =
+              isUniqueViolation(rowError, 'eventId,studentId') ||
+              isUniqueViolation(rowError, 'verificationCode');
+
+            issues.push({
+              row: insertable[index].index + 1,
+              universityCode: code,
+              code: duplicate ? 'ALREADY_REGISTERED' : 'DB_ERROR',
+              message: duplicate
+                ? `No se pudo registrar ${code}: el registro ya existe.`
+                : `No se pudo registrar ${code}: error de base de datos.`,
+            });
+          }
         }
       }
-
-      return registered;
     }
+
+    return registered;
   }
 
   private async assertCapacity(

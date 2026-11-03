@@ -72,3 +72,43 @@ export async function generateUniqueVerificationCode(
     `No se pudo generar un verificationCode libre tras ${MAX_ATTEMPTS} intentos. Revisa la tabla participations.`
   );
 }
+
+/**
+ * Genera varios codigos libres de una sola vez para una carga masiva.
+ *
+ * Evita una consulta a la base por cada fila: construye los candidatos y
+ * valida todos en una sola consulta IN. La constraint UNIQUE sigue siendo la
+ * garantia final.
+ */
+export async function generateUniqueVerificationCodes(
+  prisma: PrismaService,
+  count: number,
+  year: number = new Date().getFullYear()
+): Promise<string[]> {
+  const prefix = `DC-${year}-`;
+  const candidates = new Set<string>();
+
+  while (candidates.size < count) {
+    candidates.add(`${prefix}${randomBody()}`);
+  }
+
+  let available = [...candidates];
+  const existing = await prisma.participation.findMany({
+    where: { verificationCode: { in: available } },
+    select: { verificationCode: true },
+  });
+  const taken = new Set(existing.map((row) => row.verificationCode));
+  available = available.filter((code) => !taken.has(code));
+
+  while (available.length < count) {
+    const extra = `${prefix}${randomBody()}`;
+    const exists = await prisma.participation.count({
+      where: { verificationCode: extra },
+    });
+    if (exists === 0 && !available.includes(extra)) {
+      available.push(extra);
+    }
+  }
+
+  return available.slice(0, count);
+}

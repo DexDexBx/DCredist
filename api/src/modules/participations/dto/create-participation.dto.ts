@@ -187,7 +187,7 @@ export class ImportParticipationsDto {
   @ApiProperty({ type: [ParticipationImportRowDto] })
   @IsArray()
   @ArrayMinSize(1, { message: 'El archivo no contiene filas para importar.' })
-  @ArrayMaxSize(5000, { message: 'El archivo supera el maximo de 5000 filas por carga.' })
+  @ArrayMaxSize(20000, { message: 'El archivo supera el maximo de 20000 filas por carga.' })
   @ValidateNested({ each: true })
   @Type(() => ParticipationImportRowDto)
   rows!: ParticipationImportRowDto[];

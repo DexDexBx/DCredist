@@ -15,6 +15,7 @@ import {
 import type { Actor } from '../../common/actor/actor.types';
 import { isGeneralSchool } from '../../common/actor/actor.guard';
 import { assertCanReadSchool, assertCanWriteSchool } from '../../common/actor/school-scope';
+import { BULK_INSERT_BATCH_SIZE, chunk } from '../../common/prisma/bulk';
 import { isUniqueViolation } from '../../common/prisma/prisma-errors';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { creditsProgress, creditsTarget } from '../../common/domain';
@@ -552,31 +553,28 @@ export class StudentsService {
       });
     }
 
-    let created = 0;
-    let enriched = 0;
+    const toCreate = resolved
+      .filter((item) => !item.current)
+      .map((item) => ({
+        universityCode: item.code,
+        lastName: item.lastName,
+        firstName: item.firstName,
+        professionalSchoolId: item.schoolId,
+        locationId: item.locationId,
+        status: StudentStatus.ACTIVE,
+      }));
 
-    await this.prisma.$transaction(async (tx) => {
-      for (const item of resolved) {
-        if (item.current) {
-          // El estudiante ya existe: no se reasigna ni se pisa ningun dato.
-          enriched++;
-          continue;
-        }
+    // Miles de altas en tandas dentro de UNA transaccion: sigue siendo atomico
+    // y evita superar el limite de parametros por sentencia de PostgreSQL.
+    if (toCreate.length > 0) {
+      const batches = chunk(toCreate, BULK_INSERT_BATCH_SIZE);
+      await this.prisma.$transaction(
+        batches.map((batch) => this.prisma.student.createMany({ data: batch }))
+      );
+    }
 
-        await tx.student.create({
-          data: {
-            universityCode: item.code,
-            lastName: item.lastName,
-            firstName: item.firstName,
-            professionalSchoolId: item.schoolId,
-            locationId: item.locationId,
-            status: StudentStatus.ACTIVE,
-          },
-        });
-
-        created++;
-      }
-    });
+    const created = toCreate.length;
+    const enriched = resolved.length - toCreate.length;
 
     return { total: candidates.length, created, enriched, issues: [] };
   }

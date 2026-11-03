@@ -288,7 +288,7 @@
       <p class="mt-1 text-error-700 dark:text-error-400">{{ summary.message }}</p>
       @if (summary.issues?.length) {
       <ul class="mt-2 max-h-64 space-y-1 overflow-y-auto text-error-700 dark:text-error-400">
-        @for (issue of summary.issues; track issue.row + issue.message) {
+        @for (issue of importIssuesPreview(); track issue.row + issue.message) {
         <li>
           <span class="font-medium">Fila {{ issue.row }}</span>
           @if (issue.universityCode) {
@@ -298,6 +298,11 @@
         </li>
         }
       </ul>
+      @if (summary.issues.length > importIssuesPreview().length) {
+      <p class="mt-2 text-xs text-error-600 dark:text-error-400">
+        Mostrando los primeros {{ importIssuesPreview().length }} de {{ summary.issues.length }}.
+      </p>
+      }
       }
       } @else {
       <ul class="mt-2 space-y-1 text-gray-600 dark:text-gray-300">

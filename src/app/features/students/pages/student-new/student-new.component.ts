@@ -71,6 +71,11 @@ export class StudentNewComponent {
   readonly isDragging = signal(false);
   readonly importFileError = signal<string | null>(null);
   readonly importSummary = signal<StudentImportSummary | null>(null);
+
+  /** Tope de errores dibujados: un archivo invalido puede traer miles. */
+  readonly importIssuesPreview = computed(() =>
+    (this.importSummary()?.issues ?? []).slice(0, 200)
+  );
   readonly importing = signal(false);
 
   /** Las escuelas y sedes salen del catalogo administrable. */

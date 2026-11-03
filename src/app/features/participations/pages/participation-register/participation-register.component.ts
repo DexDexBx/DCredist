@@ -106,6 +106,20 @@ export class ParticipationRegisterComponent {
   readonly importErrors = signal<ParticipationImportError[]>([]);
   readonly importSummary = signal<ParticipationImportSummary | null>(null);
 
+  /**
+   * Filas dibujadas como maximo en el modal de importacion.
+   *
+   * Una carga de miles de codigos no puede pintar miles de filas de tabla: el
+   * navegador se congela. Los totales y el reporte descargable siguen completos.
+   */
+  readonly importPreviewLimit = 200;
+  readonly stage2PreviewItems = computed(() =>
+    (this.importStage2()?.items ?? []).slice(0, this.importPreviewLimit)
+  );
+  readonly importErrorsPreview = computed(() =>
+    this.importErrors().slice(0, this.importPreviewLimit)
+  );
+
   // --- Modo de la carga y trazabilidad de extemporaneos ---
   readonly importMode = signal<ParticipationImportMode>('NORMAL');
   readonly lateUploadedBy = signal('');
