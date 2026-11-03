@@ -69,7 +69,7 @@
       label="Créditos vigentes en todo el sistema"
     />
 
-    <dl class="mt-5 grid grid-cols-3 gap-3">
+    <dl class="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-3">
       <div>
         <dt class="text-xs text-gray-500 dark:text-gray-400">Avance promedio</dt>
         <dd class="mt-1 text-lg font-semibold text-gray-900 dark:text-white/90">
@@ -221,7 +221,7 @@
       <li class="flex items-center gap-3">
         <a
           [routerLink]="['/students', item.student.id]"
-          class="w-40 truncate text-sm font-medium text-gray-900 hover:text-brand-600 dark:text-white/90 dark:hover:text-brand-400"
+          class="w-32 truncate text-sm font-medium text-gray-900 hover:text-brand-600 sm:w-40 dark:text-white/90 dark:hover:text-brand-400"
         >
           {{ item.student.lastName }}, {{ item.student.firstName }}
         </a>

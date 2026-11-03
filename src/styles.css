@@ -555,7 +555,8 @@ html.dark full-calendar,
   color: rgb(255 255 255 / 0.9);
 }
 
-.dc-calendar .fc-toolbar {
+.dc-calendar .fc-toolbar,
+.dc-calendar .dc-cal-toolbar {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -805,13 +806,42 @@ html.dark full-calendar,
 }
 
 @media (max-width: 640px) {
-  .dc-calendar .fc-toolbar {
+  .dc-calendar .fc-toolbar,
+  .dc-calendar .dc-cal-toolbar {
     justify-content: center;
   }
 
-  .dc-calendar .fc-toolbar-chunk {
+  .dc-calendar .fc-toolbar-chunk,
+  .dc-calendar .dc-cal-toolbar-section {
     width: 100%;
+    flex-wrap: wrap;
     justify-content: center;
+  }
+
+  /* Botones mas compactos: en un telefono la barra completa no cabe. */
+  .dc-calendar .fc-button,
+  .dc-calendar .dc-cal-button {
+    padding: 0.375rem 0.5rem;
+    font-size: 0.75rem;
+  }
+
+  .dc-calendar .fc-toolbar-title,
+  .dc-calendar .dc-cal-title {
+    font-size: 1rem;
+    text-align: center;
+  }
+
+  /*
+   * La vista anual y la semanal necesitan mas ancho del que ofrece un telefono.
+   * En lugar de comprimirlas hasta ser ilegibles, el contenedor permite
+   * desplazamiento horizontal.
+   */
+  .dc-calendar {
+    overflow-x: auto;
+  }
+
+  .dc-calendar .fc-multimonth {
+    flex-wrap: wrap;
   }
 }
 

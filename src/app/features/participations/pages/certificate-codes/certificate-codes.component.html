@@ -247,7 +247,7 @@
   title="Pendientes de convertir"
   subtitle="Participaciones que conservan el código anterior y todavía no tienen código de DCredits."
 >
-  <div class="overflow-x-auto">
+  <div class="hidden overflow-x-auto md:block">
     <table class="w-full min-w-[820px] border-collapse text-left text-sm">
       <thead>
         <tr
@@ -295,6 +295,30 @@
     </table>
   </div>
 
+  <!-- Tarjetas de pendientes para telefono. -->
+  <ul class="divide-y divide-gray-200 md:hidden dark:divide-gray-800">
+    @for (item of pending().slice(0, 20); track item.participation.id) {
+    <li class="py-4">
+      <p class="font-medium text-gray-900 dark:text-white/90">{{ studentName(item) }}</p>
+      <p class="font-mono text-xs text-gray-500 dark:text-gray-400">{{ studentCode(item) }}</p>
+      <p class="mt-1 text-sm text-gray-600 dark:text-gray-300">{{ eventName(item) }}</p>
+      <div
+        class="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-500 dark:text-gray-400"
+      >
+        <span>{{ date(item.participation.participationDate) }}</span>
+        <span class="font-mono">Anterior: {{ item.participation.legacyCode }}</span>
+      </div>
+      <button
+        type="button"
+        (click)="issue(item)"
+        class="mt-3 rounded-lg border border-brand-200 bg-brand-50 px-3 py-1.5 text-xs font-medium text-brand-700 transition-colors hover:bg-brand-100 dark:border-brand-500/20 dark:bg-brand-500/10 dark:text-brand-200"
+      >
+        Generar código
+      </button>
+    </li>
+    }
+  </ul>
+
   @if (pending().length > 20) {
   <p class="mt-3 text-xs text-gray-500 dark:text-gray-400">
     Se muestran los primeros 20 de {{ pending().length }} pendientes. La conversión
@@ -326,7 +350,7 @@
   subtitle="Participaciones que ya guardan los dos códigos juntos."
 >
   @if (recentlyIssued().length) {
-  <div class="overflow-x-auto">
+  <div class="hidden overflow-x-auto md:block">
     <table class="w-full min-w-[820px] border-collapse text-left text-sm">
       <thead>
         <tr
@@ -354,6 +378,23 @@
       </tbody>
     </table>
   </div>
+
+  <!-- Tarjetas del historico para telefono. -->
+  <ul class="divide-y divide-gray-200 md:hidden dark:divide-gray-800">
+    @for (item of recentlyIssued(); track item.id) {
+    <li class="py-4">
+      <div class="flex flex-wrap items-center justify-between gap-2">
+        <span class="font-mono text-sm text-gray-900 dark:text-white/90">{{
+          item.verificationCode
+        }}</span>
+        <app-badge size="sm" color="info">{{ originOf(item) }}</app-badge>
+      </div>
+      <p class="mt-1 font-mono text-xs text-gray-500 dark:text-gray-400">
+        Anterior: {{ item.legacyCode }}
+      </p>
+    </li>
+    }
+  </ul>
   <p class="mt-3 text-xs text-gray-500 dark:text-gray-400">
     {{ migratedCount() }} participación{{ migratedCount() === 1 ? '' : 'iones' }} conserva{{
       migratedCount() === 1 ? '' : 'n'

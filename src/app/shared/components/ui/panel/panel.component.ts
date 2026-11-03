@@ -20,7 +20,7 @@ export class PanelComponent {
   /** Estado de plegado. Arranca desplegado. */
   readonly collapsed = signal(false);
 
-  readonly bodyClasses = computed(() => this.bodyClass() || 'px-5 py-5');
+  readonly bodyClasses = computed(() => this.bodyClass() || 'px-4 py-4 sm:px-5 sm:py-5');
 
   toggle(): void {
     this.collapsed.update((value) => !value);

@@ -21,6 +21,21 @@ export class SidebarService {
       : 'w-[90px]'
   );
 
+  /**
+   * Clases del panel lateral.
+   *
+   * El desplazamiento movil se resuelve con UNA sola utilidad segun el estado.
+   * Antes convivian `max-xl:translate-x-full` (base) y `translate-x-0`
+   * (condicional); la variante de media query pesa mas en el CSS y dejaba el
+   * menu inmovil en telefonos y tablets.
+   */
+  readonly asideClasses = computed(
+    () =>
+      `${this.asideWidth()} ${
+        this.mobileOpenState() ? 'max-xl:translate-x-0' : 'max-xl:-translate-x-full'
+      }`
+  );
+
   /** Los labels solo se muestran cuando el menu es legible. */
   readonly showLabels = computed(
     () => this.expandedState() || this.hoveredState() || this.mobileOpenState()

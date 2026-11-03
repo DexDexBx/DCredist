@@ -16,7 +16,7 @@
 </dc-page-header>
 
 <div
-  class="mb-6 grid gap-3 rounded-2xl border border-gray-200 bg-white p-4 shadow-theme-xs dark:border-gray-800 dark:bg-white/[0.03] md:grid-cols-4"
+  class="mb-6 grid gap-3 rounded-2xl border border-gray-200 bg-white p-4 shadow-theme-xs sm:grid-cols-2 dark:border-gray-800 dark:bg-white/[0.03] md:grid-cols-4"
 >
   <label class="relative md:col-span-1">
     <span class="sr-only">Buscar usuario</span>
@@ -113,7 +113,7 @@
     </button>
   </dc-empty-state>
   } @else {
-  <div class="overflow-x-auto">
+  <div class="hidden overflow-x-auto lg:block">
     <table class="w-full min-w-[1040px] border-collapse text-sm">
       <thead>
         <tr class="border-b border-gray-200 dark:border-gray-800">
@@ -239,6 +239,89 @@
       </tbody>
     </table>
   </div>
+
+  <!-- Tarjetas: el directorio tambien se puede revisar desde el telefono. -->
+  <ul class="divide-y divide-gray-200 lg:hidden dark:divide-gray-800">
+    @for (user of pageData().items; track user.id) {
+    <li class="py-4">
+      <div class="flex items-start gap-3">
+        <span
+          class="flex size-9 shrink-0 items-center justify-center rounded-lg bg-brand-50 text-xs font-semibold text-brand-700 dark:bg-brand-500/15 dark:text-brand-300"
+          aria-hidden="true"
+          >{{ user.initials }}</span
+        >
+        <div class="min-w-0 flex-1">
+          <div class="flex items-center gap-1.5">
+            <a
+              [routerLink]="['/users', user.id]"
+              class="truncate font-medium text-gray-900 dark:text-white/90"
+              >{{ user.fullName }}</a
+            >
+            @if (isCurrent(user)) {
+            <span
+              class="shrink-0 rounded-full bg-success-50 px-2 py-0.5 text-[10px] font-medium text-success-600 dark:bg-success-500/15 dark:text-success-500"
+            >
+              Sesión actual
+            </span>
+            }
+          </div>
+          <p class="truncate text-xs text-gray-500 dark:text-gray-400">{{ user.email }}</p>
+          <p class="mt-0.5 truncate text-xs text-gray-500 dark:text-gray-400">
+            {{ user.professionalSchoolName }}
+          </p>
+        </div>
+        <app-badge size="sm" [color]="badgeColor(user.role)">{{
+          roleLabels[user.role]
+        }}</app-badge>
+      </div>
+
+      <div class="mt-3 flex flex-wrap items-center gap-2 text-xs">
+        @if (user.status === 'ACTIVE') {
+        <span
+          class="inline-flex items-center gap-1.5 rounded-full bg-success-50 px-2.5 py-0.5 font-medium text-success-600 dark:bg-success-500/15 dark:text-success-500"
+        >
+          <dc-icon name="check" [size]="12" />
+          Activo
+        </span>
+        } @else {
+        <span
+          class="inline-flex items-center gap-1.5 rounded-full bg-gray-100 px-2.5 py-0.5 font-medium text-gray-500 dark:bg-white/10 dark:text-gray-400"
+        >
+          <dc-icon name="close" [size]="12" />
+          Inactivo
+        </span>
+        }
+        <span class="text-gray-500 dark:text-gray-400">
+          @if (overrideCount(user) > 0) {
+          {{ overrideCount(user) }} módulo(s) ajustado(s)
+          } @else {
+          Predeterminados del perfil
+          }
+        </span>
+      </div>
+
+      <div class="mt-3 flex flex-wrap items-center gap-2">
+        <a
+          [routerLink]="['/users', user.id]"
+          class="inline-flex h-9 items-center gap-1.5 rounded-lg border border-gray-300 px-3 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-100 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-white/5"
+        >
+          <dc-icon name="pencil" [size]="15" />
+          Editar
+        </a>
+        @if (auth.can('users', 'MANAGE')) {
+        <button
+          type="button"
+          (click)="openPermissions(user)"
+          class="inline-flex h-9 items-center gap-1.5 rounded-lg border border-brand-200 bg-brand-50 px-3 text-xs font-medium text-brand-700 transition-colors hover:bg-brand-100 dark:border-brand-500/30 dark:bg-brand-500/10 dark:text-brand-300 dark:hover:bg-brand-500/20"
+        >
+          <dc-icon name="settings" [size]="15" />
+          Accesos
+        </button>
+        }
+      </div>
+    </li>
+    }
+  </ul>
 
   <div class="mt-4">
     <dc-pagination

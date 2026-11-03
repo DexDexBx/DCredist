@@ -72,6 +72,12 @@ export function buildCalendarOptions(config: EventCalendarConfig): CalendarOptio
     dayHeaderClass: (info: DayHeaderInfo) => dayHeaderClasses(info),
     dayCellClass: (info: DayCellInfo) => dayCellClasses(info),
     toolbarSectionClass: (info: ToolbarSectionInfo) => toolbarSectionClasses(info),
+    // FullCalendar 7 usa clases internas con hash: estas clases estables
+    // permiten que la hoja de estilos del proyecto controle el layout de la
+    // barra (y su envoltura en telefonos).
+    headerToolbarClass: () => 'dc-cal-toolbar',
+    toolbarClass: () => 'dc-cal-toolbar',
+    buttonClass: () => 'dc-cal-button',
   };
 }
 

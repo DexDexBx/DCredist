@@ -1,7 +1,6 @@
 ﻿<aside
-  class="fixed inset-y-0 start-0 z-50 flex flex-col border-e border-gray-200 bg-white transition-[width,transform] duration-300 ease-in-out dark:border-gray-800 dark:bg-white/[0.03] max-xl:translate-x-full"
-  [class]="sidebarService.asideWidth()"
-  [class.translate-x-0]="sidebarService.isMobileOpen()"
+  class="fixed inset-y-0 start-0 z-50 flex max-w-[85vw] flex-col border-e border-gray-200 bg-white transition-[width,transform] duration-300 ease-in-out max-xl:shadow-2xl max-xl:shadow-gray-900/20 xl:max-w-none dark:border-gray-800 dark:bg-gray-900"
+  [class]="sidebarService.asideClasses()"
   (mouseenter)="onMouseEnter()"
   (mouseleave)="onMouseLeave()"
 >

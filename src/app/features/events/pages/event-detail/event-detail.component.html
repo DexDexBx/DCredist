@@ -40,7 +40,7 @@
       header-actions
       routerLink="/participations/register"
       [queryParams]="{ evento: currentEvent.id }"
-      class="inline-flex h-10 items-center gap-2 rounded-xl border border-amber-300 bg-amber-50 px-4 text-sm font-medium text-amber-800 transition-colors hover:bg-amber-100 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200"
+      class="inline-flex min-h-10 items-center gap-2 rounded-xl border border-amber-300 bg-amber-50 px-4 py-2 text-center text-sm font-medium text-amber-800 transition-colors hover:bg-amber-100 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200"
     >
       <dc-icon name="info" [size]="17" />
       Registro cerrado · Registrar extemporáneos
@@ -48,7 +48,7 @@
     } @else {
     <span
       header-actions
-      class="inline-flex h-10 items-center rounded-xl border border-gray-200 px-4 text-sm font-medium text-gray-500 dark:border-gray-800 dark:text-gray-400"
+      class="inline-flex min-h-10 items-center rounded-xl border border-gray-200 px-4 py-2 text-center text-sm font-medium text-gray-500 dark:border-gray-800 dark:text-gray-400"
     >
       Evento cancelado: no admite participaciones
     </span>
@@ -270,7 +270,7 @@
       </dc-empty-state>
     </div>
     } @else {
-    <div class="overflow-x-auto">
+    <div class="hidden overflow-x-auto lg:block">
       <table class="w-full min-w-[900px] text-start text-sm">
         <thead>
           <tr
@@ -357,6 +357,72 @@
         </tbody>
       </table>
     </div>
+
+    <!-- Tarjetas: participantes legibles en telefono. -->
+    <ul class="divide-y divide-gray-200 lg:hidden dark:divide-gray-800">
+      @for (row of pageData().items; track row.participation.id; let index = $index) {
+      <li class="px-4 py-4" [class.opacity-60]="row.participation.status === 'CANCELLED'">
+        <div class="flex items-start justify-between gap-3">
+          <div class="min-w-0">
+            @if (row.student) {
+            <a
+              [routerLink]="['/students', row.student.id]"
+              class="block truncate font-medium text-gray-900 dark:text-white/90"
+              >{{ studentName(row) }}</a
+            >
+            <p class="truncate font-mono text-xs text-gray-500 dark:text-gray-400">
+              {{ row.student.universityCode }}
+            </p>
+            <p class="truncate text-xs text-gray-500 dark:text-gray-400">
+              {{ row.student.professionalSchool }} · {{ row.student.location }}
+            </p>
+            } @else {
+            <span class="text-gray-400">Estudiante no encontrado</span>
+            }
+          </div>
+          <app-badge
+            size="sm"
+            [color]="participationStatusColor(row.participation.status)"
+            >{{ statusLabel[row.participation.status] }}</app-badge
+          >
+        </div>
+
+        <div
+          class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-gray-500 dark:text-gray-400"
+        >
+          <span>N° {{ pageData().offset + index + 1 }}</span>
+          <span>{{ row.participation.credits }} crédito(s)</span>
+          <span>Nota: {{ row.participation.grade }}</span>
+        </div>
+
+        <div class="mt-3">
+          <dc-certificate-code [codes]="row.participation" />
+        </div>
+
+        @if (auth.can('participations', 'MANAGE')) {
+        <div class="mt-3 flex flex-wrap items-center gap-2">
+          @if (row.participation.status === 'VALID') {
+          <button
+            type="button"
+            (click)="cancelParticipation(row.participation.id)"
+            class="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-100 dark:border-gray-800 dark:text-gray-200 dark:hover:bg-white/5"
+          >
+            Anular
+          </button>
+          } @else if (row.participation.status === 'CANCELLED') {
+          <button
+            type="button"
+            (click)="reactivateParticipation(row.participation.id)"
+            class="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-100 dark:border-gray-800 dark:text-gray-200 dark:hover:bg-white/5"
+          >
+            Reactivar
+          </button>
+          }
+        </div>
+        }
+      </li>
+      }
+    </ul>
 
     <div class="border-t border-gray-200 px-5 py-3 dark:border-gray-800">
       <dc-pagination

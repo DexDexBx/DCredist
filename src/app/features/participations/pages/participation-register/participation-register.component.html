@@ -410,24 +410,24 @@
       @case (2) {
       @if (importStage2(); as stage2) {
       <div class="flex flex-col gap-5">
-        <div class="grid grid-cols-3 gap-3">
-          <div class="rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 dark:border-gray-800 dark:bg-white/[0.03]">
+        <div class="grid grid-cols-3 gap-2 sm:gap-3">
+          <div class="rounded-xl border border-gray-200 bg-gray-50 px-3 py-3 sm:px-4 dark:border-gray-800 dark:bg-white/[0.03]">
             <p class="text-xs font-medium text-gray-500 dark:text-gray-400">Total</p>
-            <p class="mt-1 text-2xl font-semibold tabular-nums text-gray-900 dark:text-white/90">{{ stage2.total }}</p>
+            <p class="mt-1 text-xl font-semibold tabular-nums sm:text-2xl text-gray-900 dark:text-white/90">{{ stage2.total }}</p>
           </div>
-          <div class="rounded-xl border border-success-200 bg-success-50 px-4 py-3 dark:border-success-500/20 dark:bg-success-500/10">
+          <div class="rounded-xl border border-success-200 bg-success-50 px-3 py-3 sm:px-4 dark:border-success-500/20 dark:bg-success-500/10">
             <p class="text-xs font-medium text-success-700 dark:text-success-400">Válidos</p>
-            <p class="mt-1 text-2xl font-semibold tabular-nums text-success-700 dark:text-success-400">{{ stage2.valid }}</p>
+            <p class="mt-1 text-xl font-semibold tabular-nums sm:text-2xl text-success-700 dark:text-success-400">{{ stage2.valid }}</p>
           </div>
-          <div class="rounded-xl border border-error-200 bg-error-50 px-4 py-3 dark:border-error-500/20 dark:bg-error-500/10">
+          <div class="rounded-xl border border-error-200 bg-error-50 px-3 py-3 sm:px-4 dark:border-error-500/20 dark:bg-error-500/10">
             <p class="text-xs font-medium text-error-700 dark:text-error-500">Inválidos</p>
-            <p class="mt-1 text-2xl font-semibold tabular-nums text-error-700 dark:text-error-500">{{ stage2.invalid }}</p>
+            <p class="mt-1 text-xl font-semibold tabular-nums sm:text-2xl text-error-700 dark:text-error-500">{{ stage2.invalid }}</p>
           </div>
         </div>
 
         <div class="overflow-hidden rounded-xl border border-gray-200 dark:border-gray-800">
           <div class="max-h-72 overflow-auto">
-            <table class="w-full text-left text-sm">
+            <table class="w-full min-w-[520px] text-left text-sm">
               <thead class="sticky top-0 bg-gray-50 dark:bg-gray-900">
                 <tr class="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">
                   <th class="px-3 py-2.5 font-medium">Fila</th>
@@ -496,18 +496,18 @@
           </div>
         </div>
 
-        <div class="grid grid-cols-3 gap-3">
-          <div class="rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 dark:border-gray-800 dark:bg-white/[0.03]">
+        <div class="grid grid-cols-3 gap-2 sm:gap-3">
+          <div class="rounded-xl border border-gray-200 bg-gray-50 px-3 py-3 sm:px-4 dark:border-gray-800 dark:bg-white/[0.03]">
             <p class="text-xs font-medium text-gray-500 dark:text-gray-400">Procesados</p>
-            <p class="mt-1 text-2xl font-semibold tabular-nums text-gray-900 dark:text-white/90">{{ summary.total }}</p>
+            <p class="mt-1 text-xl font-semibold tabular-nums sm:text-2xl text-gray-900 dark:text-white/90">{{ summary.total }}</p>
           </div>
-          <div class="rounded-xl border border-success-200 bg-success-50 px-4 py-3 dark:border-success-500/20 dark:bg-success-500/10">
+          <div class="rounded-xl border border-success-200 bg-success-50 px-3 py-3 sm:px-4 dark:border-success-500/20 dark:bg-success-500/10">
             <p class="text-xs font-medium text-success-700 dark:text-success-400">Registrados</p>
-            <p class="mt-1 text-2xl font-semibold tabular-nums text-success-700 dark:text-success-400">{{ summary.registered }}</p>
+            <p class="mt-1 text-xl font-semibold tabular-nums sm:text-2xl text-success-700 dark:text-success-400">{{ summary.registered }}</p>
           </div>
           <div class="rounded-xl border border-warning-200 bg-warning-50 px-4 py-3 dark:border-warning-500/20 dark:bg-warning-500/10">
             <p class="text-xs font-medium text-warning-700 dark:text-orange-400">Omitidos</p>
-            <p class="mt-1 text-2xl font-semibold tabular-nums text-warning-700 dark:text-orange-400">{{ summary.skipped }}</p>
+            <p class="mt-1 text-xl font-semibold tabular-nums sm:text-2xl text-warning-700 dark:text-orange-400">{{ summary.skipped }}</p>
           </div>
         </div>
 
@@ -545,7 +545,7 @@
             </button>
           </div>
           <div class="max-h-56 overflow-auto rounded-xl border border-gray-200 dark:border-gray-800">
-            <table class="w-full text-left text-xs">
+            <table class="w-full min-w-[440px] text-left text-xs">
               <thead class="sticky top-0 bg-gray-50 dark:bg-gray-900">
                 <tr class="text-gray-500 dark:text-gray-400">
                   <th class="px-3 py-2 font-medium">Fila</th>

@@ -18,14 +18,14 @@
     }
 
     <div class="flex flex-wrap items-center gap-3">
-      <h1 class="text-2xl font-semibold tracking-tight text-gray-900 dark:text-white/90">
+      <h1 class="break-words text-2xl font-semibold tracking-tight text-gray-900 dark:text-white/90">
         {{ title() }}
       </h1>
       <ng-content select="[header-badge]" />
     </div>
 
     @if (description()) {
-    <p class="mt-1.5 max-w-3xl text-sm text-gray-500 dark:text-gray-400">
+    <p class="mt-1.5 max-w-3xl text-sm break-words text-gray-500 dark:text-gray-400">
       {{ description() }}
     </p>
     }

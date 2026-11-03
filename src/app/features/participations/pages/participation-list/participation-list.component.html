@@ -162,7 +162,7 @@
   </div>
 
   @if (rows().length) {
-  <div class="overflow-x-auto">
+  <div class="hidden overflow-x-auto lg:block">
     <table class="w-full min-w-[1000px] border-collapse text-left text-sm">
       <thead>
         <tr
@@ -229,6 +229,50 @@
       </tbody>
     </table>
   </div>
+
+  <!-- Tarjetas: en movil la tabla de siete columnas no se puede leer. -->
+  <ul class="divide-y divide-gray-200 lg:hidden dark:divide-gray-800">
+    @for (row of rows(); track row.participation.id) {
+    <li class="px-4 py-4">
+      <div class="flex items-start justify-between gap-3">
+        <div class="min-w-0">
+          <a
+            [routerLink]="studentHref(row)"
+            class="block truncate font-medium text-gray-900 dark:text-white/90"
+            >{{ studentName(row) }}</a
+          >
+          <p class="truncate font-mono text-xs text-gray-500 dark:text-gray-400">
+            {{ studentCode(row) }}
+          </p>
+        </div>
+        <app-badge size="sm" [color]="statusColor(row.participation.status)">{{
+          statusLabel[row.participation.status]
+        }}</app-badge>
+      </div>
+
+      <a
+        [routerLink]="eventHref(row)"
+        class="mt-2 block truncate text-sm text-gray-700 dark:text-gray-200"
+        >{{ eventName(row) }}</a
+      >
+
+      <div
+        class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-gray-500 dark:text-gray-400"
+      >
+        <span>{{ date(row.participation.participationDate) }}</span>
+        <span>{{ row.participation.credits }} crédito(s)</span>
+        <span>Nota: {{ row.participation.grade }}</span>
+        @if (isLate(row)) {
+        <app-badge size="sm" color="warning">Extemporáneo</app-badge>
+        }
+      </div>
+
+      <div class="mt-3">
+        <dc-certificate-code [codes]="row.participation" />
+      </div>
+    </li>
+    }
+  </ul>
 
   <div class="border-t border-gray-200 px-5 py-3 dark:border-gray-800">
     <dc-pagination
