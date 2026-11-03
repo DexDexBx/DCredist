@@ -39,8 +39,8 @@
         <li>
           <a
             [routerLink]="item.path"
-            routerLinkActive="dc-nav-active"
-            [routerLinkActiveOptions]="{ exact: item.exact }"
+            [class.dc-nav-active]="isActive(item)"
+            [attr.aria-current]="isActive(item) ? 'page' : null"
             (click)="onNavigate()"
             class="dc-nav-link"
             [class.dc-nav-link-collapsed]="!sidebarService.showLabels()"
