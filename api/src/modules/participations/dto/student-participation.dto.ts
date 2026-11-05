@@ -1,5 +1,8 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { ParticipationStatus } from '../../../generated/prisma/client';
+import {
+  ParticipationOrigin,
+  ParticipationStatus,
+} from '../../../generated/prisma/client';
 
 /**
  * Participacion con su evento resuelto: es la vista que necesita la ficha del
@@ -26,6 +29,12 @@ export class StudentParticipationDto {
   grade!: string;
 
   @ApiProperty({ enum: ParticipationStatus }) status!: ParticipationStatus;
+
+  @ApiProperty({
+    enum: ParticipationOrigin,
+    description: 'CURRENT: registro nuevo con codigo generado. LEGACY: data historica.',
+  })
+  origin!: ParticipationOrigin;
   @ApiProperty() createdAt!: Date;
   @ApiProperty() updatedAt!: Date;
 }

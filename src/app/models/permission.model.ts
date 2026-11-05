@@ -16,7 +16,6 @@ export type ModuleKey =
   | 'events'
   | 'students'
   | 'participations'
-  | 'certificates'
   | 'verification'
   | 'users'
   | 'catalogs';
@@ -33,7 +32,6 @@ export const MODULES: readonly ModuleDefinition[] = [
   { key: 'events', label: 'Eventos', description: 'Alta, edición y detalle de eventos.' },
   { key: 'students', label: 'Estudiantes', description: 'Padrón e importación de estudiantes.' },
   { key: 'participations', label: 'Participaciones', description: 'Registro de participaciones.' },
-  { key: 'certificates', label: 'Códigos de certificado', description: 'Códigos de certificado.' },
   { key: 'verification', label: 'Verificación', description: 'Consulta del código de participación.' },
   { key: 'users', label: 'Usuarios y perfiles', description: 'Perfiles y accesos del sistema.' },
   { key: 'catalogs', label: 'Catálogos', description: 'Organizadores, escuelas y sedes.' },
@@ -73,7 +71,6 @@ export const ROLE_DEFAULT_PERMISSIONS: Record<UserRole, PermissionMap> = {
     events: 'MANAGE',
     students: 'MANAGE',
     participations: 'MANAGE',
-    certificates: 'MANAGE',
     verification: 'VIEW',
     users: 'MANAGE',
     catalogs: 'MANAGE',
@@ -84,7 +81,6 @@ export const ROLE_DEFAULT_PERMISSIONS: Record<UserRole, PermissionMap> = {
     events: 'MANAGE',
     students: 'MANAGE',
     participations: 'MANAGE',
-    certificates: 'MANAGE',
     verification: 'VIEW',
     users: 'NONE',
     catalogs: 'NONE',
@@ -95,7 +91,6 @@ export const ROLE_DEFAULT_PERMISSIONS: Record<UserRole, PermissionMap> = {
     events: 'MANAGE',
     students: 'VIEW',
     participations: 'MANAGE',
-    certificates: 'MANAGE',
     verification: 'VIEW',
     users: 'NONE',
     catalogs: 'NONE',
@@ -106,7 +101,6 @@ export const ROLE_DEFAULT_PERMISSIONS: Record<UserRole, PermissionMap> = {
     events: 'VIEW',
     students: 'VIEW',
     participations: 'MANAGE',
-    certificates: 'NONE',
     verification: 'VIEW',
     users: 'NONE',
     catalogs: 'NONE',
@@ -117,7 +111,6 @@ export const ROLE_DEFAULT_PERMISSIONS: Record<UserRole, PermissionMap> = {
     events: 'VIEW',
     students: 'VIEW',
     participations: 'VIEW',
-    certificates: 'NONE',
     verification: 'VIEW',
     users: 'NONE',
     catalogs: 'NONE',

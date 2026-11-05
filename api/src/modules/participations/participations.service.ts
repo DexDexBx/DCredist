@@ -7,16 +7,23 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import type { Prisma } from '../../generated/prisma/client';
-import { EventStatus, ParticipationStatus, StudentStatus } from '../../generated/prisma/client';
+import {
+  EventStatus,
+  ParticipationOrigin,
+  ParticipationStatus,
+  StudentStatus,
+} from '../../generated/prisma/client';
 import type { Actor } from '../../common/actor/actor.types';
 import { assertCanReadSchool } from '../../common/actor/school-scope';
 import { BULK_INSERT_BATCH_SIZE, chunk } from '../../common/prisma/bulk';
 import { isUniqueViolation } from '../../common/prisma/prisma-errors';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import {
+  MAX_VERIFICATION_CODE_LENGTH,
   generateUniqueVerificationCode,
   generateUniqueVerificationCodes,
-  normalizeVerificationCode,
+  historicalCodeKey,
+  normalizeHistoricalCode,
 } from '../../common/verification-code';
 import {
   CreateParticipationDto,
@@ -71,7 +78,14 @@ export class ParticipationsService {
         ...(query.studentId ? { studentId: query.studentId } : {}),
         ...(query.status ? { status: query.status } : {}),
         ...(query.verificationCode
-          ? { verificationCode: normalizeVerificationCode(query.verificationCode) }
+          ? {
+              // Acepta el codigo generado y el codigo original de un registro
+              // historico, sin distinguir mayusculas.
+              verificationCode: {
+                equals: query.verificationCode.trim(),
+                mode: 'insensitive',
+              },
+            }
           : {}),
         ...(search
           ? {
@@ -268,8 +282,47 @@ export class ParticipationsService {
       ? new Date(dto.participationDate)
       : event.startDate;
 
-    // El codigo DCredits lo genera el servidor y no se vuelve a generar nunca.
-    const verificationCode = await generateUniqueVerificationCode(this.prisma);
+    const origin = dto.origin ?? ParticipationOrigin.CURRENT;
+    const historicalCode = normalizeHistoricalCode(dto.verificationCode);
+
+    if (origin === ParticipationOrigin.LEGACY) {
+      if (!historicalCode) {
+        throw new BadRequestException(
+          'El registro historico requiere el codigo de verificacion original.'
+        );
+      }
+
+      if (historicalCode.length > MAX_VERIFICATION_CODE_LENGTH) {
+        throw new BadRequestException(
+          `El codigo de verificacion no puede superar ${MAX_VERIFICATION_CODE_LENGTH} caracteres.`
+        );
+      }
+
+      const taken = await this.prisma.participation.findFirst({
+        where: {
+          verificationCode: { equals: historicalCode, mode: 'insensitive' },
+        },
+        select: { id: true },
+      });
+
+      if (taken) {
+        throw new ConflictException(
+          `El codigo de verificacion "${historicalCode}" ya esta asignado a otra participacion.`
+        );
+      }
+    } else if (historicalCode) {
+      // Un registro actual no puede imponer su codigo: lo genera el sistema.
+      throw new BadRequestException(
+        'El codigo de verificacion solo se acepta en registros historicos.'
+      );
+    }
+
+    // En CURRENT el codigo lo genera el servidor. En LEGACY se conserva el
+    // codigo original, tal como lo traia la data antigua.
+    const verificationCode =
+      origin === ParticipationOrigin.LEGACY
+        ? historicalCode
+        : await generateUniqueVerificationCode(this.prisma);
 
     try {
       return await this.prisma.participation.create({
@@ -279,6 +332,7 @@ export class ParticipationsService {
           participationDate,
           credits,
           verificationCode,
+          origin,
           // undefined se guarda como NULL. Nunca se convierte en 0.
           grade: normalizeGrade(dto.grade),
           status: dto.status ?? ParticipationStatus.VALID,
@@ -292,19 +346,28 @@ export class ParticipationsService {
         );
       }
 
-      // Colision del codigo DCredits. Es practicamente imposible por el
-      // alfabeto de 33^6 combinaciones, pero se reintenta una sola vez con un
-      // codigo nuevo en lugar de fallar.
       if (isUniqueViolation(error, 'verificationCode')) {
+        // En un registro historico el codigo lo eligio la institucion: no se
+        // regenera, porque eso alteraria la data antigua.
+        if (origin === ParticipationOrigin.LEGACY) {
+          throw new ConflictException(
+            `El codigo de verificacion "${historicalCode}" ya esta asignado a otra participacion.`
+          );
+        }
+
+        // Colision del codigo DCredits. Es practicamente imposible por el
+        // alfabeto de 33^6 combinaciones, pero se reintenta una sola vez con un
+        // codigo nuevo en lugar de fallar.
         this.logger.warn('Colision de verificationCode; se reintenta la generacion.');
 
         return this.prisma.participation.create({
           data: {
             eventId: dto.eventId,
             studentId: dto.studentId,
-              participationDate,
+            participationDate,
             credits,
             verificationCode: await generateUniqueVerificationCode(this.prisma),
+            origin,
             grade: normalizeGrade(dto.grade),
             status: dto.status ?? ParticipationStatus.VALID,
           },
@@ -384,8 +447,11 @@ export class ParticipationsService {
 
     const issues: ParticipationImportIssueDto[] = [];
     const seen = new Set<string>();
+    const origin = dto.origin ?? ParticipationOrigin.CURRENT;
+    const isLegacy = origin === ParticipationOrigin.LEGACY;
+    const legacyCodesSeen = new Set<string>();
     /** Indices de `rows` que quedan por registrar, en orden de archivo. */
-    const pending: { index: number; code: string }[] = [];
+    const pending: { index: number; code: string; verificationCode?: string }[] = [];
 
     dto.rows.forEach((row, index) => {
       const code = row.universityCode?.trim() ?? '';
@@ -410,9 +476,80 @@ export class ParticipationsService {
         return;
       }
 
+      const historicalCode = normalizeHistoricalCode(row.verificationCode);
+
+      if (isLegacy) {
+        if (!historicalCode) {
+          issues.push({
+            row: index + 1,
+            universityCode: code,
+            code: 'MISSING_VERIFICATION_CODE',
+            message:
+              'Falta el codigo de verificacion original: es obligatorio en una carga historica.',
+          });
+          return;
+        }
+
+        if (historicalCode.length > MAX_VERIFICATION_CODE_LENGTH) {
+          issues.push({
+            row: index + 1,
+            universityCode: code,
+            code: 'INVALID_ROW',
+            message: `El codigo de verificacion no puede superar ${MAX_VERIFICATION_CODE_LENGTH} caracteres.`,
+          });
+          return;
+        }
+
+        const legacyKey = historicalCodeKey(historicalCode);
+
+        if (legacyCodesSeen.has(legacyKey)) {
+          issues.push({
+            row: index + 1,
+            universityCode: code,
+            code: 'DUPLICATE_VERIFICATION_CODE',
+            message: `El codigo de verificacion "${historicalCode}" se repite en el archivo.`,
+          });
+          return;
+        }
+
+        legacyCodesSeen.add(legacyKey);
+        seen.add(code);
+        pending.push({ index, code, verificationCode: historicalCode });
+        return;
+      }
+
+      if (historicalCode) {
+        issues.push({
+          row: index + 1,
+          universityCode: code,
+          code: 'INVALID_ROW',
+          message:
+            'La carga actual no admite codigos de verificacion: usa el modo historico para conservarlos.',
+        });
+        return;
+      }
+
       seen.add(code);
       pending.push({ index, code });
     });
+
+    // Un codigo historico no puede existir ya en otra participacion. Se
+    // resuelve en UNA consulta para toda la carga.
+    const storedLegacyCodes = isLegacy
+      ? new Set(
+          (
+            await this.prisma.participation.findMany({
+              where: {
+                verificationCode: {
+                  in: pending.map((item) => item.verificationCode as string),
+                  mode: 'insensitive',
+                },
+              },
+              select: { verificationCode: true },
+            })
+          ).map((row) => historicalCodeKey(row.verificationCode))
+        )
+      : new Set<string>();
 
     const students = await this.prisma.student.findMany({
       where: { universityCode: { in: pending.map((item) => item.code) } },
@@ -441,7 +578,11 @@ export class ParticipationsService {
     });
     const hasCapacityLimit = typeof event.capacity === 'number' && event.capacity > 0;
 
-    const insertable: { index: number; studentId: number }[] = [];
+    const insertable: {
+      index: number;
+      studentId: number;
+      verificationCode?: string;
+    }[] = [];
     let found = 0;
 
     for (const item of pending) {
@@ -458,6 +599,16 @@ export class ParticipationsService {
       }
 
       found++;
+
+      if (isLegacy && storedLegacyCodes.has(historicalCodeKey(item.verificationCode))) {
+        issues.push({
+          row: item.index + 1,
+          universityCode: item.code,
+          code: 'DUPLICATE_VERIFICATION_CODE',
+          message: `El codigo de verificacion "${item.verificationCode}" ya esta asignado a otra participacion.`,
+        });
+        continue;
+      }
 
       if (student.status !== 'ACTIVE') {
         issues.push({
@@ -491,10 +642,14 @@ export class ParticipationsService {
 
       alreadyRegistered.add(student.id);
       usedSlots++;
-      insertable.push({ index: item.index, studentId: student.id });
+      insertable.push({
+        index: item.index,
+        studentId: student.id,
+        verificationCode: item.verificationCode,
+      });
     }
 
-    const registered = await this.insertImportedRows(dto, event, insertable, issues);
+    const registered = await this.insertImportedRows(dto, event, insertable, issues, origin);
 
     issues.sort((a, b) => a.row - b.row);
 
@@ -517,16 +672,18 @@ export class ParticipationsService {
   private async insertImportedRows(
     dto: ImportParticipationsDto,
     event: { id: number; startDate: Date; credits: number; code: string },
-    insertable: { index: number; studentId: number }[],
-    issues: ParticipationImportIssueDto[]
+    insertable: { index: number; studentId: number; verificationCode?: string }[],
+    issues: ParticipationImportIssueDto[],
+    origin: ParticipationOrigin
   ): Promise<number> {
     if (insertable.length === 0) {
       return 0;
     }
 
     const defaultCredits = dto.defaultCredits ?? event.credits;
+    const isLegacy = origin === ParticipationOrigin.LEGACY;
 
-    const data = insertable.map(({ index, studentId }) => {
+    const data = insertable.map(({ index, studentId, verificationCode }) => {
       const row = dto.rows[index];
 
       return {
@@ -534,18 +691,22 @@ export class ParticipationsService {
         studentId,
         participationDate: row.participationDate ? new Date(row.participationDate) : event.startDate,
         credits: row.credits ?? defaultCredits,
-        verificationCode: '',
+        // En una carga historica se conserva el codigo original de la fila.
+        verificationCode: isLegacy ? (verificationCode as string) : '',
+        origin,
         grade: normalizeGrade(row.grade),
         status: row.status ?? ParticipationStatus.VALID,
       };
     });
 
-    // Un codigo por fila, generados en lote para no hacer una consulta por
-    // cada estudiante de una carga de miles de filas.
-    const codes = await generateUniqueVerificationCodes(this.prisma, data.length);
-    data.forEach((item, index) => {
-      item.verificationCode = codes[index];
-    });
+    if (!isLegacy) {
+      // Un codigo por fila, generados en lote para no hacer una consulta por
+      // cada estudiante de una carga de miles de filas.
+      const codes = await generateUniqueVerificationCodes(this.prisma, data.length);
+      data.forEach((item, index) => {
+        item.verificationCode = codes[index];
+      });
+    }
 
     // Tandas de tamano seguro: miles de filas en un solo INSERT superan el
     // limite de parametros por sentencia de PostgreSQL. Si una tanda falla por
@@ -573,17 +734,22 @@ export class ParticipationsService {
             registered++;
           } catch (rowError) {
             const code = dto.rows[insertable[index].index].universityCode.trim();
-            const duplicate =
-              isUniqueViolation(rowError, 'eventId,studentId') ||
-              isUniqueViolation(rowError, 'verificationCode');
+            const duplicateStudent = isUniqueViolation(rowError, 'eventId,studentId');
+            const duplicateCode = isUniqueViolation(rowError, 'verificationCode');
 
             issues.push({
               row: insertable[index].index + 1,
               universityCode: code,
-              code: duplicate ? 'ALREADY_REGISTERED' : 'DB_ERROR',
-              message: duplicate
+              code: duplicateStudent
+                ? 'ALREADY_REGISTERED'
+                : duplicateCode
+                  ? 'DUPLICATE_VERIFICATION_CODE'
+                  : 'DB_ERROR',
+              message: duplicateStudent
                 ? `No se pudo registrar ${code}: el registro ya existe.`
-                : `No se pudo registrar ${code}: error de base de datos.`,
+                : duplicateCode
+                  ? `No se pudo registrar ${code}: el codigo de verificacion ya esta asignado.`
+                  : `No se pudo registrar ${code}: error de base de datos.`,
             });
           }
         }
@@ -623,6 +789,7 @@ export class ParticipationsService {
       verificationCode: row.verificationCode,
       grade: row.grade,
       status: row.status,
+      origin: row.origin,
       createdAt: row.createdAt,
       updatedAt: row.updatedAt,
     };

@@ -20,6 +20,9 @@ Funcionalidades disponibles en la interfaz:
 - Padron de estudiantes: listado, alta, ficha, creditos e importacion masiva.
 - Registro de participaciones (una por evento y estudiante) e importacion de
   codigos universitarios.
+- Registro de participaciones historicas: conserva el codigo de verificacion
+  original de la data antigua, tanto en el alta manual como en la importacion
+  masiva (la plantilla incluye la columna del codigo).
 - Codigo unico de participacion (`DC-AAAA-XXXXXX`) y su pagina de verificacion.
 - Exportacion Excel por evento en formato institucional.
 - Perfiles de acceso de demostracion con navegacion y rutas restringidas por rol.

@@ -321,11 +321,16 @@
               {{ row.participation.grade }}
             </td>
             <td class="px-5 py-3.5">
-              <app-badge
-                size="sm"
-                [color]="participationStatusColor(row.participation.status)"
-                >{{ statusLabel[row.participation.status] }}</app-badge
-              >
+              <div class="flex flex-wrap items-center gap-1.5">
+                <app-badge
+                  size="sm"
+                  [color]="participationStatusColor(row.participation.status)"
+                  >{{ statusLabel[row.participation.status] }}</app-badge
+                >
+                @if (row.participation.origin === 'LEGACY') {
+                <app-badge size="sm" color="info">Histórico</app-badge>
+                }
+              </div>
             </td>
             <td class="px-5 py-3.5 text-end">
               @if (auth.can('participations', 'MANAGE')) {
@@ -393,6 +398,9 @@
           <span>N° {{ pageData().offset + index + 1 }}</span>
           <span>{{ row.participation.credits }} crédito(s)</span>
           <span>Nota: {{ row.participation.grade }}</span>
+          @if (row.participation.origin === 'LEGACY') {
+          <app-badge size="sm" color="info">Histórico</app-badge>
+          }
         </div>
 
         <div class="mt-3">

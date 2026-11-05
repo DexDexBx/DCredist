@@ -228,6 +228,9 @@ export interface ApiParticipationStudent {
   status: ApiStudentStatus;
 }
 
+/** Procedencia del registro de participacion. */
+export type ApiParticipationOrigin = 'CURRENT' | 'LEGACY';
+
 export interface ApiParticipation {
   id: number;
   eventId: number;
@@ -239,6 +242,8 @@ export interface ApiParticipation {
   verificationCode: string;
   grade: string;
   status: ApiParticipationStatus;
+  /** CURRENT: codigo generado por DCredits. LEGACY: codigo historico original. */
+  origin?: ApiParticipationOrigin;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -284,4 +289,15 @@ export interface ApiParticipationPayload {
   credits?: number;
   grade?: string;
   status?: ApiParticipationStatus;
+  /** Solo en registros LEGACY: codigo original que se conserva tal cual. */
+  verificationCode?: string;
+  origin?: ApiParticipationOrigin;
+}
+
+/** Fila de la carga masiva de participaciones. */
+export interface ApiParticipationImportRow {
+  universityCode: string;
+  grade?: string;
+  /** Solo en cargas LEGACY. */
+  verificationCode?: string;
 }

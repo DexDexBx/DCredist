@@ -36,6 +36,31 @@ export function isValidVerificationCode(value: string): boolean {
   return VERIFICATION_CODE_PATTERN.test(normalizeVerificationCode(value));
 }
 
+/** Longitud maxima de un codigo de verificacion (incluye los historicos). */
+export const MAX_VERIFICATION_CODE_LENGTH = 60;
+
+/**
+ * Normaliza un codigo de verificacion HISTORICO.
+ *
+ * La data antigua trae su propia nomenclatura (letras, guiones, barras,
+ * espacios). No se convierte al formato de DCredits ni se cambia a mayusculas:
+ * se conserva tal cual, solo se recortan los extremos y se colapsan los
+ * espacios internos para evitar duplicados por diferencias invisibles.
+ */
+export function normalizeHistoricalCode(value: string | null | undefined): string {
+  return (value ?? '').trim().replace(/\s+/g, ' ');
+}
+
+/**
+ * Clave de comparacion de un codigo historico.
+ *
+ * PostgreSQL compara texto distinguiendo mayusculas; para la unicidad se usa
+ * esta clave (mayusculas) y las consultas se hacen con `mode: 'insensitive'`.
+ */
+export function historicalCodeKey(value: string | null | undefined): string {
+  return normalizeHistoricalCode(value).toUpperCase();
+}
+
 function randomBody(): string {
   let body = '';
   for (let i = 0; i < BODY_LENGTH; i++) {

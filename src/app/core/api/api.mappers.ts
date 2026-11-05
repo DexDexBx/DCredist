@@ -223,6 +223,7 @@ export function mapApiParticipation(row: ApiParticipation): Participation {
     legacyCode: null,
     grade: row.grade,
     status: row.status,
+    origin: row.origin === 'LEGACY' ? 'LEGACY' : 'CURRENT',
   };
 }
 
@@ -351,11 +352,18 @@ export function toApiStudentImportRows(rows: StudentImportRow[]): ApiStudentImpo
 }
 
 export function toApiParticipationPayload(draft: ParticipationDraft): ApiParticipationPayload {
+  const origin = draft.origin ?? 'CURRENT';
+  const verificationCode = (draft.verificationCode ?? '').trim();
+
   return {
     eventId: draft.eventId,
     studentId: draft.studentId,
     credits: draft.credits,
     grade: draft.grade?.trim() || undefined,
+    origin,
+    // El codigo solo viaja en registros historicos; en los actuales lo genera
+    // el servidor.
+    ...(origin === 'LEGACY' && verificationCode ? { verificationCode } : {}),
   };
 }
 

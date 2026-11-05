@@ -240,6 +240,9 @@
                 @if (isLate(row.participation)) {
                 <app-badge size="sm" color="warning">Extemporáneo</app-badge>
                 }
+                @if (row.participation.origin === 'LEGACY') {
+                <app-badge size="sm" color="info">Histórico</app-badge>
+                }
               </div>
             </td>
           </tr>
@@ -301,6 +304,9 @@
           >
           @if (isLate(row.participation)) {
           <app-badge size="sm" color="warning">Extemporáneo</app-badge>
+          }
+          @if (row.participation.origin === 'LEGACY') {
+          <app-badge size="sm" color="info">Histórico</app-badge>
           }
         </div>
 

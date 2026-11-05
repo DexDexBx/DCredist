@@ -10,6 +10,16 @@
   <button
     header-actions
     type="button"
+    (click)="openOriginModal()"
+    class="inline-flex items-center gap-2 rounded-xl border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-white/[0.05]"
+  >
+    <dc-icon name="info" [size]="18" />
+    Tipo de registro: {{ originLabel[registerOrigin()] }}
+  </button>
+
+  <button
+    header-actions
+    type="button"
     (click)="openImport()"
     class="inline-flex items-center gap-2 rounded-xl border border-brand-200 bg-brand-50 px-4 py-2.5 text-sm font-medium text-brand-700 transition-colors hover:bg-brand-100 dark:border-brand-500/20 dark:bg-brand-500/10 dark:text-brand-200 dark:hover:bg-brand-500/20"
   >
@@ -49,7 +59,56 @@
 
 <div class="space-y-6">
   <form [formGroup]="form" (ngSubmit)="onSubmit()">
-    <dc-panel title="Registro manual" subtitle="Selecciona el evento y el estudiante para generar su código de participación.">
+    <dc-panel
+      [title]="isLegacy() ? 'Registro histórico' : 'Registro manual'"
+      [subtitle]="
+        isLegacy()
+          ? 'Registra una participación antigua conservando su código de verificación original.'
+          : 'Selecciona el evento y el estudiante para generar su código de participación.'
+      "
+    >
+      <div
+        class="mb-5 flex flex-col gap-3 rounded-xl border px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
+        [class]="
+          isLegacy()
+            ? 'border-warning-200 bg-warning-50 dark:border-warning-500/20 dark:bg-warning-500/10'
+            : 'border-gray-200 bg-gray-50 dark:border-gray-800 dark:bg-white/[0.03]'
+        "
+      >
+        <div class="flex items-start gap-3">
+          <dc-icon
+            [name]="isLegacy() ? 'document' : 'shield-check'"
+            [size]="18"
+            class="mt-0.5 shrink-0"
+            [class]="
+              isLegacy()
+                ? 'text-warning-600 dark:text-warning-500'
+                : 'text-brand-600 dark:text-brand-300'
+            "
+          />
+          <div class="min-w-0">
+            <p class="text-sm font-semibold text-gray-900 dark:text-white/90">
+              {{ originLabel[registerOrigin()] }}
+            </p>
+            <p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
+              @if (isLegacy()) {
+              El código de verificación original es obligatorio y se guarda tal cual, sin
+              convertirlo al formato de DCredits.
+              } @else {
+              DCredits genera automáticamente un código de verificación nuevo.
+              }
+            </p>
+          </div>
+        </div>
+        <button
+          type="button"
+          (click)="openOriginModal()"
+          class="shrink-0 self-start rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 transition-colors hover:bg-white sm:self-auto dark:border-gray-700 dark:text-gray-200 dark:hover:bg-white/5"
+        >
+          Cambiar tipo
+        </button>
+      </div>
+
       <div class="grid gap-6 lg:grid-cols-2">
         <div class="space-y-4">
           <div class="flex items-center gap-2 text-xs font-semibold tracking-wide text-gray-400 uppercase dark:text-gray-500">
@@ -112,6 +171,24 @@
             [invalid]="isInvalid('studentId')"
           />
 
+          @if (isLegacy()) {
+          <div>
+            <dc-input
+              formControlName="verificationCode"
+              label="Código de verificación"
+              placeholder="Ej. SIS/2019/008821"
+              hint="Obligatorio. Es el código original de la participación y se conserva tal cual."
+              [required]="true"
+              [invalid]="isInvalid('verificationCode')"
+            />
+            @if (isInvalid('verificationCode')) {
+            <p class="mt-1 text-xs text-error-500">
+              Ingresa el código de verificación original (máximo 60 caracteres).
+            </p>
+            }
+          </div>
+          }
+
           <div class="grid gap-4 sm:grid-cols-2">
             <div>
               <span class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-200 dark:text-white/90">
@@ -161,7 +238,7 @@
   </form>
 
   @if (createdCode(); as code) {
-  <dc-panel title="Código generado" subtitle="Único y estable para esta participación.">
+  <dc-panel title="Código de verificación" subtitle="Único y estable para esta participación.">
     <div class="flex flex-wrap items-center justify-between gap-4">
       <dc-code [code]="code" size="md" />
       <a
@@ -314,6 +391,44 @@
       [required]="true"
     />
 
+        <div class="grid gap-2 sm:grid-cols-2">
+          <button
+            type="button"
+            (click)="setImportOrigin('CURRENT')"
+            class="flex flex-col gap-1 rounded-xl border px-4 py-3 text-left transition-colors"
+            [class]="
+              !isLegacyImport()
+                ? 'border-brand-500 bg-brand-50 dark:border-brand-500/60 dark:bg-brand-500/10'
+                : 'border-gray-200 bg-white hover:border-brand-300 dark:border-gray-800 dark:bg-white/[0.02] dark:hover:border-brand-500/40'
+            "
+          >
+            <span class="text-sm font-semibold text-gray-900 dark:text-white/90">
+              Registro actual
+            </span>
+            <span class="text-xs text-gray-500 dark:text-gray-400">
+              DCredits genera los códigos de verificación.
+            </span>
+          </button>
+
+          <button
+            type="button"
+            (click)="setImportOrigin('LEGACY')"
+            class="flex flex-col gap-1 rounded-xl border px-4 py-3 text-left transition-colors"
+            [class]="
+              isLegacyImport()
+                ? 'border-warning-400 bg-warning-50 dark:border-warning-500/60 dark:bg-warning-500/10'
+                : 'border-gray-200 bg-white hover:border-warning-300 dark:border-gray-800 dark:bg-white/[0.02] dark:hover:border-warning-500/40'
+            "
+          >
+            <span class="text-sm font-semibold text-gray-900 dark:text-white/90">
+              Registro histórico
+            </span>
+            <span class="text-xs text-gray-500 dark:text-gray-400">
+              La plantilla incluye el código de verificación original.
+            </span>
+          </button>
+        </div>
+
         <div
           class="rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3.5 dark:border-gray-800 dark:bg-white/[0.02]"
         >
@@ -321,10 +436,18 @@
             ¿Qué debe tener el archivo?
           </p>
           <ul class="mt-2 space-y-1 text-xs leading-relaxed text-gray-600 dark:text-gray-300">
+            @if (isLegacyImport()) {
+            <li>1. Una fila por participante, con el código universitario en la primera columna.</li>
+            <li>2. La segunda columna es el CÓDIGO DE VERIFICACIÓN original (obligatorio): se guarda tal cual.</li>
+            <li>3. La tercera columna es NOTA (opcional): si queda vacía se guarda “sin nota”.</li>
+            <li>4. La fila de encabezado va en la primera fila: se ignora automáticamente.</li>
+            <li>5. En .xlsx se lee la primera hoja; en .csv o .txt una fila por línea.</li>
+            } @else {
             <li>1. Una fila por participante, con el código universitario en la primera columna.</li>
             <li>2. La segunda columna es NOTA (opcional): si se informa se registra; si queda vacía se guarda “sin nota”.</li>
             <li>3. La fila de encabezado va en la primera fila: se ignora automáticamente.</li>
             <li>4. En .xlsx se lee la primera hoja; en .csv o .txt una fila por línea.</li>
+            }
           </ul>
           <button
             type="button"
@@ -337,7 +460,7 @@
         </div>
 
         <div class="flex flex-col gap-2">
-          <span class="text-sm font-medium text-gray-700 dark:text-white/90">Archivo de códigos</span>
+          <span class="text-sm font-medium text-gray-700 dark:text-white/90">Archivo de la carga</span>
           <label
             class="flex cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed px-6 py-8 text-center transition-colors"
             [class]="
@@ -364,7 +487,11 @@
               Arrastra el archivo aquí o haz clic para seleccionarlo
             </span>
             <span class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+              @if (isLegacyImport()) {
+              Formatos .xlsx, .csv o .txt · código universitario, código de verificación y nota
+              } @else {
               Formatos .xlsx, .csv o .txt · código universitario en la primera columna
+              }
             </span>
           </label>
 
@@ -388,12 +515,12 @@
         </div>
 
         <div class="flex flex-col gap-2">
-          <span class="text-sm font-medium text-gray-700 dark:text-white/90">…o pega los códigos</span>
+          <span class="text-sm font-medium text-gray-700 dark:text-white/90">…o pega los registros</span>
           <textarea
             rows="6"
             [value]="importText()"
             (input)="importText.set($any($event.target).value); clearImportFile()"
-            placeholder="2213271&#10;2213065&#10;2213099"
+            [placeholder]="importPlaceholder()"
             class="w-full rounded-xl border border-gray-300 bg-white px-3.5 py-2.5 font-mono text-xs text-gray-900 placeholder:text-gray-400 focus:border-brand-600 focus:ring-3 focus:ring-brand-500/15 focus:outline-none dark:border-gray-700 dark:bg-white/[0.03] dark:text-white/90"
           ></textarea>
         </div>
@@ -427,11 +554,14 @@
 
         <div class="overflow-hidden rounded-xl border border-gray-200 dark:border-gray-800">
           <div class="max-h-72 overflow-auto">
-            <table class="w-full min-w-[520px] text-left text-sm">
+            <table class="w-full min-w-[640px] text-left text-sm">
               <thead class="sticky top-0 bg-gray-50 dark:bg-gray-900">
                 <tr class="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">
                   <th class="px-3 py-2.5 font-medium">Fila</th>
                   <th class="px-3 py-2.5 font-medium">Código</th>
+                  @if (isLegacyImport()) {
+                  <th class="px-3 py-2.5 font-medium">Código de verificación</th>
+                  }
                   <th class="px-3 py-2.5 font-medium">Estudiante</th>
                   <th class="px-3 py-2.5 font-medium">Estado</th>
                 </tr>
@@ -441,6 +571,11 @@
                 <tr class="align-top">
                   <td class="px-3 py-2.5 text-gray-500 dark:text-gray-400">{{ item.row }}</td>
                   <td class="px-3 py-2.5 font-mono text-gray-900 dark:text-white/90">{{ item.code || '—' }}</td>
+                  @if (isLegacyImport()) {
+                  <td class="px-3 py-2.5 font-mono text-gray-700 dark:text-gray-200">
+                    {{ item.verificationCode || '—' }}
+                  </td>
+                  }
                   <td class="px-3 py-2.5 text-gray-700 dark:text-gray-300">
                     @if (item.student) {
                     {{ item.student.lastName }}, {{ item.student.firstName }}
@@ -929,3 +1064,87 @@
   </form>
 </app-modal>
 
+
+<!-- Tipo de registro: actual (codigo generado) o historico (codigo original) -->
+<app-modal
+  [isOpen]="originModalOpen()"
+  (close)="closeOriginModal()"
+  className="max-w-lg p-5 sm:p-6"
+>
+  <div class="pe-8">
+    <h2 class="text-lg font-semibold text-gray-900 dark:text-white/90">
+      ¿Qué tipo de registro vas a crear?
+    </h2>
+    <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+      La diferencia está en el código de verificación de la participación.
+    </p>
+  </div>
+
+  <div class="mt-5 flex flex-col gap-3">
+    <button
+      type="button"
+      (click)="selectOrigin('CURRENT')"
+      class="flex items-start gap-3 rounded-2xl border px-4 py-4 text-left transition-colors"
+      [class]="
+        registerOrigin() === 'CURRENT'
+          ? 'border-brand-500 bg-brand-50 dark:border-brand-500/60 dark:bg-brand-500/10'
+          : 'border-gray-200 bg-white hover:border-brand-300 dark:border-gray-800 dark:bg-white/[0.02] dark:hover:border-brand-500/40'
+      "
+    >
+      <span
+        class="flex size-10 shrink-0 items-center justify-center rounded-xl bg-brand-50 text-brand-600 dark:bg-brand-500/15 dark:text-brand-300"
+      >
+        <dc-icon name="shield-check" [size]="20" />
+      </span>
+      <span class="min-w-0 flex-1">
+        <span class="block text-sm font-semibold text-gray-900 dark:text-white/90">
+          Registro actual
+        </span>
+        <span class="mt-0.5 block text-xs leading-relaxed text-gray-500 dark:text-gray-400">
+          DCredits genera automáticamente un código de verificación nuevo para la participación.
+        </span>
+      </span>
+      @if (registerOrigin() === 'CURRENT') {
+      <dc-icon name="check" [size]="18" class="mt-1 shrink-0 text-brand-600 dark:text-brand-300" />
+      }
+    </button>
+
+    <button
+      type="button"
+      (click)="selectOrigin('LEGACY')"
+      class="flex items-start gap-3 rounded-2xl border px-4 py-4 text-left transition-colors"
+      [class]="
+        registerOrigin() === 'LEGACY'
+          ? 'border-warning-400 bg-warning-50 dark:border-warning-500/60 dark:bg-warning-500/10'
+          : 'border-gray-200 bg-white hover:border-warning-300 dark:border-gray-800 dark:bg-white/[0.02] dark:hover:border-warning-500/40'
+      "
+    >
+      <span
+        class="flex size-10 shrink-0 items-center justify-center rounded-xl bg-warning-50 text-warning-600 dark:bg-warning-500/15 dark:text-warning-400"
+      >
+        <dc-icon name="document" [size]="20" />
+      </span>
+      <span class="min-w-0 flex-1">
+        <span class="block text-sm font-semibold text-gray-900 dark:text-white/90">
+          Registro histórico
+        </span>
+        <span class="mt-0.5 block text-xs leading-relaxed text-gray-500 dark:text-gray-400">
+          Conserva el código de verificación que ya tenía la participación en la data antigua.
+        </span>
+      </span>
+      @if (registerOrigin() === 'LEGACY') {
+      <dc-icon name="check" [size]="18" class="mt-1 shrink-0 text-warning-600 dark:text-warning-400" />
+      }
+    </button>
+  </div>
+
+  <div class="mt-5 flex justify-end">
+    <button
+      type="button"
+      (click)="closeOriginModal()"
+      class="rounded-xl border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-100 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-white/[0.05]"
+    >
+      Cerrar
+    </button>
+  </div>
+</app-modal>

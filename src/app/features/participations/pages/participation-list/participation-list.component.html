@@ -7,15 +7,6 @@
   ]"
 >
   <div header-actions class="flex flex-wrap items-center gap-2">
-    @if (auth.can('certificates', 'VIEW')) {
-    <a
-      routerLink="/certificates/codes"
-      class="inline-flex items-center gap-2 rounded-xl border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-white/[0.05]"
-    >
-      <dc-icon name="key" [size]="18" />
-      Códigos de certificado
-    </a>
-    }
     @if (auth.can('participations', 'MANAGE')) {
     <a
       routerLink="/participations/register"
@@ -54,26 +45,6 @@
     tone="warning"
   />
 </div>
-
-@if (summary().pendingMigration > 0) {
-<div
-  class="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-warning-300 bg-warning-50 px-4 py-3 dark:border-warning-500/25 dark:bg-warning-500/10"
->
-  <p class="text-sm text-warning-800 dark:text-warning-200">
-    <strong>{{ formatCount(summary().pendingMigration) }}</strong>
-    participaciones conservan el código del sistema anterior pero todavía no tienen
-    código DC. Se pueden emitir desde el módulo de códigos.
-  </p>
-  @if (auth.can('certificates', 'MANAGE')) {
-  <a
-    routerLink="/certificates/codes"
-    class="rounded-xl bg-warning-500 px-3.5 py-2 text-sm font-medium text-white transition-colors hover:bg-warning-600"
-  >
-    Generar códigos
-  </a>
-  }
-</div>
-}
 
 <dc-panel
   class="mt-6"
@@ -222,6 +193,9 @@
               @if (isLate(row)) {
               <app-badge size="sm" color="warning">Extemporáneo</app-badge>
               }
+              @if (row.participation.origin === 'LEGACY') {
+              <app-badge size="sm" color="info">Histórico</app-badge>
+              }
             </div>
           </td>
         </tr>
@@ -264,6 +238,9 @@
         <span>Nota: {{ row.participation.grade }}</span>
         @if (isLate(row)) {
         <app-badge size="sm" color="warning">Extemporáneo</app-badge>
+        }
+        @if (row.participation.origin === 'LEGACY') {
+        <app-badge size="sm" color="info">Histórico</app-badge>
         }
       </div>
 

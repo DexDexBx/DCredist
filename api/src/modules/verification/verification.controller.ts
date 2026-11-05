@@ -15,7 +15,7 @@ export class VerificationController {
   @ApiOperation({
     summary: 'Consulta un codigo unico de participacion.',
     description:
-      'Acepta DC-AAAA-XXXXXX y tambien el cuerpo sin el prefijo "DC-". Distingue participacion vigente, anulada y no encontrada.',
+      'Acepta el codigo generado por DCredits (DC-AAAA-XXXXXX, con o sin prefijo) y el codigo original de una participacion historica. Distingue participacion vigente, anulada y no encontrada.',
   })
   @ApiOkResponse({ type: VerificationResultDto })
   verify(

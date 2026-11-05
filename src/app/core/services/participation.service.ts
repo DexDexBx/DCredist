@@ -3,13 +3,13 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
 import {
   DEFAULT_PARTICIPATION_PAGE_SIZE,
-  CodeReissueResult,
   Participation,
   ParticipationContext,
   ParticipationDraft,
   ParticipationEdit,
   ParticipationImportBatch,
   ParticipationImportMode,
+  ParticipationOrigin,
   ParticipationPage,
   ParticipationQuery,
   ParticipationSortKey,
@@ -58,16 +58,6 @@ interface ParticipationSearch {
   items: Participation[] | null;
 }
 
-/** Indica si la participacion ya tiene codigo propio de DCredits. */
-function hasDcCode(participation: Participation): boolean {
-  return ((participation.verificationCode ?? '').trim().length ?? 0) > 0;
-}
-
-/** Indica si la participacion conserva el codigo del sistema anterior. */
-function hasLegacyCode(participation: Participation): boolean {
-  return ((participation.legacyCode ?? '').trim().length ?? 0) > 0;
-}
-
 /**
  * Mismos filtros, sin la ventana de pagina.
  *
@@ -93,7 +83,9 @@ export type ParticipationErrorCode =
   | 'DUPLICATE'
   | 'INVALID_CREDITS'
   | 'INVALID_GRADE'
-  | 'INVALID_CERTIFICATE';
+  | 'INVALID_CERTIFICATE'
+  | 'INVALID_VERIFICATION_CODE'
+  | 'VERIFICATION_CODE_TAKEN';
 
 export interface ParticipationResult {
   ok: boolean;
@@ -111,9 +103,15 @@ export interface ParticipationImportError {
 
 export interface ParticipationImportStagedItem {
   row: number;
+  /** Codigo universitario del estudiante. */
   code: string;
   /** Nota opcional leida del archivo; vacia se normaliza a "sin nota". */
   grade?: string;
+  /**
+   * Codigo de verificacion original. Solo se informa en cargas historicas
+   * (LEGACY); en las actuales lo genera el sistema.
+   */
+  verificationCode?: string;
   studentId?: number;
   student?: any;
   error?: string;
@@ -150,6 +148,8 @@ export interface ParticipationImportSummary {
 export interface ParticipationImportCommitOptions {
   /** 'NORMAL' mientras el evento esta abierto, 'LATE' cuando se reabrio. */
   mode?: ParticipationImportMode;
+  /** CURRENT (por defecto) o LEGACY: la carga conserva los codigos originales. */
+  origin?: ParticipationOrigin;
   /** Persona que sube la lista. */
   uploadedBy?: string;
 }
@@ -276,19 +276,6 @@ export class ParticipationService {
   });
 
   /**
-   * Participaciones que tienen codigo del sistema ANTERIOR pero todavia no
-   * codigo DC: el trabajo pendiente del modulo de reemision.
-   *
-   * Son las participaciones ya migradas a las que DCredits aun no ha asignado su
-   * propio codigo. Al asignarlo, el anterior nunca se borra.
-   */
-  readonly pendingCodeMigration = computed(() =>
-    this.participationsState().filter(
-      (participation) => hasLegacyCode(participation) && !hasDcCode(participation)
-    )
-  );
-
-  /**
    * Indice estudiante -> participaciones, agrupadas por id.
    *
    * Es publico porque los reportes de creditos necesitan recorrerlo entero una
@@ -383,7 +370,6 @@ getParticipations(query: ParticipationQuery = {}): Participation[] {
     let totalCredits = 0;
     let pendingGrades = 0;
     let withCertificate = 0;
-    let pendingMigration = 0;
 
     for (const participation of matches) {
       if (participation.status === 'VALID') {
@@ -400,10 +386,6 @@ getParticipations(query: ParticipationQuery = {}): Participation[] {
       } else {
         pending++;
       }
-
-      if (hasLegacyCode(participation) && !hasDcCode(participation)) {
-        pendingMigration++;
-      }
     }
 
     return {
@@ -414,7 +396,6 @@ getParticipations(query: ParticipationQuery = {}): Participation[] {
       totalCredits: Math.round(totalCredits * 100) / 100,
       pendingGrades,
       withCertificate,
-      pendingMigration,
     };
   }
 
@@ -577,12 +558,6 @@ getParticipations(query: ParticipationQuery = {}): Participation[] {
     if (query.status && participation.status !== query.status) {
       return false;
     }
-    if (query.withCertificateOnly && primaryCertificateCode(participation) === null) {
-      return false;
-    }
-    if (query.pendingMigrationOnly && !(hasLegacyCode(participation) && !hasDcCode(participation))) {
-      return false;
-    }
     if (search.ids && !search.ids.has(participation.id)) {
       return false;
     }
@@ -646,120 +621,6 @@ getParticipations(query: ParticipationQuery = {}): Participation[] {
       default:
         return matches;
     }
-  }
-
-  /**
-   * ASIGNA EL CODIGO DC A UN CERTIFICADO ANTERIOR.
-   *
-   * Es la operacion del modulo de reemision: la participacion ya tiene el codigo
-   * del sistema previo y DCredits le asigna el propio, sin borrar jamas el
-   * anterior. Un certificado ya impreso debe seguir localizable por el codigo que
-   * el estudiante conoce.
-   */
-  assignDcCode(participationId: number): CodeReissueResult {
-    const participation = this.participationsState().find((item) => item.id === participationId);
-
-    if (!participation) {
-      return {
-        outcome: 'NOT_FOUND',
-        message: 'La participacion indicada no existe.',
-      };
-    }
-
-    if (hasDcCode(participation)) {
-      return {
-        outcome: 'ALREADY_MIGRATED',
-        participation,
-        message: 'Esta participacion ya tiene codigo DC.',
-      };
-    }
-
-    if (participation.status === 'CANCELLED') {
-      return {
-        outcome: 'CANCELLED',
-        participation,
-        message: 'No se puede emitir codigo para una participacion anulada.',
-      };
-    }
-
-    const verificationCode = generateVerificationCode(this.existingCodes());
-
-    this.patchParticipation(participationId, { verificationCode });
-
-    return {
-      outcome: 'CREATED',
-      participation: this.participationsState().find((item) => item.id === participationId),
-      verificationCode,
-      legacyCode: normalizeLegacyCode(participation.legacyCode),
-      message: 'Codigo DC generado. El codigo anterior se conserva.',
-    };
-  }
-
-  /**
-   * Cambio interno de una participacion.
-   *
-   * `update()` es la edicion que viene del formulario y valida lo que la persona
-   * puede cambiar. Asignar el codigo DC es otra cosa: lo decide el sistema y no
-   * se expone en el formulario, asi que va por su propia via en vez de abrir un
-   * `ParticipationEdit` que permitiera escribir el codigo a mano.
-   */
-  private patchParticipation(id: number, patch: Partial<Participation>): Participation | null {
-    let result: Participation | null = null;
-
-    this.participationsState.update((items) =>
-      items.map((item) => {
-        if (item.id !== id) {
-          return item;
-        }
-        result = { ...item, ...patch };
-        return result;
-      })
-    );
-
-    return result;
-  }
-
-  /**
-   * Asigna el codigo DC a TODAS las participaciones que solo tienen el anterior.
-   *
-   * Se recorre una vez y se acumulan los cambios: emitirlos uno por uno con una
-   * actualizacion de estado cada vez haria que el listado se recalculase N veces.
-   */
-  assignMissingDcCodes(limit = 500): CodeReissueResult[] {
-    const pending = this.pendingCodeMigration()
-      .filter((participation) => participation.status !== 'CANCELLED')
-      .slice(0, Math.max(0, limit));
-
-    if (pending.length === 0) {
-      return [];
-    }
-
-    // El conjunto de codigos ocupados se construye UNA vez y se reutiliza.
-    const taken = new Set(this.existingCodes());
-    const patched: Participation[] = [];
-    const results: CodeReissueResult[] = [];
-
-    for (const participation of pending) {
-      const verificationCode = generateVerificationCode(taken);
-      taken.add(normalizeVerificationCode(verificationCode));
-
-      const updated = { ...participation, verificationCode };
-      patched.push(updated);
-      results.push({
-        outcome: 'CREATED',
-        participation: updated,
-        verificationCode,
-        legacyCode: normalizeLegacyCode(participation.legacyCode),
-        message: 'Codigo DC generado.',
-      });
-    }
-
-    this.participationsState.update((current) => {
-      const patchedById = new Map(patched.map((item) => [item.id, item]));
-      return current.map((item) => patchedById.get(item.id) ?? item);
-    });
-
-    return results;
   }
 
   getByEvent(eventId: number): Participation[] {
@@ -870,6 +731,41 @@ getParticipations(query: ParticipationQuery = {}): Participation[] {
       };
     }
 
+    const origin = draft.origin ?? 'CURRENT';
+    const verificationCode = normalizeLegacyCode(draft.verificationCode);
+
+    if (origin === 'LEGACY') {
+      if (!verificationCode) {
+        return {
+          valid: false,
+          error: 'INVALID_VERIFICATION_CODE',
+          message: 'El registro histórico requiere el código de verificación original.',
+        };
+      }
+
+      if (verificationCode.length > 60) {
+        return {
+          valid: false,
+          error: 'INVALID_VERIFICATION_CODE',
+          message: 'El código de verificación no puede superar 60 caracteres.',
+        };
+      }
+
+      if (this.codeTaken(verificationCode)) {
+        return {
+          valid: false,
+          error: 'VERIFICATION_CODE_TAKEN',
+          message: 'Ese código de verificación ya está asignado a otra participación.',
+        };
+      }
+    } else if (verificationCode) {
+      return {
+        valid: false,
+        error: 'INVALID_VERIFICATION_CODE',
+        message: 'El código de verificación solo se usa en registros históricos.',
+      };
+    }
+
     const grade = (draft.grade ?? '').trim();
 
     if (grade && grade.toLowerCase() !== 'sin nota') {
@@ -960,6 +856,9 @@ getParticipations(query: ParticipationQuery = {}): Participation[] {
     }
 
     const legacyCode = normalizeLegacyCode(draft.legacyCode);
+    const origin = draft.origin ?? 'CURRENT';
+    const historicalCode = normalizeLegacyCode(draft.verificationCode);
+
     if (legacyCode && this.codeTaken(legacyCode)) {
       return {
         ok: false,
@@ -987,10 +886,16 @@ getParticipations(query: ParticipationQuery = {}): Participation[] {
       studentId: draft.studentId,
       participationDate: this.resolveParticipationDate(draft.eventId),
       credits: draft.credits,
-      verificationCode: generateVerificationCode(this.existingCodes()),
+      // En un registro historico se conserva el codigo original; en uno actual
+      // lo genera el sistema.
+      verificationCode:
+        origin === 'LEGACY'
+          ? historicalCode
+          : generateVerificationCode(this.existingCodes()),
       legacyCode,
       grade: normalizeGrade(draft.grade),
       status: 'VALID',
+      origin,
       // Los registros que llegan por una recarga quedan marcados como
       // extemporaneos; el resto como carga regular.
       importMode:
@@ -1008,7 +913,13 @@ getParticipations(query: ParticipationQuery = {}): Participation[] {
       const detail = Array.isArray(body?.message) ? body.message.join('. ') : body?.message;
 
       if (error.status === 409) {
-        return { ok: false, error: 'DUPLICATE', message: 'El estudiante ya está registrado en este evento.' };
+        return {
+          ok: false,
+          error: 'DUPLICATE',
+          // El 409 puede ser por estudiante repetido o por codigo de
+          // verificacion ya asignado: el mensaje del API es el mas preciso.
+          message: detail ?? 'El estudiante ya está registrado en este evento.',
+        };
       }
       if (error.status === 404) {
         return { ok: false, error: 'STUDENT_NOT_FOUND', message: detail ?? 'El evento o el estudiante no existe.' };
@@ -1141,7 +1052,7 @@ getParticipations(query: ParticipationQuery = {}): Participation[] {
    * Etapa 1: Carga inicial de registros a estado temporal (en memoria)
    */
   importStage1(
-    rows: (string | { code: string; grade?: string })[],
+    rows: (string | { code: string; grade?: string; verificationCode?: string })[],
   ): ParticipationImportStage1Result {
     const items: ParticipationImportStagedItem[] = [];
     let row = 0;
@@ -1149,10 +1060,12 @@ getParticipations(query: ParticipationQuery = {}): Participation[] {
       row++;
       const code = (typeof raw === 'string' ? raw : raw.code)?.trim() ?? '';
       const grade = typeof raw === 'string' ? undefined : raw.grade;
+      const verificationCode = typeof raw === 'string' ? undefined : raw.verificationCode;
       items.push({
         row,
         code,
         grade,
+        verificationCode,
         valid: false,
       });
     }
@@ -1165,11 +1078,22 @@ getParticipations(query: ParticipationQuery = {}): Participation[] {
   /**
    * Etapa 2: Validación contra base de datos antes de confirmar
    */
-  importStage2(eventId: number, stagedItems: ParticipationImportStagedItem[]): ParticipationImportStage2Result {
+  importStage2(
+    eventId: number,
+    stagedItems: ParticipationImportStagedItem[],
+    origin: ParticipationOrigin = 'CURRENT',
+  ): ParticipationImportStage2Result {
     const event = this.eventService.findById(eventId);
     const errors: ParticipationImportError[] = [];
     const items: ParticipationImportStagedItem[] = stagedItems.map((item) => ({ ...item }));
-    
+    const isLegacy = origin === 'LEGACY';
+
+    // En una carga historica el codigo original hace de identificador: no
+    // puede repetirse dentro del archivo ni existir ya en el historial.
+    const historicalKeys = isLegacy
+      ? new Set<string>([...this.existingCodes()].map((code) => compactCode(code)))
+      : new Set<string>();
+
     let validCount = 0;
     let invalidCount = 0;
 
@@ -1199,6 +1123,45 @@ getParticipations(query: ParticipationQuery = {}): Participation[] {
       if (validCodes.has(code)) {
         item.valid = false;
         item.error = 'Código duplicado en la carga';
+        errors.push({ row: item.row, code, reason: item.error });
+        invalidCount++;
+        continue;
+      }
+
+      const historicalCode = normalizeLegacyCode(item.verificationCode);
+
+      if (isLegacy) {
+        if (!historicalCode) {
+          item.valid = false;
+          item.error = 'Falta el código de verificación original';
+          errors.push({ row: item.row, code, reason: item.error });
+          invalidCount++;
+          continue;
+        }
+
+        if (historicalCode.length > 60) {
+          item.valid = false;
+          item.error = 'El código de verificación supera 60 caracteres';
+          errors.push({ row: item.row, code, reason: item.error });
+          invalidCount++;
+          continue;
+        }
+
+        const historicalKey = compactCode(historicalCode);
+
+        if (historicalKeys.has(historicalKey)) {
+          item.valid = false;
+          item.error = `El código de verificación ${historicalCode} ya está asignado`;
+          errors.push({ row: item.row, code, reason: item.error });
+          invalidCount++;
+          continue;
+        }
+
+        historicalKeys.add(historicalKey);
+        item.verificationCode = historicalCode;
+      } else if (historicalCode) {
+        item.valid = false;
+        item.error = 'La carga actual no admite códigos de verificación';
         errors.push({ row: item.row, code, reason: item.error });
         invalidCount++;
         continue;
@@ -1293,6 +1256,7 @@ getParticipations(query: ParticipationQuery = {}): Participation[] {
     options: ParticipationImportCommitOptions = {}
   ): Promise<ParticipationImportSummary> {
     const mode: ParticipationImportMode = options.mode ?? 'NORMAL';
+    const origin = options.origin ?? 'CURRENT';
     const uploadedBy = (options.uploadedBy ?? '').trim() || 'Coordinación DCredits';
     const total = validItems.length;
 
@@ -1302,9 +1266,14 @@ getParticipations(query: ParticipationQuery = {}): Participation[] {
         .map((item) => ({
           universityCode: item.code,
           ...(item.grade?.trim() ? { grade: item.grade.trim() } : {}),
+          ...(origin === 'LEGACY' && item.verificationCode?.trim()
+            ? { verificationCode: item.verificationCode.trim() }
+            : {}),
         }));
       try {
-        const result = await firstValueFrom(this.api.importParticipations(eventId, rows));
+        const result = await firstValueFrom(
+          this.api.importParticipations(eventId, rows, origin)
+        );
         await this.refreshFromApi();
 
         const errors: ParticipationImportError[] = [];
@@ -1333,11 +1302,11 @@ getParticipations(query: ParticipationQuery = {}): Participation[] {
           uploadedBy,
         };
       } catch {
-        return this.importStage2CommitLocal(eventId, validItems, mode, uploadedBy);
+        return this.importStage2CommitLocal(eventId, validItems, mode, uploadedBy, origin);
       }
     }
 
-    return this.importStage2CommitLocal(eventId, validItems, mode, uploadedBy);
+    return this.importStage2CommitLocal(eventId, validItems, mode, uploadedBy, origin);
   }
 
   /** Registro de la carga en memoria (modo local): valida y guarda item por item. */
@@ -1345,7 +1314,8 @@ getParticipations(query: ParticipationQuery = {}): Participation[] {
     eventId: number,
     validItems: ParticipationImportStagedItem[],
     mode: ParticipationImportMode,
-    uploadedBy: string
+    uploadedBy: string,
+    origin: ParticipationOrigin = 'CURRENT'
   ): Promise<ParticipationImportSummary> {
     const errors: ParticipationImportError[] = [];
     let registered = 0;
@@ -1360,6 +1330,8 @@ getParticipations(query: ParticipationQuery = {}): Participation[] {
         studentId: item.studentId,
         credits: this.eventService.findById(eventId)?.credits ?? 0,
         grade: item.grade,
+        origin,
+        verificationCode: origin === 'LEGACY' ? item.verificationCode : undefined,
       });
 
       if (result.ok) {
@@ -1479,6 +1451,12 @@ getParticipations(query: ParticipationQuery = {}): Participation[] {
       if (code) {
         codes.add(normalizeVerificationCode(code));
       }
+
+      // El codigo del sistema anterior tambien es unico y no debe repetirse.
+      const legacyCode = participation.legacyCode;
+      if (legacyCode) {
+        codes.add(normalizeVerificationCode(legacyCode));
+      }
     }
     return codes;
   }
@@ -1487,6 +1465,12 @@ getParticipations(query: ParticipationQuery = {}): Participation[] {
    * Un codigo de certificado identifica UNA participacion: no puede repetirse
    * ni entre codigos DC ni entre codigos del sistema anterior.
    */
+  /** Indica si un codigo de verificacion ya esta asignado a otra participacion. */
+  isVerificationCodeTaken(code: string | null | undefined): boolean {
+    const normalized = normalizeLegacyCode(code);
+    return normalized ? this.codeTaken(normalized) : false;
+  }
+
   private codeTaken(code: string): boolean {
     return this.participationsState().some(
       (participation) =>

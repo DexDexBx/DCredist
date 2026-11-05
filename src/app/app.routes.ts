@@ -141,15 +141,6 @@ export const routes: Routes = [
         canActivate: [permissionGuard('participations', 'VIEW')],
       },
       {
-        path: 'certificates/codes',
-        loadComponent: () =>
-          import('./features/participations/pages/certificate-codes/certificate-codes.component').then(
-            (module) => module.CertificateCodesComponent
-          ),
-        title: 'Códigos de certificado | DCredits',
-        canActivate: [permissionGuard('certificates', 'MANAGE')],
-      },
-      {
         path: 'participations/register',
         loadComponent: () =>
           import('./features/participations/pages/participation-register/participation-register.component').then(

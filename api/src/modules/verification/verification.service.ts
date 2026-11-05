@@ -3,7 +3,12 @@ import type { Prisma } from '../../generated/prisma/client';
 import { ParticipationStatus } from '../../generated/prisma/client';
 import type { Actor } from '../../common/actor/actor.types';
 import { PrismaService } from '../../common/prisma/prisma.service';
-import { isValidVerificationCode, normalizeVerificationCode } from '../../common/verification-code';
+import {
+  MAX_VERIFICATION_CODE_LENGTH,
+  isValidVerificationCode,
+  normalizeHistoricalCode,
+  normalizeVerificationCode,
+} from '../../common/verification-code';
 import { roundCredits } from '../../modules/students/students.service';
 import { VerificationResultDto } from './dto/verification-result.dto';
 import { MIN_SUGGESTION_LENGTH } from './dto/suggest-verification-codes.dto';
@@ -12,7 +17,8 @@ import { MIN_SUGGESTION_LENGTH } from './dto/suggest-verification-codes.dto';
  * CONSULTA DE UN CODIGO DE PARTICIPACION.
  *
  * Reglas:
- *  - el codigo buscado es el verificationCode (DC-AAAA-XXXXXX),
+ *  - el codigo buscado es el verificationCode: el generado por DCredits
+ *    (DC-AAAA-XXXXXX) o el codigo original de una participacion historica,
  *  - ese mismo codigo es el del certificado,
  *  - una participacion anulada responde CANCELLED: el codigo existio, pero ya
  *    no otorga creditos,
@@ -23,25 +29,35 @@ export class VerificationService {
   constructor(private readonly prisma: PrismaService) {}
 
   async verify(input: string, actor: Actor): Promise<VerificationResultDto> {
-    const raw = normalizeVerificationCode(input);
+    const historical = normalizeHistoricalCode(input);
 
-    if (!raw) {
+    if (!historical) {
       return this.empty('INVALID_FORMAT', 'Ingresa un código de participación para verificar.');
     }
 
-    // "2026-8F4K2P" se acepta y se completa a "DC-2026-8F4K2P".
-    const candidates = raw.startsWith('DC-') ? [raw] : [`DC-${raw}`, raw];
-
-    if (!candidates.some((candidate) => isValidVerificationCode(candidate))) {
+    if (historical.length > MAX_VERIFICATION_CODE_LENGTH) {
       return this.empty(
         'INVALID_FORMAT',
-        `El código "${input.trim()}" no tiene el formato válido (DC-AAAA-XXXXXX).`
+        `El código supera el máximo de ${MAX_VERIFICATION_CODE_LENGTH} caracteres.`
       );
+    }
+
+    // "2026-8F4K2P" se acepta y se completa a "DC-2026-8F4K2P".
+    const dcInput = normalizeVerificationCode(historical);
+    const candidates = dcInput.startsWith('DC-') ? [dcInput] : [`DC-${dcInput}`, dcInput];
+    const codeFilters: Prisma.ParticipationWhereInput[] = [
+      // Codigo historico: se busca sin distinguir mayusculas y tal como se
+      // guardo, sin forzarlo al formato de DCredits.
+      { verificationCode: { equals: historical, mode: 'insensitive' } },
+    ];
+
+    if (candidates.some((candidate) => isValidVerificationCode(candidate))) {
+      codeFilters.push({ verificationCode: { in: candidates } });
     }
 
     const participation = await this.prisma.participation.findFirst({
       where: {
-        verificationCode: { in: candidates },
+        OR: codeFilters,
         ...(actor.isGlobal
           ? {}
           : { event: { professionalSchoolId: actor.professionalSchoolId } }),
@@ -130,7 +146,7 @@ export class VerificationService {
 
   /** Codigos que empiezan con lo que el usuario escribe, para sugerir. */
   async suggest(input: string, actor: Actor, limit = 5): Promise<string[]> {
-    const needle = normalizeVerificationCode(input).replace(/^DC-/, '');
+    const needle = normalizeHistoricalCode(input);
 
     // Menos de 3 caracteres no consulta la base: el campo de busqueda pide
     // sugerencias en cada tecla y una lista vacia es la respuesta honesta.
@@ -139,7 +155,7 @@ export class VerificationService {
     }
 
     const where: Prisma.ParticipationWhereInput = {
-      verificationCode: { contains: needle },
+      verificationCode: { contains: needle, mode: 'insensitive' },
       ...(actor.isGlobal ? {} : { event: { professionalSchoolId: actor.professionalSchoolId } }),
     };
 

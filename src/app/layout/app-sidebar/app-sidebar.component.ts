@@ -77,14 +77,6 @@ export class AppSidebarComponent {
           level: 'VIEW',
         },
         {
-          label: 'Códigos de certificado',
-          path: '/certificates/codes',
-          matchPath: '/certificates',
-          icon: 'key',
-          module: 'certificates',
-          level: 'VIEW',
-        },
-        {
           label: 'Verificar código',
           path: '/verify',
           matchPath: '/verify',

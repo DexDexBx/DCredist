@@ -98,7 +98,7 @@ export const API_ENDPOINTS = {
   participation: (id: number) => `${API_BASE_URL}/participations/${id}`,
   participationImport: `${API_BASE_URL}/participations/import`,
 
-  verification: (code: string) => `${API_BASE_URL}/verification/${code}`,
+  verification: (code: string) => `${API_BASE_URL}/verification/${encodeURIComponent(code)}`,
   verificationBase: `${API_BASE_URL}/verification`,
 
   reportsDashboard: `${API_BASE_URL}/reports/dashboard`,

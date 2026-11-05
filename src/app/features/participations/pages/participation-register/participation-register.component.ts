@@ -21,7 +21,9 @@ import {
   LoadRequestStatus,
   ParticipationImportBatch,
   ParticipationImportMode,
+  PARTICIPATION_ORIGIN_LABEL,
   ParticipationLoadRequest,
+  ParticipationOrigin,
   Student,
   acceptsParticipations,
   eventLoadState,
@@ -94,6 +96,12 @@ export class ParticipationRegisterComponent {
   readonly errorMessage = signal<string | null>(null);
   readonly createdCode = signal<string | null>(null);
 
+  // --- Tipo de registro: actual (codigo generado) o historico (codigo propio) ---
+  readonly originModalOpen = signal(false);
+  readonly registerOrigin = signal<ParticipationOrigin>('CURRENT');
+  readonly originLabel = PARTICIPATION_ORIGIN_LABEL;
+  readonly isLegacy = computed(() => this.registerOrigin() === 'LEGACY');
+
   // --- Asistente de importacion (modal) ---
   readonly importOpen = signal(false);
   readonly importStep = signal<ImportStep>(1);
@@ -123,6 +131,10 @@ export class ParticipationRegisterComponent {
   // --- Modo de la carga y trazabilidad de extemporaneos ---
   readonly importMode = signal<ParticipationImportMode>('NORMAL');
   readonly lateUploadedBy = signal('');
+
+  /** Tipo de registro de la carga masiva: actual o historico. */
+  readonly importOrigin = signal<ParticipationOrigin>('CURRENT');
+  readonly isLegacyImport = computed(() => this.importOrigin() === 'LEGACY');
 
   readonly importModeLabel = IMPORT_MODE_LABEL;
 
@@ -183,6 +195,8 @@ export class ParticipationRegisterComponent {
     eventId: ['', [Validators.required]],
     studentId: ['', [Validators.required]],
     grade: [''],
+    /** Solo se exige en un registro historico. */
+    verificationCode: [''],
   });
 
   private readonly eventIdSignal = toSignal(
@@ -295,6 +309,13 @@ export class ParticipationRegisterComponent {
       }));
   });
 
+  /** Ejemplo de contenido segun el tipo de carga. */
+  readonly importPlaceholder = computed(() =>
+    this.isLegacyImport()
+      ? '2213271;SIS/2019/008821;16\n2213065;SIS/2019/008822;17'
+      : '2213271\n2213065\n2213099'
+  );
+
   /** Codigos detectados en el texto/archivo cargado (vista previa en vivo). */
   readonly importPreviewCount = computed(() => {
     const text = this.importText().trim();
@@ -310,6 +331,8 @@ export class ParticipationRegisterComponent {
   });
 
   constructor() {
+    this.applyOriginValidators(this.registerOrigin());
+
     const initial = this.initialEventId();
     if (initial) {
       this.form.patchValue({ eventId: initial });
@@ -352,6 +375,43 @@ export class ParticipationRegisterComponent {
     this.loadingEligible.set(false);
   }
 
+  // --- Tipo de registro ---
+
+  openOriginModal(): void {
+    this.originModalOpen.set(true);
+  }
+
+  closeOriginModal(): void {
+    this.originModalOpen.set(false);
+  }
+
+  selectOrigin(origin: ParticipationOrigin): void {
+    this.registerOrigin.set(origin);
+    this.applyOriginValidators(origin);
+    this.originModalOpen.set(false);
+    this.errorMessage.set(null);
+    this.successMessage.set(null);
+
+    if (origin === 'CURRENT') {
+      this.form.controls.verificationCode.setValue('');
+    }
+  }
+
+  /**
+   * El codigo original solo es obligatorio en registros historicos. Se
+   * reconfiguran los validadores al cambiar de tipo para que el formulario
+   * marque el campo correctamente.
+   */
+  private applyOriginValidators(origin: ParticipationOrigin): void {
+    const control = this.form.controls.verificationCode;
+    control.setValidators(
+      origin === 'LEGACY'
+        ? [Validators.required, Validators.maxLength(60)]
+        : [Validators.maxLength(60)]
+    );
+    control.updateValueAndValidity();
+  }
+
   async onSubmit(): Promise<void> {
     this.form.markAllAsTouched();
     this.errorMessage.set(null);
@@ -365,6 +425,28 @@ export class ParticipationRegisterComponent {
     }
 
     const value = this.form.getRawValue();
+    const origin = this.registerOrigin();
+    const historicalCode = value.verificationCode.trim();
+
+    if (origin === 'LEGACY') {
+      if (!historicalCode) {
+        this.form.controls.verificationCode.markAsTouched();
+        this.errorMessage.set('Ingresa el código de verificación original del registro histórico.');
+        return;
+      }
+
+      if (historicalCode.length > 60) {
+        this.form.controls.verificationCode.markAsTouched();
+        this.errorMessage.set('El código de verificación no puede superar 60 caracteres.');
+        return;
+      }
+
+      if (this.participationService.isVerificationCodeTaken(historicalCode)) {
+        this.errorMessage.set('Ese código de verificación ya está asignado a otra participación.');
+        return;
+      }
+    }
+
     const studentId = Number(value.studentId);
     const selectedStudent =
       this.studentService.findById(studentId) ??
@@ -379,6 +461,9 @@ export class ParticipationRegisterComponent {
       // Los creditos SIEMPRE vienen del evento: no se editan aqui.
       credits: event.credits,
       grade: value.grade.trim() || undefined,
+      origin,
+      // En un registro actual el codigo lo genera el servidor.
+      ...(origin === 'LEGACY' ? { verificationCode: historicalCode } : {}),
     });
 
     if (!result.ok) {
@@ -394,14 +479,17 @@ export class ParticipationRegisterComponent {
     }
 
     this.createdCode.set(result.participation?.verificationCode ?? null);
+    const kind =
+      origin === 'LEGACY' ? 'Participación histórica registrada' : 'Participación registrada';
     this.successMessage.set(
-      `Participación registrada${student ? ` para ${student.lastName}, ${student.firstName}` : ''}.`
+      `${kind}${student ? ` para ${student.lastName}, ${student.firstName}` : ''}.`
     );
 
     this.form.reset({
       eventId: '',
       studentId: '',
       grade: '',
+      verificationCode: '',
     });
     this.foundStudent.set(null);
     this.studentSearchCode.set('');
@@ -655,6 +743,7 @@ export class ParticipationRegisterComponent {
     }
 
     this.resetImport();
+    this.importOrigin.set(this.registerOrigin());
     this.importMode.set(event && isLateImportsEnabled(event) ? 'LATE' : mode);
     this.lateUploadedBy.set('');
     this.importError.set(null);
@@ -664,6 +753,21 @@ export class ParticipationRegisterComponent {
   closeImport(): void {
     this.importOpen.set(false);
     this.requestOpen.set(false);
+  }
+
+  /** Cambia entre carga actual e historica y reinicia la validacion. */
+  setImportOrigin(origin: ParticipationOrigin): void {
+    if (this.importOrigin() === origin) {
+      return;
+    }
+
+    this.importOrigin.set(origin);
+    this.importStage1.set(null);
+    this.importStage2.set(null);
+    this.importErrors.set([]);
+    this.importSummary.set(null);
+    this.importError.set(null);
+    this.importStep.set(1);
   }
 
   goToImportStep(step: ImportStep): void {
@@ -692,16 +796,31 @@ export class ParticipationRegisterComponent {
       return;
     }
 
-    const rows = parseDelimitedText(this.importText(), 1)
-      .map((row) => ({ code: row[0] ?? '', grade: row[1] ?? '' }))
-      .filter((row) => row.code.trim().length > 0 || row.grade.trim().length > 0);
+    const legacy = this.importOrigin() === 'LEGACY';
+    const parsed = parseDelimitedText(this.importText(), 1);
+    const rows: { code: string; grade?: string; verificationCode?: string }[] = legacy
+      ? parsed
+          .map((row) => ({
+            code: row[0] ?? '',
+            verificationCode: row[1] ?? '',
+            grade: row[2] ?? '',
+          }))
+          .filter((row) => row.code.trim() || row.verificationCode.trim() || row.grade.trim())
+      : parsed
+          .map((row) => ({ code: row[0] ?? '', grade: row[1] ?? '' }))
+          .filter((row) => row.code.trim() || row.grade.trim());
+
     if (rows.length === 0) {
       this.importError.set('No se detectaron códigos para validar.');
       return;
     }
 
     const stage1 = this.participationService.importStage1(rows);
-    const stage2 = this.participationService.importStage2(eventId, stage1.items);
+    const stage2 = this.participationService.importStage2(
+      eventId,
+      stage1.items,
+      this.importOrigin()
+    );
 
     this.importStage1.set(stage1);
     this.importStage2.set(stage2);
@@ -729,6 +848,7 @@ export class ParticipationRegisterComponent {
     const summary = await this.participationService.importStage2Commit(eventId, validItems, {
       mode: this.importMode(),
       uploadedBy: this.lateUploadedBy(),
+      origin: this.importOrigin(),
     });
 
     this.importSummary.set(summary);
@@ -736,7 +856,11 @@ export class ParticipationRegisterComponent {
     this.importStep.set(3);
 
     const prefix =
-      summary.mode === 'LATE' ? 'Carga extemporánea registrada' : 'Importación completada';
+      summary.mode === 'LATE'
+        ? 'Carga extemporánea registrada'
+        : this.importOrigin() === 'LEGACY'
+          ? 'Carga histórica completada'
+          : 'Importación completada';
     this.successMessage.set(
       `${prefix}: ${summary.registered} registrado(s), ${summary.skipped} omitido(s).`
     );
@@ -795,10 +919,18 @@ export class ParticipationRegisterComponent {
    * que el parser descarta al importar. La nota es opcional.
    */
   downloadImportTemplate(): void {
+    const legacy = this.importOrigin() === 'LEGACY';
+
     void downloadXlsx({
-      fileName: 'DCredits_plantilla_codigos_participacion',
+      fileName: legacy
+        ? 'DCredits_plantilla_participaciones_historicas'
+        : 'DCredits_plantilla_codigos_participacion',
       sheetName: 'Codigos',
-      rows: [['CÓDIGO UNIVERSITARIO', 'NOTA (opcional)']],
+      rows: [
+        legacy
+          ? ['CÓDIGO UNIVERSITARIO', 'CÓDIGO DE VERIFICACIÓN', 'NOTA (opcional)']
+          : ['CÓDIGO UNIVERSITARIO', 'NOTA (opcional)'],
+      ],
     });
   }
 
@@ -859,7 +991,7 @@ export class ParticipationRegisterComponent {
     return valid ? 'success' : 'error';
   }
 
-  isInvalid(control: 'eventId' | 'studentId'): boolean {
+  isInvalid(control: 'eventId' | 'studentId' | 'verificationCode'): boolean {
     const field = this.form.controls[control];
     return field.touched && field.invalid;
   }

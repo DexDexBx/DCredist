@@ -57,6 +57,14 @@ enum ParticipationStatus {
   PENDING
 }
 
+/// Procedencia de una participacion.
+/// CURRENT: registrada en DCredits; el codigo de verificacion lo genera el sistema.
+/// LEGACY: data historica migrada; conserva el codigo de verificacion original.
+enum ParticipationOrigin {
+  CURRENT
+  LEGACY
+}
+
 /// Estado de las tablas de catalogo (escuelas, sedes y organizadores).
 enum CatalogStatus {
   ACTIVE
@@ -267,9 +275,14 @@ model Participation {
   /// Creditos otorgados por ESTA participacion. Nunca negativo.
   credits Float @default(0)
 
-  /// Codigo unico de DCredits, por ejemplo "DC-2026-8F4K2P".
-  /// Se genera una vez y se conserva para siempre.
+  /// Codigo unico de verificacion.
+  /// En registros CURRENT lo genera DCredits ("DC-2026-8F4K2P").
+  /// En registros LEGACY es el codigo original de la data historica y se
+  /// conserva tal cual, sin convertirlo al formato de DCredits.
   verificationCode String @unique
+
+  /// Distingue un registro actual de uno historico migrado.
+  origin ParticipationOrigin @default(CURRENT)
 
   /// Nota como texto: "sin nota" o un valor numerico entre 0 y 20.
   grade String @default("sin nota") @db.VarChar(10)
@@ -282,6 +295,7 @@ model Participation {
   @@unique([eventId, studentId])
   @@index([studentId])
   @@index([status])
+  @@index([origin])
   @@map("participations")
 }
 

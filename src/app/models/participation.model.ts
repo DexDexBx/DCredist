@@ -10,6 +10,20 @@ import type { Student } from './student.model';
  */
 export type ParticipationStatus = 'VALID' | 'CANCELLED' | 'PENDING';
 
+/**
+ * Procedencia de una participacion.
+ *
+ * CURRENT: registrada en DCredits y su codigo de verificacion lo genera el
+ * sistema. LEGACY: data historica migrada; conserva el codigo original que ya
+ * tenia la participacion.
+ */
+export type ParticipationOrigin = 'CURRENT' | 'LEGACY';
+
+export const PARTICIPATION_ORIGIN_LABEL: Record<ParticipationOrigin, string> = {
+  CURRENT: 'Registro actual',
+  LEGACY: 'Registro histórico',
+};
+
 export interface Participation {
   id: number;
 
@@ -48,6 +62,14 @@ export interface Participation {
   status: ParticipationStatus;
 
   /**
+   * Distingue un registro actual de uno historico.
+   *
+   * Opcional para no romper datos locales previos: la ausencia se interpreta
+   * como CURRENT.
+   */
+  origin?: ParticipationOrigin;
+
+  /**
    * Origen de la carga que registro esta participacion.
    *
    * NORMAL es el registro regular (primera carga). LATE marca los registros
@@ -71,6 +93,13 @@ export interface ParticipationDraft {
   legacyCode?: string | null;
   /** Origen de la carga. Si se omite, el servicio lo deduce del estado del evento. */
   importMode?: ParticipationImportMode;
+  /**
+   * Codigo de verificacion original. Solo se envia en registros LEGACY; en los
+   * CURRENT lo genera el servidor.
+   */
+  verificationCode?: string | null;
+  /** CURRENT (por defecto) o LEGACY. */
+  origin?: ParticipationOrigin;
 }
 
 export interface ParticipationEdit {
@@ -96,10 +125,6 @@ export interface ParticipationQuery {
   studentId?: number;
   status?: ParticipationStatus;
   search?: string;
-  /** Solo certificables: participaciones que pueden generar un certificado. */
-  withCertificateOnly?: boolean;
-  /** Solo pendientes de migrar: tienen codigo anterior pero todavia no DC. */
-  pendingMigrationOnly?: boolean;
   page?: number;
   pageSize?: number;
   sort?: ParticipationSortKey;
@@ -156,34 +181,11 @@ export interface ParticipationSummary {
   pendingGrades: number;
   /** Vigentes con algun codigo de certificado que se pueda consultar. */
   withCertificate: number;
-  /** Con codigo anterior y sin codigo DC: pendientes de migrar. */
-  pendingMigration: number;
 }
 
 /** Una participacion solo suma creditos cuando esta vigente. */
 export function countsForCredits(participation: Participation): boolean {
   return participation.status === 'VALID';
-}
-
-/** Resultado de pedir el codigo DC para un certificado del sistema anterior. */
-export type CodeReissueOutcome =
-  /** Se genero un codigo DC nuevo; el anterior sigue guardado. */
-  | 'CREATED'
-  /** La participacion ya tenia codigo DC: no se vuelve a generar. */
-  | 'ALREADY_MIGRATED'
-  /** La participacion esta anulada: no se emiten codigos. */
-  | 'CANCELLED'
-  /** No existe la participacion indicada. */
-  | 'NOT_FOUND';
-
-export interface CodeReissueResult {
-  outcome: CodeReissueOutcome;
-  participation?: Participation;
-  /** Codigo DC recien generado, si se genero. */
-  verificationCode?: string | null;
-  /** Codigo del sistema anterior que se conserva, si lo habia. */
-  legacyCode?: string | null;
-  message: string;
 }
 
 /**

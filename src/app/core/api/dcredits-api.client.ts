@@ -12,6 +12,8 @@ import {
   ApiEventTypeEntry,
   ApiLoginResponse,
   ApiParticipation,
+  ApiParticipationImportRow,
+  ApiParticipationOrigin,
   ApiParticipationPayload,
   ApiStudent,
   ApiStudentFacets,
@@ -192,10 +194,12 @@ export class DcreditsApiClient {
 
   importParticipations(
     eventId: number,
-    rows: { universityCode: string; grade?: string }[]
+    rows: ApiParticipationImportRow[],
+    origin: ApiParticipationOrigin = 'CURRENT'
   ): Observable<ApiParticipationImportResult> {
     return this.http.post<ApiParticipationImportResult>(API_ENDPOINTS.participationImport, {
       eventId,
+      origin,
       rows,
     });
   }

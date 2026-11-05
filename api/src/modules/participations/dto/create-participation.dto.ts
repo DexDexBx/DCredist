@@ -15,14 +15,20 @@ import {
   Min,
   ValidateNested,
 } from 'class-validator';
-import { ParticipationStatus } from '../../../generated/prisma/client';
+import {
+  ParticipationOrigin,
+  ParticipationStatus,
+} from '../../../generated/prisma/client';
 import { blankToUndefined } from '../../../common/dto/blank-query';
 
 /**
  * ALTA DE UNA PARTICIPACION.
  *
- * El `verificationCode` NO se recibe: lo genera el servidor una sola vez y se
- * conserva. Si se envia, se ignora.
+ * En un registro CURRENT (por defecto) el `verificationCode` NO se recibe: lo
+ * genera el servidor una sola vez y se conserva.
+ *
+ * En un registro LEGACY (data historica) el `verificationCode` es OBLIGATORIO:
+ * es el codigo original que ya tenia la participacion y se guarda tal cual.
  */
 export class CreateParticipationDto {
   @ApiProperty({ description: 'Evento en el que se registra la participacion.' })
@@ -71,6 +77,26 @@ export class CreateParticipationDto {
   @IsOptional()
   @IsEnum(ParticipationStatus)
   status?: ParticipationStatus;
+
+  @ApiPropertyOptional({
+    example: 'SIS/2019/008821',
+    description:
+      'Codigo de verificacion original de un registro historico. Obligatorio cuando origin = LEGACY.',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(60)
+  verificationCode?: string;
+
+  @ApiPropertyOptional({
+    enum: ParticipationOrigin,
+    default: ParticipationOrigin.CURRENT,
+    description:
+      'CURRENT: DCredits genera el codigo. LEGACY: se conserva el codigo original enviado.',
+  })
+  @IsOptional()
+  @IsEnum(ParticipationOrigin)
+  origin?: ParticipationOrigin;
 }
 
 /** Edicion parcial. El verificationCode nunca se modifica. */
@@ -103,7 +129,10 @@ export class QueryParticipationsDto {
   @blankToUndefined()
   status?: ParticipationStatus;
 
-  @ApiPropertyOptional({ example: 'DC-2026-8F4K2P', description: 'Busca por codigo DCredits exacto.' })
+  @ApiPropertyOptional({
+    example: 'DC-2026-8F4K2P',
+    description: 'Busca un codigo de verificacion exacto (generado o historico).',
+  })
   @IsOptional()
   @IsString()
   @blankToUndefined()
@@ -158,6 +187,16 @@ export class ParticipationImportRowDto {
   @IsOptional()
   @IsEnum(ParticipationStatus)
   status?: ParticipationStatus;
+
+  @ApiPropertyOptional({
+    example: 'SIS/2019/008821',
+    description:
+      'Codigo original del registro historico. Obligatorio cuando la carga es LEGACY.',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(60)
+  verificationCode?: string;
 }
 
 /**
@@ -184,6 +223,16 @@ export class ImportParticipationsDto {
   @Max(100)
   defaultCredits?: number;
 
+  @ApiPropertyOptional({
+    enum: ParticipationOrigin,
+    default: ParticipationOrigin.CURRENT,
+    description:
+      'CURRENT: la plantilla solo lleva codigo universitario y nota; DCredits genera los codigos. LEGACY: cada fila debe traer su codigo de verificacion original.',
+  })
+  @IsOptional()
+  @IsEnum(ParticipationOrigin)
+  origin?: ParticipationOrigin;
+
   @ApiProperty({ type: [ParticipationImportRowDto] })
   @IsArray()
   @ArrayMinSize(1, { message: 'El archivo no contiene filas para importar.' })
@@ -203,7 +252,7 @@ export class ParticipationImportIssueDto {
 
   @ApiProperty({
     example: 'STUDENT_NOT_FOUND',
-    description: 'STUDENT_NOT_FOUND | STUDENT_INACTIVE | DUPLICATE_IN_FILE | ALREADY_REGISTERED | EVENT_FULL | INVALID_ROW | DB_ERROR',
+    description: 'STUDENT_NOT_FOUND | STUDENT_INACTIVE | DUPLICATE_IN_FILE | ALREADY_REGISTERED | EVENT_FULL | MISSING_VERIFICATION_CODE | DUPLICATE_VERIFICATION_CODE | INVALID_ROW | DB_ERROR',
   })
   code!: string;
 

@@ -80,11 +80,11 @@ export class ParticipationsController {
       'Rechaza eventId o studentId inexistentes.',
       'Rechaza eventos cancelados y eventos que alcanzaron su capacidad.',
       'Rechaza credits < 0.',
-      'El verificationCode lo genera el servidor y se conserva siempre.',
+      'En registros actuales el verificationCode lo genera el servidor. En registros historicos (origin = LEGACY) se exige el codigo original y se conserva tal cual.',
       'grade es texto: "sin nota" o un numero entre 0 y 20.',
     ].join(' '),
   })
-  @ApiCreatedResponse({ description: 'Participacion creada con su codigo DCredits.' })
+  @ApiCreatedResponse({ description: 'Participacion creada con su codigo de verificacion.' })
   @ApiBadRequestResponse({ description: 'Creditos invalidos o evento cancelado.' })
   @ApiNotFoundResponse({ description: 'El evento o el estudiante no existen.' })
   @ApiConflictResponse({ description: 'El estudiante ya participa en ese evento.' })
@@ -117,7 +117,7 @@ export class ParticipationsController {
       'Nunca crea estudiantes: los codigos ausentes se reportan por fila.',
       'Es idempotente: repetir la carga no duplica, marca ALREADY_REGISTERED.',
       'Devuelve un reporte por fila. Un error no descarta el resto del archivo.',
-      'El verificationCode lo genera el servidor para cada fila.',
+      'En cargas actuales el verificationCode lo genera el servidor. En cargas historicas (origin = LEGACY) cada fila debe traer su codigo original y se conserva tal cual.',
     ].join(' '),
   })
   @ApiBody({ type: ImportParticipationsDto })
