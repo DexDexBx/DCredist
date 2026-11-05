@@ -1,9 +1,20 @@
-import { Body, Controller, Get, Param, ParseIntPipe, Patch, Post, Query } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  ParseIntPipe,
+  Patch,
+  Post,
+  Query,
+} from '@nestjs/common';
 import {
   ApiBadRequestResponse,
   ApiBody,
   ApiConflictResponse,
   ApiCreatedResponse,
+  ApiForbiddenResponse,
   ApiNotFoundResponse,
   ApiOkResponse,
   ApiOperation,
@@ -105,6 +116,23 @@ export class EventsController {
   @ApiBadRequestResponse({ description: 'Archivo vacio o datos invalidos.' })
   import(@Body() dto: ImportEventsDto, @CurrentActor() actor: Actor): Promise<EventImportResultDto> {
     return this.eventsService.importEvents(dto, actor);
+  }
+
+  @Delete(':id')
+  @ApiOperation({
+    summary: 'Elimina un evento sin participaciones.',
+    description:
+      'Solo un administrador puede eliminar. Se bloquea si el evento tiene cualquier participacion asociada (incluidas las anuladas).',
+  })
+  @ApiOkResponse({ description: 'Evento eliminado.' })
+  @ApiForbiddenResponse({ description: 'El usuario no es administrador.' })
+  @ApiConflictResponse({ description: 'El evento tiene participaciones asociadas.' })
+  @ApiNotFoundResponse({ description: 'El evento no existe.' })
+  remove(
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentActor() actor: Actor
+  ): Promise<{ deleted: boolean }> {
+    return this.eventsService.remove(id, actor);
   }
 
   @Patch(':id')

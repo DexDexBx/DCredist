@@ -14,6 +14,7 @@ import {
   ParticipationQuery,
   ParticipationSortKey,
   ParticipationStatus,
+  isHistoricalEventDate,
   isLateParticipation,
   primaryCertificateCode,
 } from '../../../../models';
@@ -208,8 +209,21 @@ export class ParticipationListComponent {
     return ['/events', String(row.event?.id ?? '')];
   }
 
-  date(value: string): string {
-    return formatMediumDate(value);
+  /**
+   * Fecha que se muestra en el listado.
+   *
+   * La participacion hereda la fecha del evento. Si el evento ya tiene una
+   * fecha real se muestra esa (la de la base), y solo se usa el dato guardado
+   * en la participacion cuando el evento no esta disponible.
+   */
+  participationDateLabel(row: ParticipationContext): string {
+    const eventDate = row.event?.startDate;
+
+    if (eventDate) {
+      return isHistoricalEventDate(eventDate) ? 'Sin fecha' : formatMediumDate(eventDate);
+    }
+
+    return formatMediumDate(row.participation.participationDate);
   }
 
   clearFilters(): void {

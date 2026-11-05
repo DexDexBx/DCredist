@@ -271,6 +271,26 @@ class="mb-6 grid gap-3 rounded-2xl border border-gray-200 bg-white p-4 shadow-th
               >
                 <dc-icon name="pencil" [size]="15" />
               </button>
+              @if (isAdmin()) {
+              <button
+                type="button"
+                (click)="requestDelete(event)"
+                [disabled]="!canDelete(event) || deleting()"
+                [attr.title]="
+                  canDelete(event)
+                    ? 'Eliminar evento'
+                    : 'No se puede eliminar: tiene participaciones asociadas'
+                "
+                [attr.aria-label]="
+                  canDelete(event)
+                    ? 'Eliminar evento'
+                    : 'Eliminar evento bloqueado: tiene participaciones asociadas'
+                "
+                class="inline-flex size-9 items-center justify-center rounded-lg border border-gray-200 text-gray-600 transition-colors hover:bg-error-50 hover:text-error-600 disabled:cursor-not-allowed disabled:opacity-40 dark:border-gray-800 dark:text-gray-300 dark:hover:bg-error-500/10 dark:hover:text-error-400"
+              >
+                <dc-icon name="trash" [size]="15" />
+              </button>
+              }
               }
             </div>
           </td>
@@ -388,6 +408,61 @@ class="mb-6 grid gap-3 rounded-2xl border border-gray-200 bg-white p-4 shadow-th
     >
       Entendido
     </button>
+  </div>
+  }
+</app-modal>
+
+<!-- Confirmacion de eliminacion -->
+<app-modal
+  [isOpen]="deleteTarget() !== null"
+  (close)="closeDelete()"
+  [showCloseButton]="false"
+  className="flex w-full max-w-md flex-col overflow-hidden rounded-3xl p-0"
+>
+  @if (deleteTarget(); as target) {
+  <div class="px-6 py-6">
+    <div class="flex items-start gap-3">
+      <span
+        class="flex size-10 shrink-0 items-center justify-center rounded-xl bg-error-50 text-error-600 dark:bg-error-500/10 dark:text-error-400"
+      >
+        <dc-icon name="trash" [size]="20" />
+      </span>
+      <div class="min-w-0">
+        <h2 class="text-base font-semibold text-gray-900 dark:text-white/90">
+          Eliminar evento
+        </h2>
+        <p class="mt-1 text-sm text-gray-600 dark:text-gray-300">
+          ¿Seguro que quieres eliminar el evento
+          <span class="font-medium">{{ target.code }}</span>?
+          Esta acción no se puede deshacer.
+        </p>
+        @if (deleteError()) {
+        <p class="mt-2 text-sm font-medium text-error-600 dark:text-error-400">
+          {{ deleteError() }}
+        </p>
+        }
+      </div>
+    </div>
+
+    <div class="mt-5 flex flex-col gap-2 sm:flex-row sm:justify-end">
+      <button
+        type="button"
+        (click)="closeDelete()"
+        [disabled]="deleting()"
+        class="inline-flex h-10 items-center justify-center rounded-xl border border-gray-300 px-4 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-white/[0.05]"
+      >
+        Cancelar
+      </button>
+      <button
+        type="button"
+        (click)="confirmDelete()"
+        [disabled]="deleting()"
+        class="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-error-600 px-4 text-sm font-semibold text-white transition-colors hover:bg-error-700 disabled:cursor-not-allowed disabled:opacity-50"
+      >
+        <dc-icon name="trash" [size]="16" />
+        {{ deleting() ? 'Eliminando…' : 'Eliminar evento' }}
+      </button>
+    </div>
   </div>
   }
 </app-modal>

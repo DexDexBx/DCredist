@@ -315,7 +315,10 @@
               }
             </td>
             <td class="px-5 py-3.5">
-              <dc-certificate-code [codes]="row.participation" />
+              <dc-certificate-code
+                [codes]="row.participation"
+                [historical]="row.participation.origin === 'LEGACY'"
+              />
             </td>
             <td class="px-5 py-3.5 text-end font-medium text-gray-900 dark:text-white/90">
               {{ row.participation.credits }}
@@ -332,33 +335,48 @@
                 >
                 @if (row.participation.origin === 'LEGACY') {
                 <app-badge size="sm" color="info">Histórico</app-badge>
+                } @else {
+                <app-badge size="sm" color="light">Actual</app-badge>
                 }
               </div>
             </td>
             <td class="px-5 py-3.5 text-end">
-              @if (auth.can('participations', 'MANAGE')) {
-                @if (row.participation.status === 'VALID') {
-                <button
-                  type="button"
-                  (click)="cancelParticipation(row.participation.id)"
-                  class="rounded-lg border border-gray-200 px-2.5 py-1.5 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-100 dark:border-gray-800 dark:text-gray-200 dark:hover:bg-white/5"
-                >
-                  Anular
-                </button>
-                } @else if (row.participation.status === 'CANCELLED') {
-                <button
-                  type="button"
-                  (click)="reactivateParticipation(row.participation.id)"
-                  class="rounded-lg border border-gray-200 px-2.5 py-1.5 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-100 dark:border-gray-800 dark:text-gray-200 dark:hover:bg-white/5"
-                >
-                  Reactivar
-                </button>
+              <div class="inline-flex flex-wrap items-center justify-end gap-1.5">
+                @if (auth.can('participations', 'MANAGE')) {
+                  @if (row.participation.status === 'VALID') {
+                  <button
+                    type="button"
+                    (click)="cancelParticipation(row.participation.id)"
+                    class="rounded-lg border border-gray-200 px-2.5 py-1.5 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-100 dark:border-gray-800 dark:text-gray-200 dark:hover:bg-white/5"
+                  >
+                    Anular
+                  </button>
+                  } @else if (row.participation.status === 'CANCELLED') {
+                  <button
+                    type="button"
+                    (click)="reactivateParticipation(row.participation.id)"
+                    class="rounded-lg border border-gray-200 px-2.5 py-1.5 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-100 dark:border-gray-800 dark:text-gray-200 dark:hover:bg-white/5"
+                  >
+                    Reactivar
+                  </button>
+                  } @else {
+                  <span class="text-xs text-gray-400 dark:text-gray-500">—</span>
+                  }
                 } @else {
                 <span class="text-xs text-gray-400 dark:text-gray-500">—</span>
                 }
-              } @else {
-              <span class="text-xs text-gray-400 dark:text-gray-500">—</span>
-              }
+                @if (isAdmin()) {
+                <button
+                  type="button"
+                  (click)="requestDeleteParticipation(row)"
+                  title="Eliminar participación definitivamente"
+                  class="inline-flex items-center gap-1 rounded-lg border border-error-200 bg-error-50 px-2.5 py-1.5 text-xs font-medium text-error-700 transition-colors hover:bg-error-100 dark:border-error-500/20 dark:bg-error-500/10 dark:text-error-400 dark:hover:bg-error-500/20"
+                >
+                  <dc-icon name="trash" [size]="14" />
+                  Eliminar
+                </button>
+                }
+              </div>
             </td>
           </tr>
           }
@@ -403,11 +421,16 @@
           <span>Nota: {{ row.participation.grade }}</span>
           @if (row.participation.origin === 'LEGACY') {
           <app-badge size="sm" color="info">Histórico</app-badge>
+          } @else {
+          <app-badge size="sm" color="light">Actual</app-badge>
           }
         </div>
 
         <div class="mt-3">
-          <dc-certificate-code [codes]="row.participation" />
+          <dc-certificate-code
+                [codes]="row.participation"
+                [historical]="row.participation.origin === 'LEGACY'"
+              />
         </div>
 
         @if (auth.can('participations', 'MANAGE')) {
@@ -427,6 +450,16 @@
             class="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-100 dark:border-gray-800 dark:text-gray-200 dark:hover:bg-white/5"
           >
             Reactivar
+          </button>
+          }
+          @if (isAdmin()) {
+          <button
+            type="button"
+            (click)="requestDeleteParticipation(row)"
+            class="inline-flex items-center gap-1 rounded-lg border border-error-200 bg-error-50 px-3 py-1.5 text-xs font-medium text-error-700 transition-colors hover:bg-error-100 dark:border-error-500/20 dark:bg-error-500/10 dark:text-error-400 dark:hover:bg-error-500/20"
+          >
+            <dc-icon name="trash" [size]="14" />
+            Eliminar
           </button>
           }
         </div>
@@ -561,6 +594,61 @@
       Entendido
     </button>
   </div>
+</app-modal>
+
+<!-- Confirmacion de eliminacion definitiva de una participacion -->
+<app-modal
+  [isOpen]="deleteTarget() !== null"
+  (close)="closeDeleteParticipation()"
+  [showCloseButton]="false"
+  className="flex w-full max-w-md flex-col overflow-hidden rounded-3xl p-0"
+>
+  @if (deleteTarget(); as target) {
+  <div class="px-6 py-6">
+    <div class="flex items-start gap-3">
+      <span
+        class="flex size-10 shrink-0 items-center justify-center rounded-xl bg-error-50 text-error-600 dark:bg-error-500/10 dark:text-error-400"
+      >
+        <dc-icon name="trash" [size]="20" />
+      </span>
+      <div class="min-w-0">
+        <h2 class="text-base font-semibold text-gray-900 dark:text-white/90">
+          Eliminar participación
+        </h2>
+        <p class="mt-1 text-sm text-gray-600 dark:text-gray-300">
+          ¿Seguro que deseas eliminar la participación de
+          <span class="font-medium">{{ studentName(target) }}</span>?
+          Esta acción es definitiva: la data no se podrá recuperar.
+        </p>
+        @if (deleteError()) {
+        <p class="mt-2 text-sm font-medium text-error-600 dark:text-error-400">
+          {{ deleteError() }}
+        </p>
+        }
+      </div>
+    </div>
+
+    <div class="mt-5 flex flex-col gap-2 sm:flex-row sm:justify-end">
+      <button
+        type="button"
+        (click)="closeDeleteParticipation()"
+        [disabled]="deleting()"
+        class="inline-flex h-10 items-center justify-center rounded-xl border border-gray-300 px-4 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-white/[0.05]"
+      >
+        Cancelar
+      </button>
+      <button
+        type="button"
+        (click)="confirmDeleteParticipation()"
+        [disabled]="deleting()"
+        class="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-error-600 px-4 text-sm font-semibold text-white transition-colors hover:bg-error-700 disabled:cursor-not-allowed disabled:opacity-50"
+      >
+        <dc-icon name="trash" [size]="16" />
+        {{ deleting() ? 'Eliminando…' : 'Eliminar definitivamente' }}
+      </button>
+    </div>
+  </div>
+  }
 </app-modal>
 } @else {
 <dc-empty-state

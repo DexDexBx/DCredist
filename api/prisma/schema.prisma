@@ -220,7 +220,8 @@ model Event {
   description String @default("Sin descripción")
 
   /// SINGLE_DAY / MULTI_DAY: se deriva de startDate y endDate, no se elige a mano.
-  eventType EventType @default(SINGLE_DAY)
+  /// La columna se llama duration_type.
+  durationType EventType @default(SINGLE_DAY) @map("duration_type")
 
   /// Tipo academico del evento (congreso, seminario, taller, ...).
   eventTypeId Int
@@ -303,6 +304,12 @@ model Participation {
   grade String @default("sin nota") @db.VarChar(10)
 
   status ParticipationStatus @default(VALID)
+
+  /// Nombre del usuario que creo la participacion y del ultimo que la modifico.
+  /// Igual que en Event: los estampa el backend a partir del actor de la peticion.
+  /// El valor por defecto evita autores vacios en cargas antiguas o directas.
+  userCreate String @default("Usuario 1")
+  userUpdate String @default("Usuario 1")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

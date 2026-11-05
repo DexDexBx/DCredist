@@ -143,7 +143,7 @@ Cuentas de demostracion:
 
 | Perfil                  | Correo                      | Contrasena     |
 | ----------------------- | --------------------------- | -------------- |
-| Administrador           | admin@dcredits.demo         | admin123       |
+| Administrador           | admin@dcredits.com         | admin123       |
 
 El modulo `/users` muestra un directorio mock de ~100 usuarios (busqueda por
 nombre o correo, filtro por perfil y estado, y paginacion) para que la pantalla se

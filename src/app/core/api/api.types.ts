@@ -195,7 +195,7 @@ export interface ApiEvent {
   code: string;
   name: string;
   description: string;
-  eventType: ApiEventType;
+  durationType: ApiEventType;
   eventTypeId: number;
   /** Nombre del tipo en ingles; la interfaz lo traduce. */
   eventTypeName: string;
@@ -273,6 +273,10 @@ export interface ApiParticipation {
   status: ApiParticipationStatus;
   /** CURRENT: codigo generado por DCredits. LEGACY: codigo historico original. */
   origin?: ApiParticipationOrigin;
+  /** Usuario que creo la participacion. */
+  userCreate?: string;
+  /** Usuario que la modifico por ultima vez. */
+  userUpdate?: string;
   createdAt?: string;
   updatedAt?: string;
 }

@@ -29,19 +29,39 @@ export class CertificateCodeComponent {
   /** Muestra el badge con la nomenclatura de origen. */
   readonly showOrigin = input<boolean>(true);
 
+  /**
+   * Marca la participacion como historica.
+   *
+   * El origen del codigo ya no alcanza para saberlo: las participaciones
+   * historicas guardan su codigo original en `verificationCode`. Este dato
+   * viene de `participation.origin` y manda sobre la nomenclatura.
+   */
+  readonly historical = input<boolean>(false);
+
   readonly origin = computed(() => certificateOrigin(this.codes()));
 
-  readonly originLabel = computed(() => CERTIFICATE_CODE_ORIGIN_LABEL[this.origin()]);
+  readonly originLabel = computed(() =>
+    this.historical()
+      ? 'Código histórico'
+      : CERTIFICATE_CODE_ORIGIN_LABEL[this.origin()]
+  );
 
   readonly code = computed(() => primaryCertificateCode(this.codes()));
 
   /** El legado se pinta en ambar: es historico, no vigente. */
   readonly isLegacy = computed(() => {
+    if (this.historical()) {
+      return true;
+    }
     const origin = this.origin();
     return origin === 'LEGACY' || origin === 'BOTH';
   });
 
   readonly badgeColor = computed<BadgeColor>(() => {
+    if (this.historical()) {
+      return 'warning';
+    }
+
     switch (this.origin()) {
       case 'DCREDITS':
         return 'primary';

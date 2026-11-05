@@ -21,7 +21,8 @@ export class EventDto {
   @ApiProperty({ example: 1 }) eventTypeId!: number;
   @ApiProperty({ example: 'Congress', description: 'Nombre del tipo (en ingles).' })
   eventTypeName!: string;
-  @ApiProperty({ enum: EventType }) eventType!: EventType;
+  @ApiProperty({ enum: EventType, description: 'Duracion: SINGLE_DAY o MULTI_DAY.' })
+  durationType!: EventType;
   @ApiProperty({ example: '2026-10-05', description: 'Fecha calendario (YYYY-MM-DD).' })
   startDate!: Date;
   @ApiProperty({ example: '2026-10-07', description: 'Fecha calendario (YYYY-MM-DD).' })

@@ -218,7 +218,10 @@
               >
             </td>
             <td class="px-5 py-3.5">
-              <dc-certificate-code [codes]="row.participation" />
+              <dc-certificate-code
+                [codes]="row.participation"
+                [historical]="row.participation.origin === 'LEGACY'"
+              />
               @if (codeOf(row.participation); as code) {
               <a
                 [routerLink]="['/verify']"
@@ -242,6 +245,8 @@
                 }
                 @if (row.participation.origin === 'LEGACY') {
                 <app-badge size="sm" color="info">Histórico</app-badge>
+                } @else {
+                <app-badge size="sm" color="light">Actual</app-badge>
                 }
               </div>
             </td>
@@ -307,11 +312,16 @@
           }
           @if (row.participation.origin === 'LEGACY') {
           <app-badge size="sm" color="info">Histórico</app-badge>
+          } @else {
+          <app-badge size="sm" color="light">Actual</app-badge>
           }
         </div>
 
         <div class="mt-3">
-          <dc-certificate-code [codes]="row.participation" />
+          <dc-certificate-code
+                [codes]="row.participation"
+                [historical]="row.participation.origin === 'LEGACY'"
+              />
           @if (codeOf(row.participation); as code) {
           <a
             [routerLink]="['/verify']"

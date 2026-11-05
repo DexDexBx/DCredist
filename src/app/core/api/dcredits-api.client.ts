@@ -153,6 +153,10 @@ export class DcreditsApiClient {
     return this.http.patch<ApiEvent>(API_ENDPOINTS.event(id), payload);
   }
 
+  deleteEvent(id: number): Observable<void> {
+    return this.http.delete<void>(API_ENDPOINTS.event(id));
+  }
+
   // --- Estudiantes ---
 
   listStudents(): Observable<ApiStudent[]> {
@@ -200,6 +204,10 @@ export class DcreditsApiClient {
     payload: Partial<ApiParticipationPayload>
   ): Observable<ApiParticipation> {
     return this.http.patch<ApiParticipation>(API_ENDPOINTS.participation(id), payload);
+  }
+
+  deleteParticipation(id: number): Observable<void> {
+    return this.http.delete<void>(API_ENDPOINTS.participation(id));
   }
 
   importParticipations(

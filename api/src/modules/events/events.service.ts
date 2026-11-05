@@ -302,7 +302,7 @@ export class EventsService {
           description,
           eventTypeId,
           // La duracion no se elige: se deriva de las fechas.
-          eventType: dto.eventType ?? this.deriveEventType(startDate, endDate),
+          durationType: dto.durationType ?? this.deriveDurationType(startDate, endDate),
           startDate,
           endDate,
           modality,
@@ -329,6 +329,35 @@ export class EventsService {
       this.logger.error('No se pudo crear el evento.', error);
       throw error;
     }
+  }
+
+  /**
+   * Elimina un evento.
+   *
+   * Reglas:
+   *  - solo el rol ADMIN puede hacerlo,
+   *  - se bloquea si el evento tiene CUALQUIER participacion (aunque este anulada),
+   *  - el alcance por escuela se valida igual que en la lectura.
+   */
+  async remove(id: number, actor: Actor): Promise<{ deleted: boolean }> {
+    if (actor.role !== UserRole.ADMIN) {
+      throw new ForbiddenException('Solo un administrador puede eliminar eventos.');
+    }
+
+    const event = await this.findOne(id, actor);
+
+    const participations = await this.prisma.participation.count({
+      where: { eventId: id },
+    });
+
+    if (participations > 0) {
+      throw new ConflictException(
+        `No se puede eliminar el evento ${event.code}: tiene ${participations} participación(es) asociada(s).`
+      );
+    }
+
+    await this.prisma.event.delete({ where: { id } });
+    return { deleted: true };
   }
 
   async update(id: number, dto: UpdateEventDto, actor: Actor): Promise<EventDto> {
@@ -408,19 +437,27 @@ export class EventsService {
       }
     }
 
+    // Si cambia el dia de inicio, las participaciones que heredaron la fecha
+    // del evento deben reflejar la correccion. Solo se tocan las que estaban en
+    // el dia anterior del evento: una fecha personalizada no se pisa.
+    const startDayChanged =
+      dto.startDate !== undefined &&
+      startOfUtcDay(startDate).getTime() !== startOfUtcDay(current.startDate).getTime();
+
     try {
-      const updated = await this.prisma.event.update({
-        where: { id },
-        data: {
+      const updated = await this.prisma.$transaction(async (tx) => {
+        const event = await tx.event.update({
+          where: { id },
+          data: {
           ...(dto.code !== undefined ? { code: dto.code.trim() } : {}),
           ...(dto.name !== undefined ? { name: dto.name.trim() } : {}),
           ...(dto.description !== undefined
             ? { description: dto.description.trim() || DEFAULT_DESCRIPTION }
             : {}),
           ...(dto.eventTypeId !== undefined ? { eventTypeId: dto.eventTypeId } : {}),
-          ...(dto.eventType !== undefined
-            ? { eventType: dto.eventType }
-            : { eventType: this.deriveEventType(startDate, endDate) }),
+          ...(dto.durationType !== undefined
+            ? { durationType: dto.durationType }
+            : { durationType: this.deriveDurationType(startDate, endDate) }),
           startDate,
           endDate,
           ...(dto.modality !== undefined ? { modality: dto.modality } : {}),
@@ -434,10 +471,26 @@ export class EventsService {
             : {}),
           ...(dto.credits !== undefined ? { credits: dto.credits ?? 1 } : {}),
           ...(dto.status !== undefined ? { status: dto.status } : {}),
-          // Cada modificacion actualiza quien la hizo; userCreate no se toca.
-          userUpdate: actor.fullName,
-        },
-        include: eventInclude,
+            // Cada modificacion actualiza quien la hizo; userCreate no se toca.
+            userUpdate: actor.fullName,
+          },
+          include: eventInclude,
+        });
+
+        if (startDayChanged) {
+          await tx.participation.updateMany({
+            where: {
+              eventId: id,
+              participationDate: {
+                gte: startOfUtcDay(current.startDate),
+                lt: new Date(startOfUtcDay(current.startDate).getTime() + DAY_MS),
+              },
+            },
+            data: { participationDate: startDate },
+          });
+        }
+
+        return event;
       });
 
       return toEventDto(updated);
@@ -657,7 +710,7 @@ export class EventsService {
         name,
         description,
         eventTypeId,
-        eventType: this.deriveEventType(startDate, endDate),
+        durationType: this.deriveDurationType(startDate, endDate),
         startDate,
         endDate,
         modality,
@@ -819,7 +872,7 @@ export class EventsService {
     return row.id;
   }
 
-  private deriveEventType(startDate: Date, endDate: Date): EventType {
+  private deriveDurationType(startDate: Date, endDate: Date): EventType {
     return endDate.getTime() - startDate.getTime() >= DAY_MS
       ? EventType.MULTI_DAY
       : EventType.SINGLE_DAY;
@@ -865,6 +918,13 @@ function toEventDto(row: EventRow): EventDto {
     eventTypeId: eventTypeCatalog.id,
     eventTypeName: eventTypeCatalog.name,
   };
+}
+
+/** Medianoche UTC del dia de una fecha calendario. */
+function startOfUtcDay(value: Date): Date {
+  const date = new Date(value.getTime());
+  date.setUTCHours(0, 0, 0, 0);
+  return date;
 }
 
 /** Normaliza una etiqueta para compararla: minusculas y sin tildes. */

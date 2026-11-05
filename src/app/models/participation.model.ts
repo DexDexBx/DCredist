@@ -69,6 +69,11 @@ export interface Participation {
    */
   origin?: ParticipationOrigin;
 
+  /** Usuario que creo la participacion. */
+  userCreate?: string;
+  /** Usuario que la modifico por ultima vez. */
+  userUpdate?: string;
+
   /**
    * Origen de la carga que registro esta participacion.
    *

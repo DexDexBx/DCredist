@@ -35,6 +35,12 @@ export class StudentParticipationDto {
     description: 'CURRENT: registro nuevo con codigo generado. LEGACY: data historica.',
   })
   origin!: ParticipationOrigin;
+
+  @ApiProperty({ example: 'Ana Torres', description: 'Usuario que creo la participacion.' })
+  userCreate!: string;
+
+  @ApiProperty({ example: 'Ana Torres', description: 'Usuario que la modifico por ultima vez.' })
+  userUpdate!: string;
   @ApiProperty() createdAt!: Date;
   @ApiProperty() updatedAt!: Date;
 }

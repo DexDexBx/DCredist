@@ -12,6 +12,7 @@ import {
   ParticipationOrigin,
   ParticipationStatus,
   StudentStatus,
+  UserRole,
 } from '../../generated/prisma/client';
 import type { Actor } from '../../common/actor/actor.types';
 import { assertCanReadSchool } from '../../common/actor/school-scope';
@@ -280,7 +281,7 @@ export class ParticipationsService {
     const credits = event.credits;
     const participationDate = dto.participationDate
       ? new Date(dto.participationDate)
-      : event.startDate;
+      : toCalendarNoon(event.startDate);
 
     const origin = dto.origin ?? ParticipationOrigin.CURRENT;
     const historicalCode = normalizeHistoricalCode(dto.verificationCode);
@@ -336,6 +337,8 @@ export class ParticipationsService {
           // undefined se guarda como NULL. Nunca se convierte en 0.
           grade: normalizeGrade(dto.grade),
           status: dto.status ?? ParticipationStatus.VALID,
+          userCreate: authorName(actor),
+          userUpdate: authorName(actor),
         },
         include: EVENT_INCLUDE,
       });
@@ -370,6 +373,8 @@ export class ParticipationsService {
             origin,
             grade: normalizeGrade(dto.grade),
             status: dto.status ?? ParticipationStatus.VALID,
+            userCreate: authorName(actor),
+            userUpdate: authorName(actor),
           },
           include: EVENT_INCLUDE,
         });
@@ -408,6 +413,8 @@ export class ParticipationsService {
           // null es un valor valido: significa "sin nota registrada".
           ...(dto.grade !== undefined ? { grade: normalizeGrade(dto.grade) } : {}),
           ...(dto.status !== undefined ? { status: dto.status } : {}),
+          // Cada modificacion registra quien la hizo; userCreate no se toca.
+          userUpdate: authorName(actor),
         },
         include: EVENT_INCLUDE,
       });
@@ -415,6 +422,22 @@ export class ParticipationsService {
       this.logger.error(`No se pudo actualizar la participacion "${id}".`, error);
       throw error;
     }
+  }
+
+  /**
+   * Elimina definitivamente una participacion. Solo administradores.
+   *
+   * Es un borrado fisico: libera el cupo del evento y deja de existir para
+   * creditos, reportes y verificacion. No se puede recuperar.
+   */
+  async remove(id: number, actor: Actor): Promise<{ deleted: boolean }> {
+    if (actor.role !== UserRole.ADMIN) {
+      throw new ForbiddenException('Solo un administrador puede eliminar participaciones.');
+    }
+
+    await this.findOne(id, actor);
+    await this.prisma.participation.delete({ where: { id } });
+    return { deleted: true };
   }
 
   /**
@@ -649,7 +672,7 @@ export class ParticipationsService {
       });
     }
 
-    const registered = await this.insertImportedRows(dto, event, insertable, issues, origin);
+    const registered = await this.insertImportedRows(dto, event, insertable, issues, origin, actor);
 
     issues.sort((a, b) => a.row - b.row);
 
@@ -674,7 +697,8 @@ export class ParticipationsService {
     event: { id: number; startDate: Date; credits: number; code: string },
     insertable: { index: number; studentId: number; verificationCode?: string }[],
     issues: ParticipationImportIssueDto[],
-    origin: ParticipationOrigin
+    origin: ParticipationOrigin,
+    actor: Actor
   ): Promise<number> {
     if (insertable.length === 0) {
       return 0;
@@ -689,13 +713,17 @@ export class ParticipationsService {
       return {
         eventId: event.id,
         studentId,
-        participationDate: row.participationDate ? new Date(row.participationDate) : event.startDate,
+        participationDate: row.participationDate
+          ? new Date(row.participationDate)
+          : toCalendarNoon(event.startDate),
         credits: row.credits ?? defaultCredits,
         // En una carga historica se conserva el codigo original de la fila.
         verificationCode: isLegacy ? (verificationCode as string) : '',
         origin,
         grade: normalizeGrade(row.grade),
         status: row.status ?? ParticipationStatus.VALID,
+        userCreate: authorName(actor),
+        userUpdate: authorName(actor),
       };
     });
 
@@ -790,6 +818,8 @@ export class ParticipationsService {
       grade: row.grade,
       status: row.status,
       origin: row.origin,
+      userCreate: row.userCreate,
+      userUpdate: row.userUpdate,
       createdAt: row.createdAt,
       updatedAt: row.updatedAt,
     };
@@ -818,4 +848,22 @@ function normalizeGrade(value: string | null | undefined): string {
   }
 
   return String(numeric);
+}
+
+/**
+ * Lleva una fecha calendario a las 12:00 UTC.
+ *
+ * La fecha de participacion es un dia, no una marca de tiempo. Guardarla a
+ * medianoche UTC hace que en zonas con offset negativo (Peru, UTC-5) se muestre
+ * el dia anterior. El mediodia UTC conserva el dia en cualquier zona razonable.
+ */
+function toCalendarNoon(value: Date): Date {
+  const date = new Date(value.getTime());
+  date.setUTCHours(12, 0, 0, 0);
+  return date;
+}
+
+/** Nombre del autor con un respaldo para que nunca quede vacio. */
+function authorName(actor: Actor): string {
+  return actor.fullName?.trim() || 'Usuario 1';
 }

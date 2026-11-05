@@ -77,6 +77,12 @@ export class EventDetailComponent {
   readonly lastExport = signal<ExportResult | null>(null);
   readonly cancelledId = signal<number | null>(null);
 
+  // --- Eliminacion definitiva de participaciones (solo administradores) ---
+  readonly isAdmin = computed(() => this.auth.currentUser()?.role === 'ADMIN');
+  readonly deleteTarget = signal<ParticipationContext | null>(null);
+  readonly deleteError = signal<string | null>(null);
+  readonly deleting = signal(false);
+
   /** Modal que explica por que no se puede editar (evento con estudiantes). */
   readonly blockedEdit = signal(false);
   readonly exportOpen = signal(false);
@@ -259,5 +265,37 @@ export class EventDetailComponent {
   reactivateParticipation(participationId: number): void {
     void this.participationService.update(participationId, { status: 'VALID' });
     this.cancelledId.set(null);
+  }
+
+  requestDeleteParticipation(row: ParticipationContext): void {
+    if (!this.isAdmin()) {
+      return;
+    }
+
+    this.deleteError.set(null);
+    this.deleteTarget.set(row);
+  }
+
+  closeDeleteParticipation(): void {
+    this.deleteTarget.set(null);
+    this.deleteError.set(null);
+  }
+
+  async confirmDeleteParticipation(): Promise<void> {
+    const target = this.deleteTarget();
+    if (!target) {
+      return;
+    }
+
+    this.deleting.set(true);
+    const result = await this.participationService.delete(target.participation.id);
+    this.deleting.set(false);
+
+    if (result.ok) {
+      this.deleteTarget.set(null);
+      return;
+    }
+
+    this.deleteError.set(result.message ?? 'No se pudo eliminar la participación.');
   }
 }

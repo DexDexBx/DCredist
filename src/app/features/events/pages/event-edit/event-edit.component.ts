@@ -308,6 +308,9 @@ export class EventEditComponent {
     const updated = await this.eventService.update(this.eventId(), draft);
 
     if (updated) {
+      // El backend pudo corregir la fecha de las participaciones que heredaron
+      // la fecha del evento: se refresca el historial para mostrarlo al dia.
+      await this.participationService.refresh();
       this.saved.set(true);
       this.form.markAsPristine();
     } else {

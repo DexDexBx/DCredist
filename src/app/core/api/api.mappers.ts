@@ -220,13 +220,17 @@ export function mapApiParticipation(row: ApiParticipation): Participation {
           status: row.student.status,
         }
       : undefined,
-    participationDate: toIso(row.participationDate),
+    // La fecha de participacion es un dia calendario, no una marca de tiempo.
+    // Se normaliza a YYYY-MM-DD para que no se desplace de dia por la zona horaria.
+    participationDate: toDateOnly(row.participationDate),
     credits: row.credits,
     verificationCode: row.verificationCode,
     legacyCode: null,
     grade: row.grade,
     status: row.status,
     origin: row.origin === 'LEGACY' ? 'LEGACY' : 'CURRENT',
+    userCreate: row.userCreate ?? '',
+    userUpdate: row.userUpdate ?? '',
   };
 }
 

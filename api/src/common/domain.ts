@@ -8,8 +8,8 @@
 /**
  * Categoria academica de un evento. Es el "tipo" que ve la institucion.
  *
- * `Event.eventType` (SINGLE_DAY / MULTI_DAY) es otra cosa: se deriva de las
- * fechas y no se elige a mano.
+ * `Event.durationType` (SINGLE_DAY / MULTI_DAY) es otra cosa: se deriva de
+ * las fechas y no se elige a mano.
  */
 export const EVENT_CATEGORIES = [
   'Congreso',

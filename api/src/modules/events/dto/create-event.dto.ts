@@ -60,11 +60,12 @@ export class EventFieldsDto {
 
   @ApiPropertyOptional({
     enum: EventType,
-    description: 'Si se omite, el backend lo deriva de startDate y endDate.',
+    description:
+      'Duracion (SINGLE_DAY / MULTI_DAY). Si se omite, el backend la deriva de startDate y endDate.',
   })
   @IsOptional()
   @IsEnum(EventType)
-  eventType?: EventType;
+  durationType?: EventType;
 
   @ApiPropertyOptional({
     example: '2026-10-05',

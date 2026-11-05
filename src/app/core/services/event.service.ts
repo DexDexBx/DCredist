@@ -246,6 +246,40 @@ export class EventService {
     return event;
   }
 
+  /**
+   * Elimina un evento. Solo administradores y solo si no tiene participaciones.
+   *
+   * El frontend bloquea la accion; el backend vuelve a validar ambas reglas.
+   */
+  async delete(id: number): Promise<EventDeleteResult> {
+    if (this.auth.currentUser()?.role !== 'ADMIN') {
+      return { ok: false, message: 'Solo un administrador puede eliminar eventos.' };
+    }
+
+    if (this.dataMode.isApi) {
+      try {
+        await firstValueFrom(this.api.deleteEvent(id));
+        this.eventsState.update((current) => current.filter((event) => event.id !== id));
+        return { ok: true };
+      } catch (error) {
+        return { ok: false, message: this.deleteErrorMessage(error) };
+      }
+    }
+
+    this.eventsState.update((current) => current.filter((event) => event.id !== id));
+    return { ok: true };
+  }
+
+  private deleteErrorMessage(error: unknown): string {
+    if (error instanceof HttpErrorResponse) {
+      const body = error.error as { message?: string | string[] } | null;
+      const detail = Array.isArray(body?.message) ? body.message.join('. ') : body?.message;
+      return detail ?? `No se pudo eliminar el evento (HTTP ${error.status}).`;
+    }
+
+    return 'No se pudo conectar con el API para eliminar el evento.';
+  }
+
   async update(id: number, draft: EventDraft): Promise<AcademicEvent | null> {
     const current = this.findById(id);
     if (!current || !this.validate(draft).valid) {
@@ -629,4 +663,10 @@ export interface EventImportResult {
   issues: { row: number; name: string; code: string; message: string }[];
   /** Error global del API (por ejemplo, migracion pendiente o validacion). */
   error?: string;
+}
+
+/** Resultado de eliminar un evento. */
+export interface EventDeleteResult {
+  ok: boolean;
+  message?: string;
 }

@@ -984,6 +984,37 @@ getParticipations(query: ParticipationQuery = {}): Participation[] {
   }
 
   /**
+   * Elimina definitivamente una participacion (solo administradores).
+   *
+   * El backend vuelve a validar el rol. Es un borrado fisico: no se puede
+   * recuperar la data.
+   */
+  async delete(id: number): Promise<ParticipationDeleteResult> {
+    if (this.dataMode.isApi) {
+      try {
+        await firstValueFrom(this.api.deleteParticipation(id));
+        this.participationsState.update((items) => items.filter((item) => item.id !== id));
+        return { ok: true };
+      } catch (error) {
+        return { ok: false, message: this.deleteErrorMessage(error) };
+      }
+    }
+
+    this.participationsState.update((items) => items.filter((item) => item.id !== id));
+    return { ok: true };
+  }
+
+  private deleteErrorMessage(error: unknown): string {
+    if (error instanceof HttpErrorResponse) {
+      const body = error.error as { message?: string | string[] } | null;
+      const detail = Array.isArray(body?.message) ? body.message.join('. ') : body?.message;
+      return detail ?? `No se pudo eliminar la participación (HTTP ${error.status}).`;
+    }
+
+    return 'No se pudo conectar con el API para eliminar la participación.';
+  }
+
+  /**
    * Estudiantes disponibles para registrar en un evento.
    *
    * Consulta el endpoint exclusivo del modulo de participaciones, que devuelve
@@ -1394,6 +1425,19 @@ getParticipations(query: ParticipationQuery = {}): Participation[] {
   }
 
   /** Recarga las participaciones del API tras una escritura en lote. */
+  /**
+   * Recarga el historial desde el API.
+   *
+   * Se usa, por ejemplo, despues de corregir la fecha de un evento: el backend
+   * sincroniza las participaciones que habian heredado esa fecha.
+   */
+  async refresh(): Promise<void> {
+    if (!this.dataMode.isApi) {
+      return;
+    }
+    await this.refreshFromApi();
+  }
+
   private async refreshFromApi(): Promise<void> {
     try {
       const participations = await firstValueFrom(this.api.listParticipations());
@@ -1481,7 +1525,9 @@ getParticipations(query: ParticipationQuery = {}): Participation[] {
 
   private resolveParticipationDate(eventId: number): string {
     const event = this.eventService.findById(eventId);
-    return event?.startDate ? `${event.startDate}T00:00:00.000Z` : new Date().toISOString();
+    // Fecha calendario, sin hora: evita que al formatearla en zona local se
+    // muestre el dia anterior.
+    return event?.startDate ?? new Date().toISOString().slice(0, 10);
   }
 
   private nextId(): number {
@@ -1497,4 +1543,10 @@ function normalizeGrade(value: string | null | undefined): string {
     return 'sin nota';
   }
   return text.replace(',', '.');
+}
+
+/** Resultado de eliminar una participacion. */
+export interface ParticipationDeleteResult {
+  ok: boolean;
+  message?: string;
 }

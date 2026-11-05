@@ -1,9 +1,20 @@
-import { Body, Controller, Get, Param, ParseIntPipe, Patch, Post, Query } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  ParseIntPipe,
+  Patch,
+  Post,
+  Query,
+} from '@nestjs/common';
 import {
   ApiBadRequestResponse,
   ApiBody,
   ApiConflictResponse,
   ApiCreatedResponse,
+  ApiForbiddenResponse,
   ApiNotFoundResponse,
   ApiOkResponse,
   ApiOperation,
@@ -107,6 +118,22 @@ export class ParticipationsController {
     @CurrentActor() actor: Actor
   ) {
     return this.participationsService.update(id, dto, actor);
+  }
+
+  @Delete(':id')
+  @ApiOperation({
+    summary: 'Elimina definitivamente una participacion (solo administradores).',
+    description:
+      'Borra la fila de la base: libera el cupo y deja de existir para creditos, reportes y verificacion. No se puede recuperar.',
+  })
+  @ApiOkResponse({ description: 'Participacion eliminada.' })
+  @ApiForbiddenResponse({ description: 'El usuario no es administrador.' })
+  @ApiNotFoundResponse({ description: 'La participacion no existe.' })
+  remove(
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentActor() actor: Actor
+  ): Promise<{ deleted: boolean }> {
+    return this.participationsService.remove(id, actor);
   }
 
   @Post('import')

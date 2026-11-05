@@ -158,6 +158,54 @@ export class EventListComponent {
   /** Evento cuyo bloqueo de edicion se esta explicando en el modal. */
   readonly blockedEditEvent = signal<AcademicEvent | null>(null);
 
+  // --- Eliminacion de eventos (solo administradores) ---
+  readonly isAdmin = computed(() => this.auth.currentUser()?.role === 'ADMIN');
+  readonly deleteTarget = signal<AcademicEvent | null>(null);
+  readonly deleteError = signal<string | null>(null);
+  readonly deleting = signal(false);
+
+  /** Un evento con CUALQUIER participacion no se puede eliminar. */
+  hasParticipations(event: AcademicEvent): boolean {
+    // Indice ya construido por el servicio: evita recorrer el historial por fila.
+    return (this.participationService.participationsByEvent().get(event.id)?.length ?? 0) > 0;
+  }
+
+  canDelete(event: AcademicEvent): boolean {
+    return this.isAdmin() && !this.hasParticipations(event);
+  }
+
+  requestDelete(event: AcademicEvent): void {
+    if (!this.canDelete(event)) {
+      return;
+    }
+
+    this.deleteError.set(null);
+    this.deleteTarget.set(event);
+  }
+
+  closeDelete(): void {
+    this.deleteTarget.set(null);
+    this.deleteError.set(null);
+  }
+
+  async confirmDelete(): Promise<void> {
+    const event = this.deleteTarget();
+    if (!event) {
+      return;
+    }
+
+    this.deleting.set(true);
+    const result = await this.eventService.delete(event.id);
+    this.deleting.set(false);
+
+    if (result.ok) {
+      this.deleteTarget.set(null);
+      return;
+    }
+
+    this.deleteError.set(result.message ?? 'No se pudo eliminar el evento.');
+  }
+
   /**
    * Abre la edicion si el evento no tiene estudiantes o si el usuario es
    * administrador. En caso contrario, explica el bloqueo en un modal.
