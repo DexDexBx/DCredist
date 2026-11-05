@@ -59,7 +59,39 @@
 </dc-empty-state>
 } @else {
 <form [formGroup]="form" (ngSubmit)="onSubmit()" novalidate class="grid gap-6 xl:grid-cols-3">
-  <dc-panel title="Datos del evento" class="xl:col-span-2">
+  <dc-panel class="xl:col-span-2" [title]="isLegacy() ? 'Datos del evento histórico' : 'Datos del evento'">
+    <div
+      class="mb-5 flex flex-col gap-3 rounded-xl border px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
+      [class]="
+        isLegacy()
+          ? 'border-warning-200 bg-warning-50 dark:border-warning-500/20 dark:bg-warning-500/10'
+          : 'border-gray-200 bg-gray-50 dark:border-gray-800 dark:bg-white/[0.03]'
+      "
+    >
+      <div class="flex items-start gap-3">
+        <dc-icon
+          [name]="isLegacy() ? 'document' : 'shield-check'"
+          [size]="18"
+          class="mt-0.5 shrink-0"
+          [class]="
+            isLegacy() ? 'text-warning-600 dark:text-warning-500' : 'text-brand-600 dark:text-brand-300'
+          "
+        />
+        <div class="min-w-0">
+          <p class="text-sm font-semibold text-gray-900 dark:text-white/90">
+            {{ originLabel[isLegacy() ? 'LEGACY' : 'CURRENT'] }}
+          </p>
+          <p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
+            @if (isLegacy()) {
+            Descripción, fechas, tipo, modalidad, ubicación y estado son opcionales.
+            } @else {
+            Se exigen los datos completos del evento.
+            }
+          </p>
+        </div>
+      </div>
+    </div>
+
     <div class="flex flex-col gap-5">
       <dc-input
         formControlName="name"
@@ -79,24 +111,26 @@
         label="Descripción"
         placeholder="Resume los objetivos, la agenda y el público del evento."
         [rows]="5"
-        [required]="true"
         [invalid]="isInvalid('description')"
-        hint="Mínimo 20 caracteres."
+        hint="Opcional. Mínimo 3 caracteres si se informa."
       />
+      @if (isInvalid('description')) {
+      <p class="-mt-3 text-xs text-error-500">La descripción debe tener al menos 3 caracteres.</p>
+      }
 
       <div class="grid gap-5 sm:grid-cols-2">
         <dc-input
           formControlName="startDate"
           type="date"
           label="Fecha de inicio"
-          [required]="true"
+          [required]="!isLegacy()"
           [invalid]="isInvalid('startDate')"
         />
         <dc-input
           formControlName="endDate"
           type="date"
           label="Fecha de fin"
-          [required]="true"
+          [required]="!isLegacy()"
           [invalid]="isInvalid('endDate')"
         />
       </div>
@@ -115,8 +149,8 @@
           formControlName="eventTypeId"
           label="Tipo de evento"
           [options]="typeOptions()"
-          placeholder="Selecciona el tipo"
-          [required]="true"
+          [placeholder]="isLegacy() ? 'No especificado' : 'Selecciona el tipo'"
+          [required]="!isLegacy()"
           [invalid]="isInvalid('eventTypeId')"
         />
 
@@ -124,14 +158,15 @@
           formControlName="modality"
           label="Modalidad"
           [options]="modalityOptions"
-          placeholder="Selecciona la modalidad"
-          [required]="true"
+          [placeholder]="isLegacy() ? 'No especificado' : 'Selecciona la modalidad'"
+          [required]="!isLegacy()"
+          [invalid]="isInvalid('modality')"
         />
         <dc-input
           formControlName="location"
           label="Ubicación o enlace"
           placeholder="Auditorio Central, Campus Norte"
-          [required]="true"
+          hint="Opcional."
           [invalid]="isInvalid('location')"
         />
       </div>
@@ -187,9 +222,14 @@
           formControlName="status"
           label="Estado"
           [options]="statusOptions()"
-          placeholder="Selecciona el estado"
-          hint="El estado avanza en orden: Programado → En curso → Finalizado. Cancelado cierra el evento."
-          [required]="true"
+          [placeholder]="isLegacy() ? 'Finalizado (por defecto)' : 'Selecciona el estado'"
+          [hint]="
+            isLegacy()
+              ? 'Opcional. Si se deja vacío se guarda Finalizado.'
+              : 'El estado avanza en orden: Programado → En curso → Finalizado. Cancelado cierra el evento.'
+          "
+          [required]="!isLegacy()"
+          [invalid]="isInvalid('status')"
         />
 
         <div>

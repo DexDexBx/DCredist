@@ -11,8 +11,14 @@ import {
   Max,
   MaxLength,
   Min,
+  MinLength,
 } from 'class-validator';
-import { EventModality, EventStatus, EventType } from '../../../generated/prisma/client';
+import {
+  EventModality,
+  EventOrigin,
+  EventStatus,
+  EventType,
+} from '../../../generated/prisma/client';
 
 /** Campos de un evento. Create y Update comparten las mismas reglas. */
 export class EventFieldsDto {
@@ -31,20 +37,26 @@ export class EventFieldsDto {
   @MaxLength(200)
   name!: string;
 
-  @ApiPropertyOptional({ example: 'Evento academico internacional sobre innovacion.' })
+  @ApiPropertyOptional({
+    example: 'Evento academico internacional sobre innovacion.',
+    description: 'Opcional. Si se omite se guarda "Sin descripcion". Minimo 3 caracteres.',
+  })
   @IsOptional()
   @IsString()
+  @MinLength(3, { message: 'La descripcion debe tener al menos 3 caracteres.' })
   @MaxLength(2000)
   description?: string;
 
-  @ApiProperty({
+  @ApiPropertyOptional({
     example: 1,
-    description: 'Id del tipo de evento academico (GET /event-types).',
+    description:
+      'Id del tipo de evento academico (GET /event-types). Opcional en registros historicos: se usa "No especificado".',
   })
+  @IsOptional()
   @Type(() => Number)
   @IsInt()
   @Min(1)
-  eventTypeId!: number;
+  eventTypeId?: number;
 
   @ApiPropertyOptional({
     enum: EventType,
@@ -54,16 +66,22 @@ export class EventFieldsDto {
   @IsEnum(EventType)
   eventType?: EventType;
 
-  @ApiProperty({ example: '2026-10-05', description: 'Fecha calendario (YYYY-MM-DD).' })
+  @ApiPropertyOptional({
+    example: '2026-10-05',
+    description:
+      'Fecha calendario (YYYY-MM-DD). Opcional en registros historicos: se usa una fecha sentinela (1999-09-29) que la interfaz muestra como "Sin fecha".',
+  })
+  @IsOptional()
   @IsDateString()
-  startDate!: string;
+  startDate?: string;
 
-  @ApiProperty({
+  @ApiPropertyOptional({
     example: '2026-10-07',
     description: 'Fecha calendario (YYYY-MM-DD). Igual o posterior a startDate.',
   })
+  @IsOptional()
   @IsDateString()
-  endDate!: string;
+  endDate?: string;
 
   @ApiPropertyOptional({ enum: EventModality, default: EventModality.PRESENTIAL })
   @IsOptional()
@@ -110,10 +128,25 @@ export class EventFieldsDto {
   @Max(21, { message: 'Los créditos no pueden superar 21.' })
   credits?: number;
 
-  @ApiPropertyOptional({ enum: EventStatus, default: EventStatus.SCHEDULED })
+  @ApiPropertyOptional({
+    enum: EventStatus,
+    default: EventStatus.SCHEDULED,
+    description:
+      'En registros historicos, si se omite, se guarda COMPLETED (Finalizado).',
+  })
   @IsOptional()
   @IsEnum(EventStatus)
   status?: EventStatus;
+
+  @ApiPropertyOptional({
+    enum: EventOrigin,
+    default: EventOrigin.CURRENT,
+    description:
+      'CURRENT: registro nuevo (reglas completas). LEGACY: registro historico (campos opcionales).',
+  })
+  @IsOptional()
+  @IsEnum(EventOrigin)
+  origin?: EventOrigin;
 }
 
 export class CreateEventDto extends EventFieldsDto {}

@@ -15,6 +15,7 @@ import {
   AcademicEvent,
   EventStatus,
   eventDateRangeLabel,
+  isHistoricalEventDate,
 } from '../../../../models';
 import { EVENT_STATUS_HEX } from '../../../../shared/constants/status-ui';
 import { IconComponent } from '../../../../shared/components/ui/icon/icon.component';
@@ -62,7 +63,12 @@ export class EventCalendarComponent {
   }
 
   readonly events = computed<EventInput[]>(() =>
-    this.eventService.events().map((event) => this.toEventInput(event))
+    this.eventService
+      .events()
+      // Los eventos historicos sin fecha (sentinela 1999) no se pueden ubicar
+      // en el calendario: se omiten, pero siguen visibles en el listado.
+      .filter((event) => !isHistoricalEventDate(event.startDate))
+      .map((event) => this.toEventInput(event))
   );
 
   readonly options = computed<CalendarOptions>(() =>

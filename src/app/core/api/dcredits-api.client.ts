@@ -7,6 +7,9 @@ import {
   ApiCatalogKind,
   ApiCatalogPayload,
   ApiEvent,
+  ApiEventImportResult,
+  ApiEventImportRow,
+  ApiEventOrigin,
   ApiEventPayload,
   ApiEligibleStudent,
   ApiEventTypeEntry,
@@ -133,6 +136,13 @@ export class DcreditsApiClient {
 
   createEvent(payload: ApiEventPayload): Observable<ApiEvent> {
     return this.http.post<ApiEvent>(API_ENDPOINTS.events, payload);
+  }
+
+  importEvents(
+    rows: ApiEventImportRow[],
+    origin: ApiEventOrigin = 'CURRENT'
+  ): Observable<ApiEventImportResult> {
+    return this.http.post<ApiEventImportResult>(API_ENDPOINTS.eventsImport, { origin, rows });
   }
 
   listEventTypes(): Observable<ApiEventTypeEntry[]> {

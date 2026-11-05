@@ -31,6 +31,9 @@ const NUMERIC_HEADERS = new Set([
   'NOTA',
   'CUPO',
   'PARTICIPANTES',
+  'CAPACIDAD',
+  'Capacidad',
+  'Créditos',
 ]);
 
 const NUMBER_PATTERN = /^-?\d+(\.\d+)?$/;

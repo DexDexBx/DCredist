@@ -9,6 +9,8 @@ import {
 import type { Prisma } from '../../generated/prisma/client';
 import {
   CatalogStatus,
+  EventModality,
+  EventOrigin,
   EventStatus,
   EventType,
   UserRole,
@@ -16,10 +18,16 @@ import {
 import type { Actor } from '../../common/actor/actor.types';
 import { isGeneralSchool } from '../../common/actor/actor.guard';
 import { assertCanReadSchool } from '../../common/actor/school-scope';
+import { BULK_INSERT_BATCH_SIZE, chunk } from '../../common/prisma/bulk';
 import { isUniqueViolation } from '../../common/prisma/prisma-errors';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { CreateEventDto } from './dto/create-event.dto';
 import { EventDto } from './dto/event.dto';
+import {
+  EventImportIssueDto,
+  EventImportResultDto,
+  ImportEventsDto,
+} from './dto/import-events.dto';
 import { EventParticipantDto, EventSummaryDto } from './dto/event-participant.dto';
 import { QueryEventsDto } from './dto/query-events.dto';
 import { UpdateEventDto } from './dto/update-event.dto';
@@ -33,6 +41,39 @@ const eventInclude = {
 type EventRow = Prisma.EventGetPayload<{ include: typeof eventInclude }>;
 
 const DAY_MS = 86_400_000;
+
+/** Fecha sentinela para eventos historicos sin fecha (29-09-1999). */
+const HISTORICAL_DATE_ISO = '1999-09-29';
+const DEFAULT_DESCRIPTION = 'Sin descripción';
+const DEFAULT_LOCATION = 'Sin ubicación';
+const UNSPECIFIED_EVENT_TYPE_NAME = 'Unspecified';
+
+/** Etiquetas en espanol -> valores de la base, para la importacion masiva. */
+const MODALITY_BY_LABEL: Record<string, EventModality> = {
+  presencial: EventModality.PRESENTIAL,
+  virtual: EventModality.VIRTUAL,
+  hibrido: EventModality.HYBRID,
+  'no especificado': EventModality.UNSPECIFIED,
+};
+
+const STATUS_BY_LABEL: Record<string, EventStatus> = {
+  programado: EventStatus.SCHEDULED,
+  'en curso': EventStatus.IN_PROGRESS,
+  finalizado: EventStatus.COMPLETED,
+  cancelado: EventStatus.CANCELLED,
+};
+
+const EVENT_TYPE_BY_LABEL: Record<string, string> = {
+  congreso: 'Congress',
+  seminario: 'Seminar',
+  taller: 'Workshop',
+  curso: 'Course',
+  foro: 'Forum',
+  conferencia: 'Conference',
+  webinar: 'Webinar',
+  muestra: 'Exhibition',
+  'no especificado': 'Unspecified',
+};
 
 /**
  * Secuencia de estados para usuarios que no son administradores.
@@ -189,13 +230,39 @@ export class EventsService {
   }
 
   async create(dto: CreateEventDto, actor: Actor): Promise<EventDto> {
-    const startDate = toCalendarDate(dto.startDate);
-    const endDate = toCalendarDate(dto.endDate);
+    const origin = dto.origin ?? EventOrigin.CURRENT;
+    const isHistorical = origin === EventOrigin.LEGACY;
+
+    // Fechas: obligatorias en un registro actual; sentinela en uno historico.
+    let startDate: Date;
+    let endDate: Date;
+
+    if (isHistorical) {
+      startDate = dto.startDate ? toCalendarDate(dto.startDate) : toCalendarDate(HISTORICAL_DATE_ISO);
+      endDate = dto.endDate ? toCalendarDate(dto.endDate) : startDate;
+    } else {
+      if (!dto.startDate || !dto.endDate) {
+        throw new BadRequestException('Las fechas de inicio y fin son obligatorias en un registro actual.');
+      }
+      startDate = toCalendarDate(dto.startDate);
+      endDate = toCalendarDate(dto.endDate);
+    }
 
     this.assertDates(startDate, endDate);
     await this.assertSchoolAssignable(dto.professionalSchoolId, actor);
     await this.assertOrganizerAssignable(dto.organizerId);
-    await this.assertEventTypeAssignable(dto.eventTypeId);
+
+    // Tipo academico: en un registro actual es obligatorio; en uno historico
+    // cae al tipo "No especificado" del catalogo.
+    let eventTypeId: number;
+    if (dto.eventTypeId) {
+      await this.assertEventTypeAssignable(dto.eventTypeId);
+      eventTypeId = dto.eventTypeId;
+    } else if (isHistorical) {
+      eventTypeId = await this.resolveUnspecifiedEventTypeId();
+    } else {
+      throw new BadRequestException('El tipo de evento es obligatorio en un registro actual.');
+    }
 
     if (dto.capacity !== undefined && dto.capacity !== null && dto.capacity < 0) {
       throw new BadRequestException('La capacidad no puede ser negativa.');
@@ -209,7 +276,15 @@ export class EventsService {
       throw new BadRequestException('Los créditos del evento deben estar entre 1 y 21.');
     }
 
-    const code = dto.code?.trim() || (await this.generateCode(startDate));
+    const description = dto.description?.trim() || DEFAULT_DESCRIPTION;
+    const location = dto.location?.trim() || DEFAULT_LOCATION;
+    const modality = dto.modality ?? (isHistorical ? EventModality.UNSPECIFIED : EventModality.PRESENTIAL);
+    const status = dto.status ?? (isHistorical ? EventStatus.COMPLETED : EventStatus.SCHEDULED);
+
+    // El codigo mantiene la secuencia EVT-AAAA-NNN. Para los historicos se usa el
+    // anio actual, no la fecha sentinela de 1999.
+    const codeDate = isHistorical ? new Date() : startDate;
+    const code = dto.code?.trim() || (await this.generateCode(codeDate));
 
     if (dto.code?.trim()) {
       const existing = await this.prisma.event.findUnique({ where: { code } });
@@ -224,20 +299,21 @@ export class EventsService {
         data: {
           code,
           name: dto.name.trim(),
-          description: dto.description?.trim() ?? '',
-          eventTypeId: dto.eventTypeId,
+          description,
+          eventTypeId,
           // La duracion no se elige: se deriva de las fechas.
           eventType: dto.eventType ?? this.deriveEventType(startDate, endDate),
           startDate,
           endDate,
-          modality: dto.modality,
-          location: dto.location?.trim() ?? '',
+          modality,
+          location,
+          origin,
           // 0 = sin limite. No se guardan capacidades nulas.
           capacity: dto.capacity ?? 0,
           organizerId: dto.organizerId,
           professionalSchoolId: dto.professionalSchoolId,
           credits: dto.credits ?? 1,
-          status: dto.status ?? EventStatus.SCHEDULED,
+          status,
           // Sello de autoria: el backend usa el actor de la peticion.
           userCreate: actor.fullName,
           userUpdate: actor.fullName,
@@ -338,7 +414,9 @@ export class EventsService {
         data: {
           ...(dto.code !== undefined ? { code: dto.code.trim() } : {}),
           ...(dto.name !== undefined ? { name: dto.name.trim() } : {}),
-          ...(dto.description !== undefined ? { description: dto.description.trim() } : {}),
+          ...(dto.description !== undefined
+            ? { description: dto.description.trim() || DEFAULT_DESCRIPTION }
+            : {}),
           ...(dto.eventTypeId !== undefined ? { eventTypeId: dto.eventTypeId } : {}),
           ...(dto.eventType !== undefined
             ? { eventType: dto.eventType }
@@ -346,7 +424,9 @@ export class EventsService {
           startDate,
           endDate,
           ...(dto.modality !== undefined ? { modality: dto.modality } : {}),
-          ...(dto.location !== undefined ? { location: dto.location.trim() } : {}),
+          ...(dto.location !== undefined
+            ? { location: dto.location.trim() || DEFAULT_LOCATION }
+            : {}),
           ...(dto.capacity !== undefined ? { capacity: dto.capacity ?? 0 } : {}),
           ...(dto.organizerId !== undefined ? { organizerId: dto.organizerId } : {}),
           ...(dto.professionalSchoolId !== undefined
@@ -368,6 +448,285 @@ export class EventsService {
       this.logger.error(`No se pudo actualizar el evento "${id}".`, error);
       throw error;
     }
+  }
+
+  /**
+   * CARGA MASIVA DE EVENTOS (actuales o historicos).
+   *
+   * Resuelve escuela, organizador y tipo de evento por nombre. Respeta la regla
+   * de creacion: una cuenta global puede cargar cualquier escuela real; una de
+   * escuela solo la suya. El codigo se genera con la misma secuencia EVT-AAAA-NNN.
+   */
+  async importEvents(dto: ImportEventsDto, actor: Actor): Promise<EventImportResultDto> {
+    const origin = dto.origin ?? EventOrigin.CURRENT;
+    const isHistorical = origin === EventOrigin.LEGACY;
+    const issues: EventImportIssueDto[] = [];
+
+    const [schools, organizers, eventTypes] = await Promise.all([
+      this.prisma.professionalSchool.findMany({
+        select: { id: true, name: true, status: true },
+      }),
+      this.prisma.organizer.findMany({
+        select: { id: true, name: true, status: true },
+      }),
+      this.prisma.eventTypeCatalog.findMany({
+        select: { id: true, name: true, status: true },
+      }),
+    ]);
+
+    const schoolByName = new Map(schools.map((row) => [normalizeLookup(row.name), row]));
+    const organizerByName = new Map(organizers.map((row) => [normalizeLookup(row.name), row]));
+    const eventTypeByName = new Map(eventTypes.map((row) => [normalizeLookup(row.name), row]));
+
+    // Codigos ocupados: se leen una vez para continuar la secuencia sin chocar.
+    const existingCodes = await this.prisma.event.findMany({
+      where: { code: { startsWith: 'EVT-' } },
+      select: { code: true },
+    });
+    const takenCodes = new Set(existingCodes.map((row) => row.code));
+    const maxSeqByYear = new Map<number, number>();
+    for (const code of takenCodes) {
+      const match = /^EVT-(\d{4})-(\d{3,})$/.exec(code);
+      if (match) {
+        const year = Number(match[1]);
+        const seq = Number(match[2]);
+        maxSeqByYear.set(year, Math.max(maxSeqByYear.get(year) ?? 0, seq));
+      }
+    }
+
+    const data: Prisma.EventCreateManyInput[] = [];
+    let skipped = 0;
+
+    for (let index = 0; index < dto.rows.length; index++) {
+      const row = dto.rows[index];
+      const line = index + 1;
+      const name = row.name?.trim() ?? '';
+
+      if (!name) {
+        issues.push({ row: line, name: '', code: 'MISSING_NAME', message: 'La fila no tiene nombre de evento.' });
+        skipped++;
+        continue;
+      }
+
+      // Fechas
+      let startDate: Date;
+      let endDate: Date;
+      if (isHistorical) {
+        startDate = row.startDate ? toCalendarDate(row.startDate) : toCalendarDate(HISTORICAL_DATE_ISO);
+        endDate = row.endDate ? toCalendarDate(row.endDate) : startDate;
+      } else {
+        if (!row.startDate || !row.endDate) {
+          issues.push({ row: line, name, code: 'MISSING_DATES', message: 'Faltan las fechas: son obligatorias en un registro actual.' });
+          skipped++;
+          continue;
+        }
+        startDate = toCalendarDate(row.startDate);
+        endDate = toCalendarDate(row.endDate);
+      }
+
+      if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime()) || endDate.getTime() < startDate.getTime()) {
+        issues.push({ row: line, name, code: 'INVALID_ROW', message: 'Fechas invalidas: endDate debe ser >= startDate.' });
+        skipped++;
+        continue;
+      }
+
+      // Organizador
+      const organizer = organizerByName.get(normalizeLookup(row.organizer));
+      if (!organizer || organizer.status !== CatalogStatus.ACTIVE) {
+        issues.push({ row: line, name, code: 'UNKNOWN_ORGANIZER', message: `El organizador "${row.organizer}" no existe o esta inactivo.` });
+        skipped++;
+        continue;
+      }
+
+      // Escuela
+      const school = schoolByName.get(normalizeLookup(row.professionalSchool));
+      if (!school || school.status !== CatalogStatus.ACTIVE) {
+        issues.push({ row: line, name, code: 'UNKNOWN_SCHOOL', message: `La escuela "${row.professionalSchool}" no existe o esta inactiva.` });
+        skipped++;
+        continue;
+      }
+      if (isGeneralSchool(school.name)) {
+        issues.push({ row: line, name, code: 'INVALID_ROW', message: 'La escuela "general" no puede ser duena de un evento.' });
+        skipped++;
+        continue;
+      }
+      if (!actor.isGlobal && school.id !== actor.professionalSchoolId) {
+        issues.push({ row: line, name, code: 'FOREIGN_SCHOOL', message: `Solo puedes cargar eventos de tu escuela (${actor.professionalSchoolName}).` });
+        skipped++;
+        continue;
+      }
+
+      // Tipo de evento
+      let eventTypeId: number;
+      if (row.eventType?.trim()) {
+        const resolved = this.resolveImportedEventTypeId(row.eventType, eventTypeByName);
+        if (!resolved) {
+          issues.push({ row: line, name, code: 'UNKNOWN_EVENT_TYPE', message: `El tipo de evento "${row.eventType}" no existe.` });
+          skipped++;
+          continue;
+        }
+        eventTypeId = resolved;
+      } else if (isHistorical) {
+        eventTypeId = await this.resolveUnspecifiedEventTypeId();
+      } else {
+        issues.push({ row: line, name, code: 'MISSING_EVENT_TYPE', message: 'Falta el tipo de evento: obligatorio en un registro actual.' });
+        skipped++;
+        continue;
+      }
+
+      // Modalidad
+      let modality: EventModality;
+      if (row.modality?.trim()) {
+        const resolved = MODALITY_BY_LABEL[normalizeLookup(row.modality)];
+        if (!resolved) {
+          issues.push({ row: line, name, code: 'INVALID_ROW', message: `La modalidad "${row.modality}" no es valida.` });
+          skipped++;
+          continue;
+        }
+        modality = resolved;
+      } else if (isHistorical) {
+        modality = EventModality.UNSPECIFIED;
+      } else {
+        issues.push({ row: line, name, code: 'MISSING_MODALITY', message: 'Falta la modalidad: obligatoria en un registro actual.' });
+        skipped++;
+        continue;
+      }
+
+      // Estado
+      let status: EventStatus;
+      if (row.status?.trim()) {
+        const resolved = STATUS_BY_LABEL[normalizeLookup(row.status)];
+        if (!resolved) {
+          issues.push({ row: line, name, code: 'INVALID_ROW', message: `El estado "${row.status}" no es valido.` });
+          skipped++;
+          continue;
+        }
+        status = resolved;
+      } else if (isHistorical) {
+        status = EventStatus.COMPLETED;
+      } else {
+        issues.push({ row: line, name, code: 'MISSING_STATUS', message: 'Falta el estado: obligatorio en un registro actual.' });
+        skipped++;
+        continue;
+      }
+
+      const description = row.description?.trim() || DEFAULT_DESCRIPTION;
+      if (row.description?.trim() && row.description.trim().length < 3) {
+        issues.push({ row: line, name, code: 'INVALID_ROW', message: 'La descripcion debe tener al menos 3 caracteres.' });
+        skipped++;
+        continue;
+      }
+
+      // Los creditos son obligatorios en ambas cargas.
+      if (row.credits === undefined || row.credits === null) {
+        issues.push({ row: line, name, code: 'MISSING_CREDITS', message: 'Falta el numero de creditos: es obligatorio.' });
+        skipped++;
+        continue;
+      }
+
+      if (row.credits < 1 || row.credits > 21 || !Number.isFinite(row.credits)) {
+        issues.push({ row: line, name, code: 'INVALID_ROW', message: 'Los creditos deben ser un numero entre 1 y 21.' });
+        skipped++;
+        continue;
+      }
+
+      // Codigo (se genera si se omite)
+      let code = row.code?.trim();
+      if (code) {
+        if (takenCodes.has(code)) {
+          issues.push({ row: line, name, code: 'DUPLICATE_CODE', message: `Ya existe un evento con el codigo "${code}".` });
+          skipped++;
+          continue;
+        }
+        takenCodes.add(code);
+      } else {
+        const year = isHistorical ? new Date().getFullYear() : startDate.getFullYear();
+        let seq = (maxSeqByYear.get(year) ?? 0) + 1;
+        let candidate = `EVT-${year}-${String(seq).padStart(3, '0')}`;
+        while (takenCodes.has(candidate)) {
+          seq++;
+          candidate = `EVT-${year}-${String(seq).padStart(3, '0')}`;
+        }
+        maxSeqByYear.set(year, seq);
+        takenCodes.add(candidate);
+        code = candidate;
+      }
+
+      data.push({
+        code,
+        name,
+        description,
+        eventTypeId,
+        eventType: this.deriveEventType(startDate, endDate),
+        startDate,
+        endDate,
+        modality,
+        location: row.location?.trim() || DEFAULT_LOCATION,
+        origin,
+        capacity: row.capacity ?? 0,
+        organizerId: organizer.id,
+        professionalSchoolId: school.id,
+        credits: row.credits,
+        status,
+        userCreate: actor.fullName,
+        userUpdate: actor.fullName,
+      });
+    }
+
+    let registered = 0;
+
+    for (let start = 0; start < data.length; start += BULK_INSERT_BATCH_SIZE) {
+      const batch = data.slice(start, start + BULK_INSERT_BATCH_SIZE);
+
+      try {
+        const result = await this.prisma.event.createMany({ data: batch });
+        registered += result.count;
+      } catch (error) {
+        this.logger.warn('La carga por lotes de eventos fallo; se reintenta fila a fila.', error);
+
+        for (const item of batch) {
+          try {
+            await this.prisma.event.create({ data: item });
+            registered++;
+          } catch (rowError) {
+            skipped++;
+            const duplicate = isUniqueViolation(rowError, 'code');
+            const detail =
+              rowError instanceof Error && rowError.message
+                ? rowError.message.slice(0, 240)
+                : 'error de base de datos';
+            issues.push({
+              row: 0,
+              name: item.name,
+              code: duplicate ? 'DUPLICATE_CODE' : 'DB_ERROR',
+              message: duplicate
+                ? `Ya existe un evento con el codigo "${item.code}".`
+                : `No se pudo registrar el evento: ${detail}`,
+            });
+          }
+        }
+      }
+    }
+
+    issues.sort((a, b) => a.row - b.row);
+
+    return {
+      total: dto.rows.length,
+      registered,
+      skipped,
+      issues,
+    };
+  }
+
+  /** Resuelve el id de un tipo de evento a partir de su etiqueta o nombre. */
+  private resolveImportedEventTypeId(
+    input: string,
+    eventTypeByName: Map<string, { id: number; status: CatalogStatus }>
+  ): number | undefined {
+    const key = normalizeLookup(input);
+    const english = EVENT_TYPE_BY_LABEL[key] ?? key;
+    const row = eventTypeByName.get(normalizeLookup(english));
+    return row && row.status === CatalogStatus.ACTIVE ? row.id : undefined;
   }
 
   /** Participaciones vigentes: las unicas que ocupan cupo y otorgan creditos. */
@@ -440,6 +799,26 @@ export class EventsService {
     }
   }
 
+  /**
+   * Id del tipo "No especificado" usado por los registros historicos.
+   *
+   * Se crea si no existe: asi la carga historica no depende de que una
+   * migracion previa haya insertado el catalogo.
+   */
+  private async resolveUnspecifiedEventTypeId(): Promise<number> {
+    const row = await this.prisma.eventTypeCatalog.upsert({
+      where: { name: UNSPECIFIED_EVENT_TYPE_NAME },
+      update: {},
+      create: {
+        name: UNSPECIFIED_EVENT_TYPE_NAME,
+        status: CatalogStatus.ACTIVE,
+      },
+      select: { id: true },
+    });
+
+    return row.id;
+  }
+
   private deriveEventType(startDate: Date, endDate: Date): EventType {
     return endDate.getTime() - startDate.getTime() >= DAY_MS
       ? EventType.MULTI_DAY
@@ -486,6 +865,15 @@ function toEventDto(row: EventRow): EventDto {
     eventTypeId: eventTypeCatalog.id,
     eventTypeName: eventTypeCatalog.name,
   };
+}
+
+/** Normaliza una etiqueta para compararla: minusculas y sin tildes. */
+function normalizeLookup(value: string): string {
+  return (value ?? '')
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '');
 }
 
 /**

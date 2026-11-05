@@ -5,7 +5,27 @@
     { label: 'Eventos', link: '/events' },
     { label: 'Nuevo evento' }
   ]"
-/>
+>
+  <button
+    header-actions
+    type="button"
+    (click)="openOriginModal()"
+    class="inline-flex items-center gap-2 rounded-xl border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-white/[0.05]"
+  >
+    <dc-icon name="info" [size]="18" />
+    Tipo de registro: {{ originLabel[origin()] }}
+  </button>
+
+  <button
+    header-actions
+    type="button"
+    (click)="openImport()"
+    class="inline-flex items-center gap-2 rounded-xl border border-brand-200 bg-brand-50 px-4 py-2.5 text-sm font-medium text-brand-700 transition-colors hover:bg-brand-100 dark:border-brand-500/20 dark:bg-brand-500/10 dark:text-brand-200 dark:hover:bg-brand-500/20"
+  >
+    <dc-icon name="document" [size]="18" />
+    Importación masiva
+  </button>
+</dc-page-header>
 
 @if (createdCode()) {
 <div
@@ -55,7 +75,46 @@
 }
 
 <form [formGroup]="form" (ngSubmit)="onSubmit()" novalidate class="grid gap-6 xl:grid-cols-3">
-  <dc-panel title="Datos del evento" class="xl:col-span-2">
+  <dc-panel class="xl:col-span-2" [title]="isLegacy() ? 'Datos del evento histórico' : 'Datos del evento'">
+    <div
+      class="mb-5 flex flex-col gap-3 rounded-xl border px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
+      [class]="
+        isLegacy()
+          ? 'border-warning-200 bg-warning-50 dark:border-warning-500/20 dark:bg-warning-500/10'
+          : 'border-gray-200 bg-gray-50 dark:border-gray-800 dark:bg-white/[0.03]'
+      "
+    >
+      <div class="flex items-start gap-3">
+        <dc-icon
+          [name]="isLegacy() ? 'document' : 'shield-check'"
+          [size]="18"
+          class="mt-0.5 shrink-0"
+          [class]="
+            isLegacy() ? 'text-warning-600 dark:text-warning-500' : 'text-brand-600 dark:text-brand-300'
+          "
+        />
+        <div class="min-w-0">
+          <p class="text-sm font-semibold text-gray-900 dark:text-white/90">
+            {{ originLabel[origin()] }}
+          </p>
+          <p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
+            @if (isLegacy()) {
+            Descripción, fechas, tipo, modalidad, ubicación y estado son opcionales.
+            } @else {
+            Se exigen los datos completos del evento.
+            }
+          </p>
+        </div>
+      </div>
+      <button
+        type="button"
+        (click)="openOriginModal()"
+        class="shrink-0 self-start rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 transition-colors hover:bg-white sm:self-auto dark:border-gray-700 dark:text-gray-200 dark:hover:bg-white/5"
+      >
+        Cambiar tipo
+      </button>
+    </div>
+
     <div class="flex flex-col gap-5">
       <dc-input
         formControlName="name"
@@ -75,24 +134,28 @@
         label="Descripción"
         placeholder="Resume los objetivos, la agenda y el público del evento."
         [rows]="5"
-        [required]="true"
         [invalid]="isInvalid('description')"
-        hint="Mínimo 20 caracteres."
+        hint="Opcional. Mínimo 3 caracteres si se informa."
       />
+      @if (isInvalid('description')) {
+      <p class="-mt-3 text-xs text-error-500">
+        La descripción debe tener al menos 3 caracteres.
+      </p>
+      }
 
       <div class="grid gap-5 sm:grid-cols-2">
         <dc-input
           formControlName="startDate"
           type="date"
           label="Fecha de inicio"
-          [required]="true"
+          [required]="!isLegacy()"
           [invalid]="isInvalid('startDate')"
         />
         <dc-input
           formControlName="endDate"
           type="date"
           label="Fecha de fin"
-          [required]="true"
+          [required]="!isLegacy()"
           [invalid]="isInvalid('endDate')"
         />
       </div>
@@ -111,8 +174,8 @@
           formControlName="eventTypeId"
           label="Tipo de evento"
           [options]="typeOptions()"
-          placeholder="Selecciona el tipo"
-          [required]="true"
+          [placeholder]="isLegacy() ? 'No especificado' : 'Selecciona el tipo'"
+          [required]="!isLegacy()"
           [invalid]="isInvalid('eventTypeId')"
         />
 
@@ -120,14 +183,15 @@
           formControlName="modality"
           label="Modalidad"
           [options]="modalityOptions"
-          placeholder="Selecciona la modalidad"
-          [required]="true"
+          [placeholder]="isLegacy() ? 'No especificado' : 'Selecciona la modalidad'"
+          [required]="!isLegacy()"
+          [invalid]="isInvalid('modality')"
         />
         <dc-input
           formControlName="location"
           label="Ubicación o enlace"
           placeholder="Auditorio Central, Campus Norte"
-          [required]="true"
+          hint="Opcional."
           [invalid]="isInvalid('location')"
         />
       </div>
@@ -163,7 +227,6 @@
           [invalid]="isInvalid('organizerId')"
         />
       </div>
-
     </div>
   </dc-panel>
 
@@ -182,11 +245,15 @@
 
         <dc-select
           formControlName="status"
-          label="Estado inicial"
-          [options]="statusOptions"
-          placeholder="Selecciona el estado"
-          [required]="true"
+          label="Estado"
+          [options]="statusOptions()"
+          [placeholder]="isLegacy() ? 'Finalizado (por defecto)' : 'Selecciona el estado'"
+          [required]="!isLegacy()"
+          [invalid]="isInvalid('status')"
         />
+        @if (isInvalid('status')) {
+        <p class="-mt-3 text-xs text-error-500">Selecciona el estado del evento.</p>
+        }
 
         <div>
           <dc-input
@@ -210,7 +277,8 @@
         >
           <dc-icon name="info" [size]="17" class="mt-0.5 text-gray-400 dark:text-gray-500" />
           <p class="text-xs leading-relaxed text-gray-500 dark:text-gray-400">
-            Un evento puede durar uno o varios días. El código se genera automáticamente.
+            El código del evento se genera automáticamente con la misma secuencia, sea registro
+            actual o histórico.
           </p>
         </div>
       </div>
@@ -236,3 +304,307 @@
     </div>
   </div>
 </form>
+
+<!-- Tipo de registro -->
+<app-modal [isOpen]="originModalOpen()" (close)="closeOriginModal()" className="max-w-lg p-5 sm:p-6">
+  <div class="pe-8">
+    <h2 class="text-lg font-semibold text-gray-900 dark:text-white/90">
+      ¿Qué tipo de evento vas a registrar?
+    </h2>
+    <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+      Los registros históricos permiten dejar datos opcionales.
+    </p>
+  </div>
+
+  <div class="mt-5 flex flex-col gap-3">
+    <button
+      type="button"
+      (click)="selectOrigin('CURRENT')"
+      class="flex items-start gap-3 rounded-2xl border px-4 py-4 text-left transition-colors"
+      [class]="
+        origin() === 'CURRENT'
+          ? 'border-brand-500 bg-brand-50 dark:border-brand-500/60 dark:bg-brand-500/10'
+          : 'border-gray-200 bg-white hover:border-brand-300 dark:border-gray-800 dark:bg-white/[0.02] dark:hover:border-brand-500/40'
+      "
+    >
+      <span class="flex size-10 shrink-0 items-center justify-center rounded-xl bg-brand-50 text-brand-600 dark:bg-brand-500/15 dark:text-brand-300">
+        <dc-icon name="shield-check" [size]="20" />
+      </span>
+      <span class="min-w-0 flex-1">
+        <span class="block text-sm font-semibold text-gray-900 dark:text-white/90">Registro actual</span>
+        <span class="mt-0.5 block text-xs leading-relaxed text-gray-500 dark:text-gray-400">
+          Se exigen todos los datos del evento, igual que siempre.
+        </span>
+      </span>
+      @if (origin() === 'CURRENT') {
+      <dc-icon name="check" [size]="18" class="mt-1 shrink-0 text-brand-600 dark:text-brand-300" />
+      }
+    </button>
+
+    <button
+      type="button"
+      (click)="selectOrigin('LEGACY')"
+      class="flex items-start gap-3 rounded-2xl border px-4 py-4 text-left transition-colors"
+      [class]="
+        origin() === 'LEGACY'
+          ? 'border-warning-400 bg-warning-50 dark:border-warning-500/60 dark:bg-warning-500/10'
+          : 'border-gray-200 bg-white hover:border-warning-300 dark:border-gray-800 dark:bg-white/[0.02] dark:hover:border-warning-500/40'
+      "
+    >
+      <span class="flex size-10 shrink-0 items-center justify-center rounded-xl bg-warning-50 text-warning-600 dark:bg-warning-500/15 dark:text-warning-400">
+        <dc-icon name="document" [size]="20" />
+      </span>
+      <span class="min-w-0 flex-1">
+        <span class="block text-sm font-semibold text-gray-900 dark:text-white/90">Registro histórico</span>
+        <span class="mt-0.5 block text-xs leading-relaxed text-gray-500 dark:text-gray-400">
+          Descripción, fechas, tipo, modalidad, ubicación y estado quedan opcionales.
+        </span>
+      </span>
+      @if (origin() === 'LEGACY') {
+      <dc-icon name="check" [size]="18" class="mt-1 shrink-0 text-warning-600 dark:text-warning-400" />
+      }
+    </button>
+  </div>
+
+  <div class="mt-5 flex justify-end">
+    <button
+      type="button"
+      (click)="closeOriginModal()"
+      class="rounded-xl border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-100 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-white/[0.05]"
+    >
+      Cerrar
+    </button>
+  </div>
+</app-modal>
+
+<!-- Importacion masiva -->
+<app-modal
+  [isOpen]="importOpen()"
+  (close)="closeImport()"
+  [showCloseButton]="false"
+  className="flex w-full max-w-3xl flex-col overflow-hidden rounded-3xl p-0"
+>
+  <div class="flex items-start justify-between gap-4 border-b border-gray-200 px-5 py-4 dark:border-gray-800 sm:px-6">
+    <div class="flex items-start gap-3">
+      <span class="flex size-10 shrink-0 items-center justify-center rounded-xl bg-brand-50 text-brand-600 dark:bg-brand-500/10 dark:text-brand-300">
+        <dc-icon name="document" [size]="20" />
+      </span>
+      <div>
+        <h2 class="text-base font-semibold text-gray-900 dark:text-white/90">Importación masiva de eventos</h2>
+        <p class="mt-0.5 text-sm text-gray-500 dark:text-gray-400">
+          Carga varios eventos a la vez desde un archivo o texto.
+        </p>
+      </div>
+    </div>
+    <button
+      type="button"
+      (click)="closeImport()"
+      aria-label="Cerrar"
+      class="flex size-9 shrink-0 items-center justify-center rounded-full bg-gray-100 text-gray-400 transition-colors hover:bg-gray-200 hover:text-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-white"
+    >
+      <dc-icon name="close" [size]="18" />
+    </button>
+  </div>
+
+  <div class="max-h-[68vh] overflow-y-auto px-5 py-5 sm:px-6">
+    @if (importStep() === 1) {
+    <div class="flex flex-col gap-5">
+      <div class="grid gap-2 sm:grid-cols-2">
+        <button
+          type="button"
+          (click)="setImportOrigin('CURRENT')"
+          class="flex flex-col gap-1 rounded-xl border px-4 py-3 text-left transition-colors"
+          [class]="
+            !isLegacyImport()
+              ? 'border-brand-500 bg-brand-50 dark:border-brand-500/60 dark:bg-brand-500/10'
+              : 'border-gray-200 bg-white hover:border-brand-300 dark:border-gray-800 dark:bg-white/[0.02] dark:hover:border-brand-500/40'
+          "
+        >
+          <span class="text-sm font-semibold text-gray-900 dark:text-white/90">Registro actual</span>
+          <span class="text-xs text-gray-500 dark:text-gray-400">Exige fechas, tipo y estado.</span>
+        </button>
+        <button
+          type="button"
+          (click)="setImportOrigin('LEGACY')"
+          class="flex flex-col gap-1 rounded-xl border px-4 py-3 text-left transition-colors"
+          [class]="
+            isLegacyImport()
+              ? 'border-warning-400 bg-warning-50 dark:border-warning-500/60 dark:bg-warning-500/10'
+              : 'border-gray-200 bg-white hover:border-warning-300 dark:border-gray-800 dark:bg-white/[0.02] dark:hover:border-warning-500/40'
+          "
+        >
+          <span class="text-sm font-semibold text-gray-900 dark:text-white/90">Registro histórico</span>
+          <span class="text-xs text-gray-500 dark:text-gray-400">Campos opcionales con valores por defecto.</span>
+        </button>
+      </div>
+
+      <div class="rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3.5 dark:border-gray-800 dark:bg-white/[0.02]">
+        <p class="text-sm font-medium text-gray-900 dark:text-white/90">¿Qué debe tener el archivo?</p>
+        <ul class="mt-2 space-y-1 text-xs leading-relaxed text-gray-600 dark:text-gray-300">
+          <li>1. Una fila por evento, con las columnas: nombre, descripción, fecha de inicio, fecha de fin, tipo de evento, modalidad, ubicación, estado, capacidad, créditos, organizador y escuela.</li>
+          <li>2. En registros actuales son obligatorios: nombre, fechas, tipo, modalidad, estado, créditos, organizador y escuela.</li>
+          <li>3. En registros históricos solo son obligatorios: nombre, créditos, organizador y escuela.</li>
+          <li>4. Los créditos deben ser un número entre 1 y 21.</li>
+          <li>5. La fila de encabezado se ignora automáticamente.</li>
+        </ul>
+        <button
+          type="button"
+          (click)="downloadImportTemplate()"
+          class="mt-3 inline-flex items-center gap-2 rounded-xl border border-gray-300 bg-white px-3.5 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 dark:border-gray-700 dark:bg-white/[0.03] dark:text-gray-200 dark:hover:bg-white/[0.06]"
+        >
+          <dc-icon name="download" [size]="16" />
+          Descargar plantilla
+        </button>
+        <p class="mt-2 text-xs text-gray-500 dark:text-gray-400">
+          La plantilla incluye listas desplegables con escuelas, organizadores, modalidad, tipo de
+          evento y estado disponibles.
+        </p>
+      </div>
+
+      <div class="flex flex-col gap-2">
+        <span class="text-sm font-medium text-gray-700 dark:text-white/90">Archivo de eventos</span>
+        <label
+          class="flex cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed px-6 py-7 text-center transition-colors"
+          [class]="
+            isDragging()
+              ? 'border-brand-500 bg-brand-50 dark:bg-brand-500/10'
+              : 'border-gray-300 bg-gray-50 hover:border-brand-400 hover:bg-brand-50/50 dark:border-gray-700 dark:bg-white/[0.02] dark:hover:border-brand-500/50'
+          "
+          (dragover)="onDragOver($event)"
+          (dragleave)="onDragLeave($event)"
+          (drop)="onDrop($event)"
+        >
+          <input type="file" class="sr-only" [accept]="fileAccept" (change)="onFileSelected($event)" />
+          <span class="flex size-11 items-center justify-center rounded-full bg-white text-brand-600 shadow-theme-xs dark:bg-white/5 dark:text-brand-300">
+            <dc-icon name="download" [size]="22" />
+          </span>
+          <span class="mt-3 text-sm font-medium text-gray-900 dark:text-white/90">
+            Arrastra el archivo aquí o haz clic para seleccionarlo
+          </span>
+          <span class="mt-1 text-xs text-gray-500 dark:text-gray-400">Formatos .xlsx, .csv o .txt</span>
+        </label>
+
+        @if (importFileName(); as fileName) {
+        <div class="flex items-center justify-between gap-3 rounded-xl border border-success-200 bg-success-50 px-3.5 py-2.5 dark:border-success-500/20 dark:bg-success-500/10">
+          <span class="flex min-w-0 items-center gap-2 text-sm font-medium text-success-700 dark:text-success-300">
+            <dc-icon name="document" [size]="16" />
+            <span class="truncate">{{ fileName }}</span>
+          </span>
+          <button type="button" (click)="clearImportFile()" class="shrink-0 rounded-lg px-2 py-1 text-xs font-medium text-success-700 hover:bg-success-100 dark:text-success-300 dark:hover:bg-success-500/20">
+            Quitar
+          </button>
+        </div>
+        }
+      </div>
+
+      <div class="flex flex-col gap-2">
+        <span class="text-sm font-medium text-gray-700 dark:text-white/90">…o pega los eventos</span>
+        <textarea
+          rows="6"
+          [value]="importText()"
+          (input)="importText.set($any($event.target).value); clearImportFile()"
+          placeholder="Congreso 2019;Descripcion;2019-10-05;2019-10-07;Congreso;Presencial;Auditorio;Finalizado;0;2;VICERRECTORIA ACADEMICA;DERECHO"
+          class="w-full rounded-xl border border-gray-300 bg-white px-3.5 py-2.5 font-mono text-xs text-gray-900 placeholder:text-gray-400 focus:border-brand-600 focus:ring-3 focus:ring-brand-500/15 focus:outline-none dark:border-gray-700 dark:bg-white/[0.03] dark:text-white/90"
+        ></textarea>
+      </div>
+
+      @if (importError(); as message) {
+      <div class="flex items-start gap-3 rounded-xl border border-error-200 bg-error-50 px-4 py-3 dark:border-error-500/20 dark:bg-error-500/10">
+        <dc-icon name="info" [size]="18" class="mt-0.5 text-error-600 dark:text-error-500" />
+        <p class="text-sm font-medium text-error-700 dark:text-error-500">{{ message }}</p>
+      </div>
+      }
+
+      <div class="flex items-center justify-between gap-3">
+        <span class="text-sm text-gray-500 dark:text-gray-400">
+          <span class="font-semibold text-gray-900 dark:text-white/90">{{ importPreviewCount() }}</span>
+          evento(s) detectado(s)
+        </span>
+      </div>
+    </div>
+    } @else {
+    @if (importResult(); as result) {
+    <div class="flex flex-col gap-5">
+      @if (result.error) {
+      <div class="flex items-start gap-3 rounded-xl border border-error-200 bg-error-50 px-4 py-3 dark:border-error-500/20 dark:bg-error-500/10">
+        <dc-icon name="info" [size]="18" class="mt-0.5 shrink-0 text-error-600 dark:text-error-500" />
+        <div class="min-w-0">
+          <p class="text-sm font-semibold text-error-700 dark:text-error-500">
+            No se pudo completar la importación
+          </p>
+          <p class="mt-0.5 text-xs leading-relaxed break-words text-error-700 dark:text-error-500">
+            {{ result.error }}
+          </p>
+        </div>
+      </div>
+      }
+
+      <div class="grid grid-cols-3 gap-2 sm:gap-3">
+        <div class="rounded-xl border border-gray-200 bg-gray-50 px-3 py-3 sm:px-4 dark:border-gray-800 dark:bg-white/[0.03]">
+          <p class="text-xs font-medium text-gray-500 dark:text-gray-400">Total</p>
+          <p class="mt-1 text-xl font-semibold tabular-nums sm:text-2xl text-gray-900 dark:text-white/90">{{ result.total }}</p>
+        </div>
+        <div class="rounded-xl border border-success-200 bg-success-50 px-3 py-3 sm:px-4 dark:border-success-500/20 dark:bg-success-500/10">
+          <p class="text-xs font-medium text-success-700 dark:text-success-400">Registrados</p>
+          <p class="mt-1 text-xl font-semibold tabular-nums sm:text-2xl text-success-700 dark:text-success-400">{{ result.registered }}</p>
+        </div>
+        <div class="rounded-xl border border-error-200 bg-error-50 px-3 py-3 sm:px-4 dark:border-error-500/20 dark:bg-error-500/10">
+          <p class="text-xs font-medium text-error-700 dark:text-error-500">Omitidos</p>
+          <p class="mt-1 text-xl font-semibold tabular-nums sm:text-2xl text-error-700 dark:text-error-500">{{ result.skipped }}</p>
+        </div>
+      </div>
+
+      @if (result.issues.length > 0) {
+      <div class="flex flex-col gap-2">
+        <p class="text-sm font-medium text-gray-900 dark:text-white/90">
+          Registros no procesados ({{ result.issues.length }})
+        </p>
+        <div class="max-h-56 overflow-auto rounded-xl border border-gray-200 dark:border-gray-800">
+          <table class="w-full text-left text-xs">
+            <thead class="sticky top-0 bg-gray-50 dark:bg-gray-900">
+              <tr class="text-gray-500 dark:text-gray-400">
+                <th class="px-3 py-2 font-medium">Fila</th>
+                <th class="px-3 py-2 font-medium">Evento</th>
+                <th class="px-3 py-2 font-medium">Motivo</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-200 dark:divide-gray-800">
+              @for (issue of result.issues; track issue.row + issue.name + issue.message) {
+              <tr>
+                <td class="px-3 py-2 text-gray-500 dark:text-gray-400">{{ issue.row }}</td>
+                <td class="px-3 py-2 text-gray-700 dark:text-gray-300">{{ issue.name || '—' }}</td>
+                <td class="px-3 py-2 text-error-600 dark:text-error-500">{{ issue.message }}</td>
+              </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      </div>
+      }
+    </div>
+    }
+    }
+  </div>
+
+  <div class="flex flex-wrap items-center justify-end gap-2 border-t border-gray-200 bg-gray-50/60 px-5 py-4 dark:border-gray-800 dark:bg-white/[0.02] sm:px-6">
+    <button
+      type="button"
+      (click)="closeImport()"
+      class="rounded-xl border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-100 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-white/[0.05]"
+    >
+      Cerrar
+    </button>
+
+    @if (importStep() === 1) {
+    <button
+      type="button"
+      (click)="confirmImport()"
+      [disabled]="importPreviewCount() === 0"
+      class="inline-flex items-center gap-2 rounded-xl bg-brand-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-50"
+    >
+      <dc-icon name="check" [size]="18" />
+      Importar eventos
+    </button>
+    }
+  </div>
+</app-modal>

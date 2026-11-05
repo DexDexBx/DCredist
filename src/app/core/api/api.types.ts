@@ -177,8 +177,11 @@ export interface ApiStudentImportResult {
 }
 
 export type ApiEventType = 'SINGLE_DAY' | 'MULTI_DAY';
-export type ApiEventModality = 'PRESENTIAL' | 'VIRTUAL' | 'HYBRID';
+export type ApiEventModality = 'PRESENTIAL' | 'VIRTUAL' | 'HYBRID' | 'UNSPECIFIED';
 export type ApiEventStatus = 'DRAFT' | 'SCHEDULED' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
+
+/** Procedencia de un evento. */
+export type ApiEventOrigin = 'CURRENT' | 'LEGACY';
 
 /** Tipo de evento academico (GET /event-types). */
 export interface ApiEventTypeEntry {
@@ -208,10 +211,36 @@ export interface ApiEvent {
   professionalSchool: string;
   credits: number;
   status: ApiEventStatus;
+  origin?: ApiEventOrigin;
   userCreate: string;
   userUpdate: string;
   createdAt?: string;
   updatedAt?: string;
+}
+
+/** Fila de la carga masiva de eventos. */
+export interface ApiEventImportRow {
+  name: string;
+  description?: string;
+  startDate?: string;
+  endDate?: string;
+  eventType?: string;
+  modality?: string;
+  location?: string;
+  status?: string;
+  capacity?: number;
+  organizer: string;
+  professionalSchool: string;
+  credits?: number;
+  code?: string;
+}
+
+/** Resultado de la carga masiva de eventos. */
+export interface ApiEventImportResult {
+  total: number;
+  registered: number;
+  skipped: number;
+  issues: { row: number; name: string; code: string; message: string }[];
 }
 
 export type ApiParticipationStatus = 'VALID' | 'CANCELLED' | 'PENDING';
@@ -263,6 +292,7 @@ export interface ApiEventPayload {
   professionalSchoolId?: number;
   credits?: number;
   status?: ApiEventStatus;
+  origin?: ApiEventOrigin;
 }
 
 export interface ApiStudentPayload {

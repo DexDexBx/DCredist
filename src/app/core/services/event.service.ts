@@ -1,4 +1,5 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
+import { HttpErrorResponse } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
 import {
   AcademicEvent,
@@ -6,10 +7,13 @@ import {
   EVENT_STATUSES,
   EventDraft,
   EventModality,
+  EventOrigin,
   EventStatus,
   EventValidation,
+  HISTORICAL_EVENT_DATE,
   acceptsParticipations,
   eventTypeLabel,
+  isHistoricalEventDate,
   isImportCompleted,
   isLateImportsEnabled,
 } from '../../models';
@@ -128,34 +132,41 @@ export class EventService {
 
   validate(draft: EventDraft): EventValidation {
     const errors: EventValidation['errors'] = {};
+    const isLegacy = draft.origin === 'LEGACY';
 
     if (!draft.name.trim()) {
       errors.name = 'El nombre del evento es obligatorio.';
     }
 
-    const start = new Date(draft.startDate);
-    const end = new Date(draft.endDate);
-
-    if (Number.isNaN(start.getTime())) {
-      errors.startDate = 'Indica una fecha de inicio válida.';
+    // La descripcion es opcional; si se envia debe tener al menos 3 caracteres.
+    const description = draft.description.trim();
+    if (description && description.length < 3) {
+      errors.description = 'La descripción debe tener al menos 3 caracteres.';
     }
 
-    if (Number.isNaN(end.getTime())) {
-      errors.endDate = 'Indica una fecha de término válida.';
-    }
+    const startRaw = draft.startDate?.trim();
+    const endRaw = draft.endDate?.trim();
 
-    if (!Number.isNaN(start.getTime()) && !Number.isNaN(end.getTime())) {
-      // Solo fechas: el mismo dia es valido (evento de un dia).
-      if (end.getTime() < start.getTime()) {
+    if (isLegacy) {
+      // Fechas opcionales: solo se valida el rango si ambas son fechas reales.
+      if (startRaw && endRaw && !isHistoricalEventDate(startRaw) && !isHistoricalEventDate(endRaw)) {
+        if (new Date(endRaw).getTime() < new Date(startRaw).getTime()) {
+          errors.endDate = 'La fecha de término no puede ser anterior a la de inicio.';
+        }
+      }
+    } else {
+      if (!startRaw) {
+        errors.startDate = 'Indica una fecha de inicio válida.';
+      }
+      if (!endRaw) {
+        errors.endDate = 'Indica una fecha de término válida.';
+      }
+      if (startRaw && endRaw && new Date(endRaw).getTime() < new Date(startRaw).getTime()) {
         errors.endDate = 'La fecha de término no puede ser anterior a la de inicio.';
       }
     }
 
-    if (!draft.location.trim()) {
-      errors.location = 'El lugar es obligatorio.';
-    }
-
-    if (!draft.eventTypeId) {
+    if (!isLegacy && !draft.eventTypeId) {
       errors.eventTypeId = 'El tipo de evento es obligatorio.';
     }
 
@@ -209,14 +220,15 @@ export class EventService {
       id: sequence,
       code: draft.code?.trim() || `EVT-${new Date().getFullYear()}-${String(sequence).padStart(3, '0')}`,
       name: draft.name.trim(),
-      description: draft.description.trim(),
+      description: draft.description.trim() || 'Sin descripción',
       eventTypeId: draft.eventTypeId ?? 0,
       eventTypeName: this.eventTypeService.nameOf(draft.eventTypeId),
       startDate: toDateOnly(draft.startDate),
       endDate: toDateOnly(draft.endDate),
       modality: draft.modality,
-      location: draft.location.trim(),
+      location: draft.location.trim() || 'Sin ubicación',
       status: draft.status,
+      origin: draft.origin === 'LEGACY' ? 'LEGACY' : 'CURRENT',
       capacity: draft.capacity,
       organizerId: draft.organizerId ?? 0,
       organizer: this.catalogService.nameOf('organizers', draft.organizerId ?? 0),
@@ -266,15 +278,16 @@ export class EventService {
     const event: AcademicEvent = {
       ...current,
       name: draft.name.trim(),
-      description: draft.description.trim(),
+      description: draft.description.trim() || 'Sin descripción',
       eventTypeId: draft.eventTypeId ?? current.eventTypeId,
       eventTypeName:
         this.eventTypeService.nameOf(draft.eventTypeId) || current.eventTypeName,
       startDate: toDateOnly(draft.startDate),
       endDate: toDateOnly(draft.endDate),
       modality: draft.modality,
-      location: draft.location.trim(),
+      location: draft.location.trim() || 'Sin ubicación',
       status: draft.status,
+      origin: draft.origin === 'LEGACY' ? 'LEGACY' : current.origin ?? 'CURRENT',
       capacity: draft.capacity,
       organizerId: draft.organizerId ?? 0,
       organizer: this.catalogService.nameOf('organizers', draft.organizerId ?? 0),
@@ -294,7 +307,158 @@ export class EventService {
   }
 
   /**
-   * MARCA LA CARGA DE LA LISTA COMO COMPLETA.
+   * CARGA MASIVA DE EVENTOS (actuales o historicos).
+   *
+   * En modo API delega en POST /events/import y recarga el listado. Sin API
+   * resuelve organizador y escuela por nombre y crea los eventos en memoria.
+   */
+  async importEvents(
+    rows: EventImportRow[],
+    origin: EventOrigin = 'CURRENT'
+  ): Promise<EventImportResult> {
+    if (this.dataMode.isApi) {
+      try {
+        const result = await firstValueFrom(this.api.importEvents(rows, origin));
+        await this.reloadFromApi();
+        return {
+          total: result.total,
+          registered: result.registered,
+          skipped: result.skipped,
+          issues: result.issues,
+        };
+      } catch (error) {
+        // No se cae al modo local: eso ocultaria el error real del API y
+        // mostraria un "no se pudo registrar" sin explicacion.
+        return {
+          total: rows.length,
+          registered: 0,
+          skipped: rows.length,
+          issues: [],
+          error: this.importErrorMessage(error),
+        };
+      }
+    }
+
+    return this.importEventsLocal(rows, origin);
+  }
+
+  /** Mensaje legible del error HTTP para mostrarlo en el modal de importacion. */
+  private importErrorMessage(error: unknown): string {
+    if (error instanceof HttpErrorResponse) {
+      const body = error.error as { message?: string | string[] } | null;
+      const detail = Array.isArray(body?.message) ? body.message.join('. ') : body?.message;
+      return detail ?? `El API rechazo la carga (HTTP ${error.status}).`;
+    }
+
+    return 'No se pudo conectar con el API para importar los eventos.';
+  }
+
+  /** Recarga el listado de eventos desde el API (tras una importacion). */
+  private async reloadFromApi(): Promise<void> {
+    try {
+      const events = await firstValueFrom(this.api.listEvents());
+      this.eventsState.set(events.map(mapApiEvent));
+    } catch {
+      // Sin API se conserva el listado actual.
+    }
+  }
+
+  private async importEventsLocal(
+    rows: EventImportRow[],
+    origin: EventOrigin
+  ): Promise<EventImportResult> {
+    const issues: { row: number; name: string; code: string; message: string }[] = [];
+    const organizers = this.catalogService.options('organizers');
+    const schools = this.catalogService.options('professionalSchools');
+    const types = this.eventTypeService.types();
+    let registered = 0;
+    let skipped = 0;
+
+    for (let index = 0; index < rows.length; index++) {
+      const row = rows[index];
+      const line = index + 1;
+      const name = (row.name ?? '').trim();
+
+      if (!name) {
+        issues.push({ row: line, name: '', code: 'MISSING_NAME', message: 'La fila no tiene nombre.' });
+        skipped++;
+        continue;
+      }
+
+      const organizer = organizers.find(
+        (option) => option.name.trim().toLowerCase() === (row.organizer ?? '').trim().toLowerCase()
+      );
+      if (!organizer) {
+        issues.push({ row: line, name, code: 'UNKNOWN_ORGANIZER', message: `El organizador "${row.organizer}" no existe.` });
+        skipped++;
+        continue;
+      }
+
+      const school = schools.find(
+        (option) => option.name.trim().toLowerCase() === (row.professionalSchool ?? '').trim().toLowerCase()
+      );
+      if (!school) {
+        issues.push({ row: line, name, code: 'UNKNOWN_SCHOOL', message: `La escuela "${row.professionalSchool}" no existe.` });
+        skipped++;
+        continue;
+      }
+
+      if (row.credits === undefined || row.credits === null) {
+        issues.push({ row: line, name, code: 'MISSING_CREDITS', message: 'Falta el número de créditos: es obligatorio.' });
+        skipped++;
+        continue;
+      }
+
+      if (row.credits < 1 || row.credits > 21) {
+        issues.push({ row: line, name, code: 'INVALID_ROW', message: 'Los créditos deben ser un número entre 1 y 21.' });
+        skipped++;
+        continue;
+      }
+
+      const typeLabel = (row.eventType ?? '').trim();
+      const type = typeLabel
+        ? types.find(
+            (option) =>
+              option.label.trim().toLowerCase() === typeLabel.toLowerCase() ||
+              option.name.trim().toLowerCase() === typeLabel.toLowerCase()
+          )
+        : undefined;
+
+      const draft: EventDraft = {
+        name,
+        description: (row.description ?? '').trim(),
+        eventTypeId: type?.id ?? null,
+        startDate:
+          origin === 'LEGACY' && !row.startDate
+            ? HISTORICAL_EVENT_DATE
+            : (row.startDate ?? ''),
+        endDate:
+          origin === 'LEGACY' && !row.endDate
+            ? row.startDate ?? HISTORICAL_EVENT_DATE
+            : (row.endDate ?? ''),
+        modality: ((row.modality ?? '') as EventModality) || 'Presencial',
+        location: (row.location ?? '').trim(),
+        status: ((row.status ?? '') as EventStatus) || 'Finalizado',
+        capacity: row.capacity ?? 0,
+        organizerId: organizer.id,
+        professionalSchoolId: school.id,
+        credits: row.credits,
+        origin,
+      };
+
+      const event = await this.create(draft);
+      if (event) {
+        registered++;
+      } else {
+        issues.push({ row: line, name, code: 'INVALID_ROW', message: 'No se pudo registrar el evento.' });
+        skipped++;
+      }
+    }
+
+    return { total: rows.length, registered, skipped, issues };
+  }
+
+  /** MARCA LA CARGA DE LA LISTA COMO COMPLETA.
    *
    * Cierra el registro del evento: `importCompletedAt` existe y `importLocked`
    * queda en true. A partir de ahi solo se admiten registros habilitando
@@ -438,4 +602,31 @@ function toDateOnly(value: string): string {
   }
 
   return date.toISOString().slice(0, 10);
+}
+
+/** Fila de la carga masiva de eventos (equivalente al contrato del API). */
+export interface EventImportRow {
+  name: string;
+  description?: string;
+  startDate?: string;
+  endDate?: string;
+  eventType?: string;
+  modality?: string;
+  location?: string;
+  status?: string;
+  capacity?: number;
+  organizer: string;
+  professionalSchool: string;
+  credits?: number;
+  code?: string;
+}
+
+/** Resultado de la carga masiva de eventos. */
+export interface EventImportResult {
+  total: number;
+  registered: number;
+  skipped: number;
+  issues: { row: number; name: string; code: string; message: string }[];
+  /** Error global del API (por ejemplo, migracion pendiente o validacion). */
+  error?: string;
 }

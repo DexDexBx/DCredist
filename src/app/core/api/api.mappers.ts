@@ -44,12 +44,14 @@ const MODALITY_FROM_API: Record<ApiEventModality, EventModality> = {
   PRESENTIAL: 'Presencial',
   VIRTUAL: 'Virtual',
   HYBRID: 'Híbrido',
+  UNSPECIFIED: 'No especificado',
 };
 
 const MODALITY_TO_API: Record<EventModality, ApiEventModality> = {
   Presencial: 'PRESENTIAL',
   Virtual: 'VIRTUAL',
   Híbrido: 'HYBRID',
+  'No especificado': 'UNSPECIFIED',
 };
 
 /** DRAFT y SCHEDULED se muestran igual: el dominio de la interfaz no tiene borrador. */
@@ -188,6 +190,7 @@ export function mapApiEvent(row: ApiEvent): AcademicEvent {
     modality: MODALITY_FROM_API[row.modality] ?? 'Presencial',
     location: row.location,
     status: STATUS_FROM_API[row.status] ?? 'Programado',
+    origin: row.origin === 'LEGACY' ? 'LEGACY' : 'CURRENT',
     capacity: row.capacity ?? 0,
     organizerId: row.organizerId,
     organizer: row.organizer,
@@ -231,17 +234,19 @@ export function toApiEventPayload(draft: EventDraft): ApiEventPayload {
   return {
     ...(draft.code?.trim() ? { code: draft.code.trim() } : {}),
     name: draft.name.trim(),
-    description: draft.description.trim(),
+    // La descripcion es opcional: vacia viaja ausente y el backend la rellena.
+    ...(draft.description.trim() ? { description: draft.description.trim() } : {}),
     eventTypeId: draft.eventTypeId ?? undefined,
     startDate: toDateOnly(draft.startDate),
     endDate: toDateOnly(draft.endDate),
     modality: MODALITY_TO_API[draft.modality],
-    location: draft.location.trim(),
+    ...(draft.location.trim() ? { location: draft.location.trim() } : {}),
     capacity: draft.capacity,
     organizerId: draft.organizerId ?? undefined,
     professionalSchoolId: draft.professionalSchoolId ?? undefined,
     credits: draft.credits,
     status: STATUS_TO_API[draft.status],
+    origin: draft.origin === 'LEGACY' ? 'LEGACY' : 'CURRENT',
   };
 }
 

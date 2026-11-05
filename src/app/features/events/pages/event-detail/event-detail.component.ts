@@ -27,6 +27,7 @@ import { ModalComponent } from '../../../../shared/components/ui/modal/modal.com
 import { PageHeaderComponent } from '../../../../shared/components/ui/page-header/page-header.component';
 import { PaginationComponent } from '../../../../shared/components/ui/pagination/pagination.component';
 import { PanelComponent } from '../../../../shared/components/ui/panel/panel.component';
+import { isHistoricalEventDate } from '../../../../models';
 import { PARTICIPATION_STATUS_COLOR } from '../../../../shared/constants/status-ui';
 import {
   formatDateRange,
@@ -197,11 +198,13 @@ export class EventDetailComponent {
   }
 
   formatLongDate(value: string): string {
-    return formatLongDate(value);
+    return isHistoricalEventDate(value) ? 'Sin fecha' : formatLongDate(value);
   }
 
   formatRange(event: AcademicEvent): string {
-    return formatDateRange(event.startDate, event.endDate);
+    return isHistoricalEventDate(event.startDate) || isHistoricalEventDate(event.endDate)
+      ? 'Sin fecha'
+      : formatDateRange(event.startDate, event.endDate);
   }
 
   eventTypeName(event: AcademicEvent): string {
@@ -209,7 +212,9 @@ export class EventDetailComponent {
   }
 
   formatSchedule(event: AcademicEvent): string {
-    return formatDateRange(event.startDate, event.endDate);
+    return isHistoricalEventDate(event.startDate) || isHistoricalEventDate(event.endDate)
+      ? 'Sin fecha'
+      : formatDateRange(event.startDate, event.endDate);
   }
 
   participationStatusColor(status: ParticipationStatus): BadgeColor {

@@ -13,6 +13,7 @@ import {
   EventStatus,
   ExportResult,
   eventTypeLabel,
+  isHistoricalEventDate,
 } from '../../../../models';
 import { EmptyStateComponent } from '../../../../shared/components/ui/empty-state/empty-state.component';
 import { IconComponent } from '../../../../shared/components/ui/icon/icon.component';
@@ -249,7 +250,9 @@ export class EventListComponent {
   }
 
   formatRange(event: AcademicEvent): string {
-    return formatDateRange(event.startDate, event.endDate);
+    return isHistoricalEventDate(event.startDate) || isHistoricalEventDate(event.endDate)
+      ? 'Sin fecha'
+      : formatDateRange(event.startDate, event.endDate);
   }
 
   typeLabel(event: AcademicEvent): string {

@@ -40,6 +40,9 @@ enum EventModality {
   PRESENTIAL
   VIRTUAL
   HYBRID
+
+  /// Sin valor conocido (registros historicos). La interfaz muestra "No especificado".
+  UNSPECIFIED
 }
 
 enum EventStatus {
@@ -48,6 +51,14 @@ enum EventStatus {
   IN_PROGRESS
   COMPLETED
   CANCELLED
+}
+
+/// Procedencia de un evento.
+/// CURRENT: creado en DCredits con sus datos completos.
+/// LEGACY: data historica migrada; admite campos opcionales con valores por defecto.
+enum EventOrigin {
+  CURRENT
+  LEGACY
 }
 
 /// VALID es la unica que suma creditos al historial del estudiante.
@@ -206,7 +217,7 @@ model Event {
   code String @unique
 
   name        String
-  description String @default("")
+  description String @default("Sin descripción")
 
   /// SINGLE_DAY / MULTI_DAY: se deriva de startDate y endDate, no se elige a mano.
   eventType EventType @default(SINGLE_DAY)
@@ -224,8 +235,11 @@ model Event {
 
   /// Lugar fisico del evento (auditorio, aula, campus). No es la sede del
   /// estudiante: esa vive en Location y solo aplica al padron.
-  location String @default("")
+  location String @default("Sin ubicación")
   capacity Int @default(0)
+
+  /// Procedencia del registro: actual o historico.
+  origin EventOrigin @default(CURRENT)
 
   /// Organizador y escuela a la que pertenece el evento. La escuela acota lo
   /// que cada usuario puede ver y modificar.
@@ -251,6 +265,7 @@ model Event {
 
   @@index([startDate])
   @@index([status])
+  @@index([origin])
   @@index([organizerId])
   @@index([professionalSchoolId])
   @@index([eventTypeId])

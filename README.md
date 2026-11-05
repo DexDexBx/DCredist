@@ -15,7 +15,8 @@ igual con datos de demostracion y lo indica en la cabecera con la etiqueta
 Funcionalidades disponibles en la interfaz:
 
 - Dashboard con estadisticas de participacion y creditos.
-- Eventos academicos: listado con filtros, alta, detalle y calendario.
+- Eventos academicos: listado con filtros, alta (actual o historico), detalle,
+  calendario e importacion masiva (actual e historica con plantilla Excel).
 - Calendario de eventos con vistas diaria, semanal, mensual y anual.
 - Padron de estudiantes: listado, alta, ficha, creditos e importacion masiva.
 - Registro de participaciones (una por evento y estudiante) e importacion de

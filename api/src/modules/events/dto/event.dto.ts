@@ -1,6 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger';
 import {
   EventModality,
+  EventOrigin,
   EventStatus,
   EventType,
 } from '../../../generated/prisma/client';
@@ -44,6 +45,7 @@ export class EventDto {
 
   @ApiProperty({ example: 2 }) credits!: number;
   @ApiProperty({ enum: EventStatus }) status!: EventStatus;
+  @ApiProperty({ enum: EventOrigin, example: 'CURRENT' }) origin!: EventOrigin;
   @ApiProperty({ example: 'Ana Torres' }) userCreate!: string;
   @ApiProperty({ example: 'Ana Torres' }) userUpdate!: string;
   @ApiProperty() createdAt!: Date;

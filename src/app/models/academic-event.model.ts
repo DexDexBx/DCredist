@@ -1,8 +1,39 @@
 export type EventStatus = 'Programado' | 'En curso' | 'Finalizado' | 'Cancelado';
-export type EventModality = 'Presencial' | 'Virtual' | 'Híbrido';
+export type EventModality = 'Presencial' | 'Virtual' | 'Híbrido' | 'No especificado';
 
-export const EVENT_MODALITIES = ['Presencial', 'Virtual', 'Híbrido'] as const;
+export const EVENT_MODALITIES = [
+  'Presencial',
+  'Virtual',
+  'Híbrido',
+  'No especificado',
+] as const;
 export const EVENT_STATUSES = ['Programado', 'En curso', 'Finalizado', 'Cancelado'] as const;
+
+/**
+ * Procedencia de un evento.
+ *
+ * CURRENT: registro nuevo con sus datos completos. LEGACY: data historica
+ * migrada; admite campos opcionales con valores por defecto.
+ */
+export type EventOrigin = 'CURRENT' | 'LEGACY';
+
+export const EVENT_ORIGIN_LABEL: Record<EventOrigin, string> = {
+  CURRENT: 'Registro actual',
+  LEGACY: 'Registro histórico',
+};
+
+/**
+ * Fecha sentinela de los eventos historicos sin fecha (29-09-1999).
+ *
+ * La base conserva las columnas DATE; en lugar de NULL se guarda este valor, que
+ * la interfaz interpreta como "Sin fecha".
+ */
+export const HISTORICAL_EVENT_DATE = '1999-09-29';
+
+/** true si la fecha es la sentinela de "sin fecha" de un registro historico. */
+export function isHistoricalEventDate(value: string | null | undefined): boolean {
+  return (value ?? '').startsWith(HISTORICAL_EVENT_DATE);
+}
 
 /**
  * Traduccion de los tipos de evento.
@@ -20,6 +51,7 @@ const EVENT_TYPE_LABELS: Record<string, string> = {
   conference: 'Conferencia',
   webinar: 'Webinar',
   exhibition: 'Muestra',
+  unspecified: 'No especificado',
 };
 
 export function eventTypeLabel(name: string | null | undefined): string {
@@ -55,6 +87,9 @@ export interface AcademicEvent {
   /** Escuela profesional duena del evento: delimita su alcance. */
   professionalSchoolId: number;
   professionalSchool: string;
+
+  /** Procedencia del registro: actual o historico. */
+  origin?: EventOrigin;
 
   /** Usuario que creo el evento y que lo modifico por ultima vez. */
   userCreate: string;
@@ -118,6 +153,8 @@ export interface EventDraft {
   organizerId: number | null;
   professionalSchoolId: number | null;
   credits: number;
+  /** CURRENT (por defecto) o LEGACY. */
+  origin?: EventOrigin;
 }
 
 export interface EventValidation {
@@ -158,6 +195,10 @@ export function eventDateRangeLabel(
   event: Pick<AcademicEvent, 'startDate' | 'endDate'>,
   locale = 'es'
 ): string {
+  if (isHistoricalEventDate(event.startDate) || isHistoricalEventDate(event.endDate)) {
+    return 'Sin fecha';
+  }
+
   const start = toDate(event.startDate);
   const end = toDate(event.endDate);
   if (!start || !end) {

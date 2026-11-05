@@ -4,6 +4,7 @@ import {
   FormBuilder,
   ReactiveFormsModule,
   ValidationErrors,
+  ValidatorFn,
   Validators,
 } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
@@ -15,11 +16,15 @@ import { EventTypeService } from '../../../../core/services/event-type.service';
 import { ParticipationService } from '../../../../core/services/participation.service';
 import {
   EVENT_MODALITIES,
+  EVENT_ORIGIN_LABEL,
   EVENT_STATUSES,
   EventDraft,
   EventModality,
+  EventOrigin,
   EventStatus,
+  HISTORICAL_EVENT_DATE,
   eventTypeLabel,
+  isHistoricalEventDate,
 } from '../../../../models';
 import { CatalogOption } from '../../../../models/catalog.model';
 import { DcComboboxComponent } from '../../../../shared/components/form/dc-combobox/dc-combobox.component';
@@ -34,16 +39,44 @@ import { IconComponent } from '../../../../shared/components/ui/icon/icon.compon
 import { PageHeaderComponent } from '../../../../shared/components/ui/page-header/page-header.component';
 import { PanelComponent } from '../../../../shared/components/ui/panel/panel.component';
 
-/**
- * EDICION DE EVENTOS.
- *
- * Reutiliza las mismas reglas del alta. El guardado es un PATCH real: solo se
- * envian los campos que cambiaron (lo resuelve `EventService.update`).
- *
- * Regla de negocio: un evento con estudiantes asociados solo lo puede editar
- * un administrador. Para los demas roles se muestra el bloqueo; el backend
- * vuelve a validar la misma regla.
- */
+/** La descripcion es opcional; si llega debe tener 3+ caracteres. */
+function optionalMinLength(min: number): ValidatorFn {
+  return (control: AbstractControl): ValidationErrors | null => {
+    const value = (control.value ?? '').trim();
+    if (!value) {
+      return null;
+    }
+    return value.length >= min ? null : { minlength: true };
+  };
+}
+
+/** La fecha de fin no puede ser anterior a la de inicio. */
+function endAfterStartDate(group: AbstractControl): ValidationErrors | null {
+  const start = group.get('startDate')?.value;
+  const end = group.get('endDate')?.value;
+
+  if (!start || !end) {
+    return null;
+  }
+
+  const startId = new Date(start).getTime();
+  const endId = new Date(end).getTime();
+
+  if (Number.isNaN(startId) || Number.isNaN(endId) || endId >= startId) {
+    return null;
+  }
+
+  return { endBeforeStart: true };
+}
+
+/** Secuencia de estados para usuarios que no son administradores. */
+const STATUS_TRANSITIONS: Record<string, readonly EventStatus[]> = {
+  Programado: ['En curso', 'Cancelado'],
+  'En curso': ['Finalizado', 'Cancelado'],
+  Finalizado: [],
+  Cancelado: [],
+};
+
 @Component({
   selector: 'app-event-edit',
   imports: [
@@ -69,7 +102,6 @@ export class EventEditComponent {
   private readonly fb = inject(FormBuilder);
   readonly auth = inject(AuthService);
 
-  /** Identificador tomado de la ruta /events/:id/edit. */
   readonly id = input.required<string>();
   private readonly eventId = computed(() => Number(this.id()));
   readonly event = computed(() => this.eventService.findById(this.eventId()));
@@ -78,7 +110,9 @@ export class EventEditComponent {
   readonly saved = signal(false);
   readonly formError = signal<string | null>(null);
 
-  /** Un evento con participaciones queda reservado al administrador. */
+  readonly originLabel = EVENT_ORIGIN_LABEL;
+  readonly isLegacy = computed(() => this.event()?.origin === 'LEGACY');
+
   readonly blocked = computed(() => {
     const event = this.event();
     if (!event || this.auth.currentUser()?.role === 'ADMIN') {
@@ -98,8 +132,6 @@ export class EventEditComponent {
       label: type.label,
     }));
 
-    // Si el evento usa un tipo que luego se desactivo, se conserva como opcion
-    // para que la edicion no obligue a cambiarlo sin motivo.
     const current = this.event();
     if (current && !options.some((option) => option.value === String(current.eventTypeId))) {
       options.unshift({
@@ -132,12 +164,12 @@ export class EventEditComponent {
   readonly form = this.fb.nonNullable.group(
     {
       name: ['', [Validators.required, Validators.minLength(5)]],
-      description: ['', [Validators.required, Validators.minLength(20)]],
+      description: ['', [optionalMinLength(3)]],
       eventTypeId: ['', [Validators.required]],
       startDate: ['', [Validators.required]],
       endDate: ['', [Validators.required]],
       modality: ['', [Validators.required]],
-      location: ['', [Validators.required, Validators.minLength(3)]],
+      location: [''],
       status: ['', [Validators.required]],
       capacity: ['0', [Validators.pattern(/^(\d{1,9})?$/)]],
       credits: [
@@ -157,35 +189,18 @@ export class EventEditComponent {
 
   readonly isAdmin = computed(() => this.auth.currentUser()?.role === 'ADMIN');
 
-  /**
-   * Opciones de estado segun el estado GUARDADO del evento.
-   *
-   * Mientras no se guarde, el formulario no se bloquea: se puede elegir
-   * Cancelado o Finalizado y luego cambiar de opinion. La secuencia solo avanza
-   * cuando el cambio queda guardado.
-   */
   readonly statusOptions = computed<DcSelectOption[]>(() => {
-    if (this.isAdmin()) {
+    if (this.isLegacy() || this.isAdmin()) {
       return EVENT_STATUSES.map((status) => ({ value: status, label: status }));
     }
 
     const current = (this.event()?.status ?? 'Programado') as EventStatus;
     const next = STATUS_TRANSITIONS[current] ?? [];
-
-    // El estado guardado se puede volver a elegir mientras no se guarde el
-    // cambio: asi el usuario puede arrepentirse antes de confirmar.
-    return [current, ...next].map((status) => ({
-      value: status,
-      label: status,
-    }));
+    return [current, ...next].map((status) => ({ value: status, label: status }));
   });
 
-  /**
-   * Finalizado y Cancelado cierran la secuencia SOLO si ya estan guardados.
-   * Un cambio pendiente en el formulario aun se puede corregir.
-   */
   readonly statusLocked = computed(() => {
-    if (this.isAdmin()) {
+    if (this.isLegacy() || this.isAdmin()) {
       return false;
     }
     const saved = this.event()?.status;
@@ -197,7 +212,6 @@ export class EventEditComponent {
   constructor() {
     void this.eventTypeService.load();
 
-    // El estado solo avanza: al llegar a un estado terminal se bloquea.
     effect(() => {
       const control = this.form.controls.status;
       if (this.statusLocked()) {
@@ -207,8 +221,6 @@ export class EventEditComponent {
       }
     });
 
-    // Copia el evento al formulario una sola vez, cuando la hidratacion ya lo
-    // tiene disponible.
     effect(() => {
       const event = this.event();
       if (!event || this.initialized) {
@@ -216,13 +228,15 @@ export class EventEditComponent {
       }
 
       this.initialized = true;
+      this.applyOriginValidators(event.origin ?? 'CURRENT');
+
       this.form.patchValue({
         name: event.name,
         description: event.description ?? '',
         eventTypeId: String(event.eventTypeId),
-        startDate: event.startDate,
-        endDate: event.endDate,
-        modality: event.modality,
+        startDate: isHistoricalEventDate(event.startDate) ? '' : event.startDate,
+        endDate: isHistoricalEventDate(event.endDate) ? '' : event.endDate,
+        modality: event.modality === 'No especificado' ? '' : event.modality,
         location: event.location ?? '',
         status: event.status,
         capacity: String(event.capacity ?? 0),
@@ -231,6 +245,23 @@ export class EventEditComponent {
         professionalSchoolId: String(event.professionalSchoolId),
       });
     });
+  }
+
+  /** Configura los validadores segun el origen guardado del evento. */
+  private applyOriginValidators(origin: EventOrigin): void {
+    const isLegacy = origin === 'LEGACY';
+    const required = Validators.required;
+    const controls = this.form.controls;
+
+    controls.eventTypeId.setValidators(isLegacy ? [] : [required]);
+    controls.startDate.setValidators(isLegacy ? [] : [required]);
+    controls.endDate.setValidators(isLegacy ? [] : [required]);
+    controls.modality.setValidators(isLegacy ? [] : [required]);
+    controls.status.setValidators(isLegacy ? [] : [required]);
+
+    for (const name of ['eventTypeId', 'startDate', 'endDate', 'modality', 'status'] as const) {
+      controls[name].updateValueAndValidity();
+    }
   }
 
   async onSubmit(): Promise<void> {
@@ -245,21 +276,26 @@ export class EventEditComponent {
 
     this.saving.set(true);
     const value = this.form.getRawValue();
+    const isLegacy = this.isLegacy();
 
     const draft: EventDraft = {
       code: current.code,
       name: value.name,
       description: value.description,
-      eventTypeId: Number(value.eventTypeId),
-      startDate: value.startDate,
-      endDate: value.endDate,
-      modality: value.modality as EventModality,
+      eventTypeId: value.eventTypeId ? Number(value.eventTypeId) : null,
+      startDate: isLegacy && !value.startDate ? HISTORICAL_EVENT_DATE : value.startDate,
+      endDate:
+        isLegacy && !value.endDate
+          ? value.startDate || HISTORICAL_EVENT_DATE
+          : value.endDate,
+      modality: (value.modality || (isLegacy ? 'No especificado' : '')) as EventModality,
       location: value.location,
-      status: value.status as EventStatus,
+      status: (value.status || (isLegacy ? 'Finalizado' : '')) as EventStatus,
       capacity: value.capacity ? Number(value.capacity) : 0,
       credits: Number(value.credits),
       organizerId: Number(value.organizerId),
       professionalSchoolId: Number(value.professionalSchoolId),
+      origin: isLegacy ? 'LEGACY' : 'CURRENT',
     };
 
     const validation = this.eventService.validate(draft);
@@ -307,34 +343,6 @@ export class EventEditComponent {
     if (field.invalid) {
       return true;
     }
-    // El rango de fechas es una validacion del grupo: se marca en la fecha de fin.
     return control === 'endDate' && this.form.errors !== null;
   }
 }
-
-/** La fecha de fin no puede ser anterior a la de inicio. */
-function endAfterStartDate(group: AbstractControl): ValidationErrors | null {
-  const start = group.get('startDate')?.value;
-  const end = group.get('endDate')?.value;
-
-  if (!start || !end) {
-    return null;
-  }
-
-  const startId = new Date(start).getTime();
-  const endId = new Date(end).getTime();
-
-  if (Number.isNaN(startId) || Number.isNaN(endId) || endId >= startId) {
-    return null;
-  }
-
-  return { endBeforeStart: true };
-}
-
-/** Secuencia de estados para usuarios que no son administradores. */
-const STATUS_TRANSITIONS: Record<string, readonly EventStatus[]> = {
-  Programado: ['En curso', 'Cancelado'],
-  'En curso': ['Finalizado', 'Cancelado'],
-  Finalizado: [],
-  Cancelado: [],
-};

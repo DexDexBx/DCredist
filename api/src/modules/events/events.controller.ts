@@ -1,6 +1,7 @@
 import { Body, Controller, Get, Param, ParseIntPipe, Patch, Post, Query } from '@nestjs/common';
 import {
   ApiBadRequestResponse,
+  ApiBody,
   ApiConflictResponse,
   ApiCreatedResponse,
   ApiNotFoundResponse,
@@ -14,6 +15,7 @@ import { CurrentActor } from '../../common/actor/current-actor.decorator';
 import { CreateEventDto } from './dto/create-event.dto';
 import { EventDto } from './dto/event.dto';
 import { EventParticipantDto, EventSummaryDto } from './dto/event-participant.dto';
+import { EventImportResultDto, ImportEventsDto } from './dto/import-events.dto';
 import { QueryEventsDto } from './dto/query-events.dto';
 import { UpdateEventDto } from './dto/update-event.dto';
 import { EventsService } from './events.service';
@@ -90,6 +92,19 @@ export class EventsController {
   @ApiConflictResponse({ description: 'El codigo del evento ya existe.' })
   create(@Body() dto: CreateEventDto, @CurrentActor() actor: Actor): Promise<EventDto> {
     return this.eventsService.create(dto, actor);
+  }
+
+  @Post('import')
+  @ApiOperation({
+    summary: 'Carga masiva de eventos (actuales o historicos).',
+    description:
+      'Resuelve escuela, organizador y tipo de evento por nombre. El codigo se genera con la misma secuencia. Un usuario de escuela solo carga eventos de su escuela.',
+  })
+  @ApiBody({ type: ImportEventsDto })
+  @ApiCreatedResponse({ type: EventImportResultDto })
+  @ApiBadRequestResponse({ description: 'Archivo vacio o datos invalidos.' })
+  import(@Body() dto: ImportEventsDto, @CurrentActor() actor: Actor): Promise<EventImportResultDto> {
+    return this.eventsService.importEvents(dto, actor);
   }
 
   @Patch(':id')
