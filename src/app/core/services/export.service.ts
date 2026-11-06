@@ -265,8 +265,9 @@ export class ExportService {
   /**
    * LISTADO DE EVENTOS.
    *
-   * Exporta los eventos que la vista tiene filtrados, con su cupo y el conteo
-   * de participantes vigentes. Es un reporte de gestion, no de participacion.
+   * Exporta los eventos que la vista tiene filtrados, con su capacidad y el
+   * conteo de participantes vigentes. Es un reporte de gestion, no de
+   * participacion.
    *
    * Contrato de API: GET /events/export
    */
@@ -274,37 +275,54 @@ export class ExportService {
     const header = [
       'CÓDIGO',
       'NOMBRE',
+      'DESCRIPCIÓN',
       'TIPO',
       'MODALIDAD',
+      'ESCUELA PROFESIONAL',
       'FECHA DE INICIO',
       'FECHA DE TÉRMINO',
       'LUGAR',
       'ORGANIZADOR',
       'CRÉDITOS',
-      'CUPO',
+      'CAPACIDAD',
       'PARTICIPANTES',
       'ESTADO',
+      'ORIGEN',
     ];
 
-    const dateFormatter = new Intl.DateTimeFormat('es', {
+    const fullDateFormatter = new Intl.DateTimeFormat('es', {
       day: '2-digit',
       month: '2-digit',
       year: 'numeric',
     });
 
+    // En un evento de solo mes/anio la fecha interna guarda el dia 29 como
+    // marcador. Al exportar no se muestra ese dia: solo MM/AAAA.
+    const formatEventDate = (event: AcademicEvent, value: string): string => {
+      const date = parseCalendarDate(value) ?? new Date(value);
+      if (event.dateType === 'SHORT') {
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        return `${month}/${date.getFullYear()}`;
+      }
+      return fullDateFormatter.format(date);
+    };
+
     const body = events.map((event) => [
       event.code,
       event.name,
+      optionalText(event.description),
       eventTypeLabel(event.eventTypeName),
       event.modality,
-      dateFormatter.format(parseCalendarDate(event.startDate) ?? new Date(event.startDate)),
-      dateFormatter.format(parseCalendarDate(event.endDate) ?? new Date(event.endDate)),
+      optionalText(event.professionalSchool),
+      formatEventDate(event, event.startDate),
+      formatEventDate(event, event.endDate),
       optionalText(event.location),
       optionalText(event.organizer),
       formatCredits(event.credits),
       event.capacity > 0 ? String(event.capacity) : 'Sin límite',
       String(this.participationService.countForEvent(event.id, true)),
       event.status,
+      event.origin === 'LEGACY' ? 'Histórico' : 'Actual',
     ]);
 
     const table: string[][] = [

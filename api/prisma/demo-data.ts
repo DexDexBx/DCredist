@@ -56,6 +56,7 @@ export async function seedAcademicDemo(
     'Conference',
     'Webinar',
     'Exhibition',
+    'Unspecified',
   ];
 
   const schools = new Map<string, number>();

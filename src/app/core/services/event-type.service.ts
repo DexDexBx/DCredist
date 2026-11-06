@@ -86,6 +86,7 @@ function defaultEventTypes(): EventTypeOption[] {
     'Conference',
     'Webinar',
     'Exhibition',
+    'Unspecified',
   ].map((name, index) => ({
     id: index + 1,
     name,

@@ -78,6 +78,7 @@ export class EventService {
   filter(options: {
     status?: EventStatus | 'Todos';
     modality?: EventModality | 'Todas';
+    origin?: EventOrigin | 'Todos';
     search?: string;
     code?: string;
   }): AcademicEvent[] {
@@ -94,6 +95,10 @@ export class EventService {
           !options.modality || options.modality === 'Todas'
             ? true
             : event.modality === options.modality;
+        const matchesOrigin =
+          !options.origin || options.origin === 'Todos'
+            ? true
+            : (event.origin ?? 'CURRENT') === options.origin;
         const matchesCode = !code || event.code.toLowerCase().includes(code);
         const matchesSearch =
           !search ||
@@ -105,7 +110,7 @@ export class EventService {
           event.professionalSchool.toLowerCase().includes(search) ||
           (event.description?.toLowerCase().includes(search) ?? false);
 
-        return matchesStatus && matchesModality && matchesCode && matchesSearch;
+        return matchesStatus && matchesModality && matchesOrigin && matchesCode && matchesSearch;
       })
       .sort((a, b) => a.startDate.localeCompare(b.startDate));
   }
@@ -131,7 +136,6 @@ export class EventService {
 
   validate(draft: EventDraft): EventValidation {
     const errors: EventValidation['errors'] = {};
-    const isLegacy = draft.origin === 'LEGACY';
 
     if (!draft.name.trim()) {
       errors.name = 'El nombre del evento es obligatorio.';
@@ -173,8 +177,16 @@ export class EventService {
       }
     }
 
-    if (!isLegacy && !draft.eventTypeId) {
+    if (!draft.eventTypeId) {
       errors.eventTypeId = 'El tipo de evento es obligatorio.';
+    }
+
+    if (!draft.modality) {
+      errors.modality = 'La modalidad es obligatoria.';
+    }
+
+    if (!draft.status) {
+      errors.status = 'El estado es obligatorio.';
     }
 
     if (!draft.organizerId) {
@@ -446,6 +458,22 @@ export class EventService {
         continue;
       }
 
+      // El registro actual siempre usa fecha completa. En el historico cada
+      // fila decide su precision con la columna Tipo de fecha.
+      if (origin === 'LEGACY' && !row.dateType) {
+        issues.push({
+          row: line,
+          name,
+          code: 'MISSING_DATE_TYPE',
+          message: 'Falta el tipo de fecha: indica "Fecha completa" o "Solo mes y año".',
+        });
+        skipped++;
+        continue;
+      }
+
+      const rowDateType: EventDateType =
+        origin === 'LEGACY' ? (row.dateType ?? dateType) : 'LONG';
+
       const organizer = organizers.find(
         (option) => option.name.trim().toLowerCase() === (row.organizer ?? '').trim().toLowerCase()
       );
@@ -464,7 +492,7 @@ export class EventService {
         continue;
       }
 
-      if (dateType === 'SHORT') {
+      if (rowDateType === 'SHORT') {
         if (!row.startDate || !/^\d{4}-\d{2}$/.test(row.startDate.trim())) {
           issues.push({ row: line, name, code: 'MISSING_DATES', message: 'Indica el mes y año de inicio (YYYY-MM).' });
           skipped++;
@@ -494,11 +522,12 @@ export class EventService {
           skipped++;
           continue;
         }
-        if (row.capacity === undefined || row.capacity === null) {
-          issues.push({ row: line, name, code: 'MISSING_CAPACITY', message: 'Falta la capacidad: obligatoria en un registro actual (0 = sin límite).' });
-          skipped++;
-          continue;
-        }
+      }
+
+      if (row.capacity === undefined || row.capacity === null) {
+        issues.push({ row: line, name, code: 'MISSING_CAPACITY', message: 'Falta la capacidad (0 = sin límite).' });
+        skipped++;
+        continue;
       }
 
       if (row.credits === undefined || row.credits === null) {
@@ -514,25 +543,46 @@ export class EventService {
       }
 
       const typeLabel = (row.eventType ?? '').trim();
-      const type = typeLabel
-        ? types.find(
-            (option) =>
-              option.label.trim().toLowerCase() === typeLabel.toLowerCase() ||
-              option.name.trim().toLowerCase() === typeLabel.toLowerCase()
-          )
-        : undefined;
+      if (!typeLabel) {
+        issues.push({ row: line, name, code: 'MISSING_EVENT_TYPE', message: 'Falta el tipo de evento.' });
+        skipped++;
+        continue;
+      }
+
+      const type = types.find(
+        (option) =>
+          option.label.trim().toLowerCase() === typeLabel.toLowerCase() ||
+          option.name.trim().toLowerCase() === typeLabel.toLowerCase()
+      );
+      if (!type) {
+        issues.push({ row: line, name, code: 'UNKNOWN_EVENT_TYPE', message: `El tipo de evento "${typeLabel}" no existe.` });
+        skipped++;
+        continue;
+      }
+
+      if (!(row.modality ?? '').trim()) {
+        issues.push({ row: line, name, code: 'MISSING_MODALITY', message: 'Falta la modalidad.' });
+        skipped++;
+        continue;
+      }
+
+      if (!(row.status ?? '').trim()) {
+        issues.push({ row: line, name, code: 'MISSING_STATUS', message: 'Falta el estado.' });
+        skipped++;
+        continue;
+      }
 
       const draft: EventDraft = {
         name,
         description: (row.description ?? '').trim(),
-        eventTypeId: type?.id ?? null,
+        eventTypeId: type.id,
         startDate: row.startDate ?? '',
-        endDate: dateType === 'SHORT' ? '' : (row.endDate ?? ''),
-        dateType,
-        modality: ((row.modality ?? '') as EventModality) || 'Presencial',
+        endDate: rowDateType === 'SHORT' ? '' : (row.endDate ?? ''),
+        dateType: rowDateType,
+        modality: (row.modality ?? '') as EventModality,
         location: (row.location ?? '').trim(),
-        status: ((row.status ?? '') as EventStatus) || 'Finalizado',
-        capacity: row.capacity ?? 0,
+        status: (row.status ?? '') as EventStatus,
+        capacity: row.capacity,
         organizerId: organizer.id,
         professionalSchoolId: school.id,
         credits: row.credits,
@@ -700,6 +750,8 @@ function toDateOnly(value: string): string {
 /** Fila de la carga masiva de eventos (equivalente al contrato del API). */
 export interface EventImportRow {
   name: string;
+  /** Precision de fechas de esta fila (obligatoria en la carga historica). */
+  dateType?: EventDateType;
   description?: string;
   startDate?: string;
   endDate?: string;

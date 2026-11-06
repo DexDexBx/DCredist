@@ -225,6 +225,8 @@ export interface ApiEvent {
 /** Fila de la carga masiva de eventos. */
 export interface ApiEventImportRow {
   name: string;
+  /** Precision de fechas de esta fila (obligatoria en la carga historica). */
+  dateType?: ApiEventDateType;
   description?: string;
   startDate?: string;
   endDate?: string;

@@ -96,9 +96,9 @@
           <app-event-status-badge [status]="currentEvent.status" />
           <app-badge size="sm" color="light">{{ eventTypeName(currentEvent) }}</app-badge>
           <app-badge size="sm" color="primary">{{ currentEvent.credits }} créditos</app-badge>
-          @if (currentEvent.origin === 'LEGACY') {
-          <app-badge size="sm" color="info">Histórico</app-badge>
-          }
+          <app-badge size="sm" [color]="currentEvent.origin === 'LEGACY' ? 'info' : 'light'">
+            {{ currentEvent.origin === 'LEGACY' ? 'Histórico' : 'Actual' }}
+          </app-badge>
         </div>
 
         <p class="text-sm leading-relaxed text-gray-600 dark:text-gray-300">

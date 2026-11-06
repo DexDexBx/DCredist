@@ -12,6 +12,7 @@
         "prisma:generate": "prisma generate",
         "prisma:migrate": "prisma migrate dev",
         "prisma:deploy": "prisma migrate deploy",
+        "prisma:reset": "prisma migrate reset",
         "prisma:studio": "prisma studio",
         "seed": "prisma db seed",
         "seed:demo": "ts-node --compiler-options \"{\\\"module\\\":\\\"CommonJS\\\"}\" prisma/seed-demo.ts"

@@ -592,7 +592,7 @@ export class EventsService {
   async importEvents(dto: ImportEventsDto, actor: Actor): Promise<EventImportResultDto> {
     const origin = dto.origin ?? EventOrigin.CURRENT;
     const isHistorical = origin === EventOrigin.LEGACY;
-    const dateType = dto.dateType ?? EventDateType.LONG;
+    const defaultDateType = dto.dateType ?? EventDateType.LONG;
     const issues: EventImportIssueDto[] = [];
 
     const [schools, organizers, eventTypes] = await Promise.all([
@@ -641,11 +641,27 @@ export class EventsService {
         continue;
       }
 
+      // Tipo de fecha por fila. El registro actual siempre es fecha completa.
+      if (isHistorical && !row.dateType) {
+        issues.push({
+          row: line,
+          name,
+          code: 'MISSING_DATE_TYPE',
+          message: 'Falta el tipo de fecha: indica "Fecha completa" o "Solo mes y año".',
+        });
+        skipped++;
+        continue;
+      }
+
+      const rowDateType: EventDateType = isHistorical
+        ? (row.dateType ?? defaultDateType)
+        : EventDateType.LONG;
+
       // Fechas
       let startDate: Date;
       let endDate: Date;
 
-      if (dateType === EventDateType.SHORT) {
+      if (rowDateType === EventDateType.SHORT) {
         if (!row.startDate || !isMonthYear(row.startDate)) {
           issues.push({ row: line, name, code: 'MISSING_DATES', message: 'Indica el mes y año de inicio (YYYY-MM).' });
           skipped++;
@@ -710,10 +726,8 @@ export class EventsService {
           continue;
         }
         eventTypeId = resolved;
-      } else if (isHistorical) {
-        eventTypeId = await this.resolveUnspecifiedEventTypeId();
       } else {
-        issues.push({ row: line, name, code: 'MISSING_EVENT_TYPE', message: 'Falta el tipo de evento: obligatorio en un registro actual.' });
+        issues.push({ row: line, name, code: 'MISSING_EVENT_TYPE', message: 'Falta el tipo de evento.' });
         skipped++;
         continue;
       }
@@ -728,10 +742,8 @@ export class EventsService {
           continue;
         }
         modality = resolved;
-      } else if (isHistorical) {
-        modality = EventModality.UNSPECIFIED;
       } else {
-        issues.push({ row: line, name, code: 'MISSING_MODALITY', message: 'Falta la modalidad: obligatoria en un registro actual.' });
+        issues.push({ row: line, name, code: 'MISSING_MODALITY', message: 'Falta la modalidad.' });
         skipped++;
         continue;
       }
@@ -746,10 +758,8 @@ export class EventsService {
           continue;
         }
         status = resolved;
-      } else if (isHistorical) {
-        status = EventStatus.COMPLETED;
       } else {
-        issues.push({ row: line, name, code: 'MISSING_STATUS', message: 'Falta el estado: obligatorio en un registro actual.' });
+        issues.push({ row: line, name, code: 'MISSING_STATUS', message: 'Falta el estado.' });
         skipped++;
         continue;
       }
@@ -768,11 +778,12 @@ export class EventsService {
           skipped++;
           continue;
         }
-        if (row.capacity === undefined || row.capacity === null) {
-          issues.push({ row: line, name, code: 'MISSING_CAPACITY', message: 'Falta la capacidad: obligatoria en un registro actual (0 = sin limite).' });
-          skipped++;
-          continue;
-        }
+      }
+
+      if (row.capacity === undefined || row.capacity === null) {
+        issues.push({ row: line, name, code: 'MISSING_CAPACITY', message: 'Falta la capacidad (0 = sin limite).' });
+        skipped++;
+        continue;
       }
 
       const description = rawDescription || DEFAULT_DESCRIPTION;
@@ -825,7 +836,7 @@ export class EventsService {
         durationType: this.deriveDurationType(startDate, endDate),
         startDate,
         endDate,
-        dateType,
+        dateType: rowDateType,
         modality,
         location: row.location?.trim() || DEFAULT_LOCATION,
         origin,

@@ -152,6 +152,7 @@
       </p>
       }
 
+      @if (isLegacy()) {
       <div class="flex flex-col gap-2">
         <span class="text-sm font-medium text-gray-700 dark:text-gray-200 dark:text-white/90">
           Tipo de fecha <span class="text-error-500" aria-hidden="true">*</span>
@@ -193,13 +194,11 @@
             />
             <span>
               <span class="block font-medium text-gray-900 dark:text-white/90">Solo mes y año</span>
-              <span class="mt-0.5 block text-xs text-gray-500 dark:text-gray-400">
-                El día se registra como 29.
-              </span>
             </span>
           </label>
         </div>
       </div>
+      }
 
       <div class="grid gap-5 sm:grid-cols-2">
         <dc-input
@@ -244,17 +243,17 @@
           formControlName="eventTypeId"
           label="Tipo de evento"
           [options]="typeOptions()"
-          [placeholder]="isLegacy() ? 'No especificado' : 'Selecciona el tipo'"
-          [required]="!isLegacy()"
+          placeholder="Selecciona el tipo"
+          [required]="true"
           [invalid]="isInvalid('eventTypeId')"
         />
 
         <dc-select
           formControlName="modality"
           label="Modalidad"
-          [options]="modalityOptions"
-          [placeholder]="isLegacy() ? 'No especificado' : 'Selecciona la modalidad'"
-          [required]="!isLegacy()"
+          [options]="modalityOptions()"
+          placeholder="Selecciona la modalidad"
+          [required]="true"
           [invalid]="isInvalid('modality')"
         />
         <dc-input
@@ -321,8 +320,8 @@
           formControlName="status"
           label="Estado"
           [options]="statusOptions()"
-          [placeholder]="isLegacy() ? 'Finalizado (por defecto)' : 'Selecciona el estado'"
-          [required]="!isLegacy()"
+          placeholder="Selecciona el estado"
+          [required]="true"
           [invalid]="isInvalid('status')"
         />
         @if (isInvalid('status')) {
@@ -517,58 +516,30 @@
           "
         >
           <span class="text-sm font-semibold text-gray-900 dark:text-white/90">Registro histórico</span>
-          <span class="text-xs text-gray-500 dark:text-gray-400">Campos opcionales con valores por defecto.</span>
+          <span class="text-xs text-gray-500 dark:text-gray-400">
+            El tipo de fecha se indica en cada fila.
+          </span>
         </button>
-      </div>
-
-      <div class="flex flex-col gap-2">
-        <span class="text-sm font-medium text-gray-700 dark:text-white/90">
-          Tipo de fecha <span class="text-error-500" aria-hidden="true">*</span>
-        </span>
-        <div class="grid gap-2 sm:grid-cols-2">
-          <button
-            type="button"
-            (click)="setImportDateType('LONG')"
-            class="flex flex-col gap-1 rounded-xl border px-4 py-3 text-left transition-colors"
-            [class]="
-              !isShortImportDate()
-                ? 'border-brand-500 bg-brand-50 dark:border-brand-500/60 dark:bg-brand-500/10'
-                : 'border-gray-200 bg-white hover:border-brand-300 dark:border-gray-800 dark:bg-white/[0.02] dark:hover:border-brand-500/40'
-            "
-          >
-            <span class="text-sm font-semibold text-gray-900 dark:text-white/90">Fecha completa</span>
-            <span class="text-xs text-gray-500 dark:text-gray-400">
-              Inicio y fin con día, mes y año.
-            </span>
-          </button>
-          <button
-            type="button"
-            (click)="setImportDateType('SHORT')"
-            class="flex flex-col gap-1 rounded-xl border px-4 py-3 text-left transition-colors"
-            [class]="
-              isShortImportDate()
-                ? 'border-brand-500 bg-brand-50 dark:border-brand-500/60 dark:bg-brand-500/10'
-                : 'border-gray-200 bg-white hover:border-brand-300 dark:border-gray-800 dark:bg-white/[0.02] dark:hover:border-brand-500/40'
-            "
-          >
-            <span class="text-sm font-semibold text-gray-900 dark:text-white/90">Solo mes y año</span>
-            <span class="text-xs text-gray-500 dark:text-gray-400">
-              La fecha de fin se ignora; el día se registra como 29.
-            </span>
-          </button>
-        </div>
       </div>
 
       <div class="rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3.5 dark:border-gray-800 dark:bg-white/[0.02]">
         <p class="text-sm font-medium text-gray-900 dark:text-white/90">¿Qué debe tener el archivo?</p>
         <ul class="mt-2 space-y-1 text-xs leading-relaxed text-gray-600 dark:text-gray-300">
-          <li>1. Una fila por evento, con las columnas: nombre, descripción, fecha de inicio, fecha de fin, tipo de evento, modalidad, ubicación, estado, capacidad, créditos, organizador y escuela.</li>
-          <li>2. En registros actuales son obligatorios: nombre, descripción, fechas, tipo, modalidad, ubicación, estado, capacidad, créditos, organizador y escuela.</li>
-          <li>3. En registros históricos son obligatorios: nombre, fechas, créditos, organizador y escuela.</li>
-          <li>4. Con <strong>fecha completa</strong>, inicio y fin usan YYYY-MM-DD y ambos son obligatorios.</li>
-          <li>5. Con <strong>solo mes y año</strong>, la fecha de inicio usa YYYY-MM; la fecha de fin se ignora.</li>
+          @if (isLegacyImport()) {
+          <li>1. Una fila por evento, con las columnas: nombre, tipo de fecha, descripción, fecha de inicio, fecha de fin, tipo de evento, modalidad, ubicación, estado, capacidad, créditos, organizador y escuela.</li>
+          <li>2. Son obligatorios: nombre, tipo de fecha, fecha de inicio, tipo de evento, modalidad, estado, capacidad, créditos, organizador y escuela.</li>
+          <li>3. Con <strong>fecha completa</strong>, inicio y fin usan YYYY-MM-DD y ambos son obligatorios.</li>
+          <li>4. Con <strong>solo mes y año</strong>, la fecha de inicio usa YYYY-MM; la fecha de fin es opcional y se ignora.</li>
+          <li>5. Descripción y ubicación son opcionales.</li>
           <li>6. Los créditos deben ser un número entre 0 y 21.</li>
           <li>7. La fila de encabezado se ignora automáticamente.</li>
+          } @else {
+          <li>1. Una fila por evento, con las columnas: nombre, descripción, fecha de inicio, fecha de fin, tipo de evento, modalidad, ubicación, estado, capacidad, créditos, organizador y escuela.</li>
+          <li>2. Son obligatorios: nombre, descripción, fechas, tipo, modalidad, ubicación, estado, capacidad, créditos, organizador y escuela.</li>
+          <li>3. Las fechas de inicio y fin usan YYYY-MM-DD y ambas son obligatorias.</li>
+          <li>4. Los créditos deben ser un número entre 0 y 21.</li>
+          <li>5. La fila de encabezado se ignora automáticamente.</li>
+          }
         </ul>
         <button
           type="button"
@@ -580,7 +551,7 @@
         </button>
         <p class="mt-2 text-xs text-gray-500 dark:text-gray-400">
           La plantilla incluye listas desplegables con escuelas, organizadores, modalidad, tipo de
-          evento y estado disponibles.
+          evento y estado disponibles; en el registro histórico también el tipo de fecha.
         </p>
       </div>
 
@@ -627,8 +598,8 @@
           [value]="importText()"
           (input)="importText.set($any($event.target).value); clearImportFile()"
           [placeholder]="
-            isShortImportDate()
-              ? 'Congreso 2019;Descripcion;2019-10;;Congreso;Presencial;Auditorio;Finalizado;0;2;VICERRECTORIA ACADEMICA;DERECHO'
+            isLegacyImport()
+              ? 'Congreso 2019;Fecha completa;Descripcion;2019-10-05;2019-10-07;Congreso;Presencial;Auditorio;Finalizado;0;2;VICERRECTORIA ACADEMICA;DERECHO'
               : 'Congreso 2019;Descripcion;2019-10-05;2019-10-07;Congreso;Presencial;Auditorio;Finalizado;0;2;VICERRECTORIA ACADEMICA;DERECHO'
           "
           class="w-full rounded-xl border border-gray-300 bg-white px-3.5 py-2.5 font-mono text-xs text-gray-900 placeholder:text-gray-400 focus:border-brand-600 focus:ring-3 focus:ring-brand-500/15 focus:outline-none dark:border-gray-700 dark:bg-white/[0.03] dark:text-white/90"

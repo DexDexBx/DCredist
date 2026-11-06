@@ -130,16 +130,22 @@ export class EventEditComponent {
     return this.participationService.getByEvent(event.id).length > 0;
   });
 
-  readonly modalityOptions: DcSelectOption[] = EVENT_MODALITIES.map((modality) => ({
-    value: modality,
-    label: modality,
-  }));
+  readonly modalityOptions = computed<DcSelectOption[]>(() =>
+    (this.isLegacy()
+      ? EVENT_MODALITIES
+      : EVENT_MODALITIES.filter((modality) => modality !== 'No especificado')
+    ).map((modality) => ({ value: modality, label: modality })),
+  );
 
   readonly typeOptions = computed<DcSelectOption[]>(() => {
-    const options = this.eventTypeService.activeTypes().map((type) => ({
-      value: String(type.id),
-      label: type.label,
-    }));
+    const options = this.eventTypeService
+      .activeTypes()
+      // "No especificado" solo se ofrece en registros historicos.
+      .filter((type) => this.isLegacy() || type.name !== 'Unspecified')
+      .map((type) => ({
+        value: String(type.id),
+        label: type.label,
+      }));
 
     const current = this.event();
     if (current && !options.some((option) => option.value === String(current.eventTypeId))) {
@@ -204,7 +210,9 @@ export class EventEditComponent {
   readonly dateInputType = computed(() => (this.isShortDate() ? 'month' : 'date'));
 
   readonly statusOptions = computed<DcSelectOption[]>(() => {
-    if (this.isLegacy() || this.isAdmin()) {
+    // El administrador puede mover el estado libremente. El resto de roles
+    // avanza en orden, tanto en registros actuales como historicos.
+    if (this.isAdmin()) {
       return EVENT_STATUSES.map((status) => ({ value: status, label: status }));
     }
 
@@ -214,7 +222,7 @@ export class EventEditComponent {
   });
 
   readonly statusLocked = computed(() => {
-    if (this.isLegacy() || this.isAdmin()) {
+    if (this.isAdmin()) {
       return false;
     }
     const saved = this.event()?.status;
@@ -250,7 +258,10 @@ export class EventEditComponent {
       this.initialized = true;
       this.applyOriginValidators(event.origin ?? 'CURRENT');
 
-      const dateType = event.dateType ?? 'LONG';
+      // El registro actual siempre usa fecha completa; el selector de tipo de
+      // fecha solo se ofrece para los eventos historicos.
+      const dateType: EventDateType =
+        event.origin === 'LEGACY' ? (event.dateType ?? 'LONG') : 'LONG';
       const startDate =
         dateType === 'SHORT'
           ? event.startDate.slice(0, 7)
@@ -271,7 +282,10 @@ export class EventEditComponent {
         dateType,
         startDate,
         endDate,
-        modality: event.modality === 'No especificado' ? '' : event.modality,
+        modality:
+          event.origin !== 'LEGACY' && event.modality === 'No especificado'
+            ? ''
+            : event.modality,
         location: event.location ?? '',
         status: event.status,
         capacity: String(event.capacity ?? 0),
@@ -370,7 +384,10 @@ export class EventEditComponent {
     this.saving.set(true);
     const value = this.form.getRawValue();
     const isLegacy = this.isLegacy();
-    const dateType = value.dateType as EventDateType;
+    // El registro actual guarda siempre fecha completa.
+    const dateType: EventDateType = isLegacy
+      ? (value.dateType as EventDateType)
+      : 'LONG';
 
     const draft: EventDraft = {
       code: current.code,

@@ -81,30 +81,58 @@ function endAfterStartDate(group: AbstractControl): ValidationErrors | null {
   return { endBeforeStart: true };
 }
 
-/** Encabezados de la plantilla de importacion de eventos. */
 /**
  * Encabezados de la plantilla de importacion de eventos.
  *
- * Las fechas son obligatorias en ambos modos. Con fecha completa se piden
- * inicio y fin; con solo mes/anio se usa el inicio (YYYY-MM) y el fin se
- * ignora. Descripcion, ubicacion y capacidad solo son obligatorias en el
- * registro actual.
+ * El registro actual siempre usa fecha completa. El registro historico agrega
+ * una columna "Tipo de fecha" que decide, fila por fila, si las fechas son
+ * completas o solo mes/anio.
  */
-function buildImportHeaders(isLegacy: boolean, dateType: EventDateType): string[] {
+function buildImportHeaders(isLegacy: boolean): string[] {
+  if (isLegacy) {
+    return [
+      'Nombre *',
+      'Tipo de fecha *',
+      'Descripción (opcional)',
+      'Fecha de inicio *',
+      'Fecha de fin (es opcional cuando es de tipo año y mes)',
+      'Tipo de evento *',
+      'Modalidad *',
+      'Ubicación (opcional)',
+      'Estado *',
+      'Capacidad * (0 es sin límite)',
+      'Créditos *',
+      'Organizador *',
+      'Escuela *',
+    ];
+  }
+
   return [
-    'Nombre',
-    isLegacy ? 'Descripción' : 'Descripción *',
-    dateType === 'SHORT' ? 'Fecha de inicio (mes y año) *' : 'Fecha de inicio *',
-    dateType === 'SHORT' ? 'Fecha de fin (se ignora)' : 'Fecha de fin *',
-    'Tipo de evento',
-    'Modalidad',
-    isLegacy ? 'Ubicación' : 'Ubicación *',
-    'Estado',
-    isLegacy ? 'Capacidad' : 'Capacidad *',
-    'Créditos',
-    'Organizador',
-    'Escuela',
+    'Nombre *',
+    'Descripción *',
+    'Fecha de inicio *',
+    'Fecha de fin *',
+    'Tipo de evento *',
+    'Modalidad *',
+    'Ubicación *',
+    'Estado *',
+    'Capacidad * (0 es sin límite)',
+    'Créditos *',
+    'Organizador *',
+    'Escuela *',
   ];
+}
+
+/** Traduce la etiqueta de la columna "Tipo de fecha" al valor interno. */
+function parseImportDateType(value: string | undefined): EventDateType | undefined {
+  const text = (value ?? '').trim().toLowerCase();
+  if (text === 'fecha completa' || text === 'long') {
+    return 'LONG';
+  }
+  if (text === 'solo mes y año' || text === 'solo mes y ano' || text === 'short') {
+    return 'SHORT';
+  }
+  return undefined;
 }
 
 @Component({
@@ -150,16 +178,22 @@ export class EventNewComponent {
     )
   );
 
-  readonly modalityOptions: DcSelectOption[] = EVENT_MODALITIES.map((modality) => ({
-    value: modality,
-    label: modality,
-  }));
+  readonly modalityOptions = computed<DcSelectOption[]>(() =>
+    (this.isLegacy()
+      ? EVENT_MODALITIES
+      : EVENT_MODALITIES.filter((modality) => modality !== 'No especificado')
+    ).map((modality) => ({ value: modality, label: modality })),
+  );
 
   readonly typeOptions = computed<DcSelectOption[]>(() =>
-    this.eventTypeService.activeTypes().map((type) => ({
-      value: String(type.id),
-      label: type.label,
-    })),
+    this.eventTypeService
+      .activeTypes()
+      // "No especificado" solo se ofrece en registros historicos.
+      .filter((type) => this.isLegacy() || type.name !== 'Unspecified')
+      .map((type) => ({
+        value: String(type.id),
+        label: type.label,
+      })),
   );
 
   readonly organizerOptions = computed<DcSelectOption[]>(() =>
@@ -220,8 +254,6 @@ export class EventNewComponent {
   readonly importOpen = signal(false);
   readonly importOrigin = signal<EventOrigin>('CURRENT');
   readonly isLegacyImport = computed(() => this.importOrigin() === 'LEGACY');
-  readonly importDateType = signal<EventDateType>('LONG');
-  readonly isShortImportDate = computed(() => this.importDateType() === 'SHORT');
   readonly importStep = signal<1 | 2>(1);
   readonly importText = signal('');
   readonly importFileName = signal<string | null>(null);
@@ -263,6 +295,21 @@ export class EventNewComponent {
     if (!this.isLegacy()) {
       this.form.controls.status.setValue('');
       this.form.controls.modality.setValue('');
+      // El registro actual siempre usa fecha completa: el selector de tipo de
+      // fecha solo existe para los historicos.
+      this.form.controls.dateType.setValue('LONG');
+
+      // "No especificado" solo existe para historicos: si estaba elegido, se
+      // limpia al volver a un registro actual.
+      const unspecified = this.eventTypeService
+        .types()
+        .find((type) => type.name === 'Unspecified');
+      if (
+        unspecified &&
+        this.form.controls.eventTypeId.value === String(unspecified.id)
+      ) {
+        this.form.controls.eventTypeId.setValue('');
+      }
     }
   }
 
@@ -283,11 +330,11 @@ export class EventNewComponent {
         ? [Validators.pattern(/^(\d{1,9})?$/)]
         : [required, Validators.pattern(/^\d{1,9}$/)]
     );
-    controls.eventTypeId.setValidators(isLegacy ? [] : [required]);
+    controls.eventTypeId.setValidators([required]);
     // Las fechas son obligatorias en ambos modos; su formato lo decide dateType.
     controls.startDate.setValidators([required]);
-    controls.modality.setValidators(isLegacy ? [] : [required]);
-    controls.status.setValidators(isLegacy ? [] : [required]);
+    controls.modality.setValidators([required]);
+    controls.status.setValidators([required]);
     this.applyDateTypeValidators(controls.dateType.value);
 
     for (const name of [
@@ -347,7 +394,10 @@ export class EventNewComponent {
     this.submitting.set(true);
     const value = this.form.getRawValue();
     const isLegacy = this.isLegacy();
-    const dateType = value.dateType as EventDateType;
+    // El registro actual guarda siempre fecha completa.
+    const dateType: EventDateType = isLegacy
+      ? (value.dateType as EventDateType)
+      : 'LONG';
 
     const draft: EventDraft = {
       name: value.name,
@@ -356,9 +406,9 @@ export class EventNewComponent {
       startDate: value.startDate,
       endDate: dateType === 'SHORT' ? '' : value.endDate,
       dateType,
-      modality: (value.modality || (isLegacy ? 'No especificado' : '')) as EventModality,
+      modality: value.modality as EventModality,
       location: value.location,
-      status: (value.status || (isLegacy ? 'Finalizado' : '')) as EventStatus,
+      status: value.status as EventStatus,
       capacity: value.capacity ? Number(value.capacity) : 0,
       credits: Number(value.credits),
       organizerId: Number(value.organizerId),
@@ -434,18 +484,7 @@ export class EventNewComponent {
   openImport(): void {
     this.resetImport();
     this.importOrigin.set(this.origin());
-    this.importDateType.set('LONG');
     this.importOpen.set(true);
-  }
-
-  setImportDateType(dateType: EventDateType): void {
-    if (this.importDateType() === dateType) {
-      return;
-    }
-    this.importDateType.set(dateType);
-    this.importResult.set(null);
-    this.importStep.set(1);
-    this.importError.set(null);
   }
 
   closeImport(): void {
@@ -471,34 +510,65 @@ export class EventNewComponent {
   }
 
   downloadImportTemplate(): void {
+    const legacy = this.isLegacyImport();
+
     void downloadXlsx({
-      fileName: this.isLegacyImport()
+      fileName: legacy
         ? 'DCredits_plantilla_eventos_historicos'
         : 'DCredits_plantilla_eventos',
       sheetName: 'Eventos',
-      rows: [buildImportHeaders(this.isLegacyImport(), this.importDateType())],
+      rows: [buildImportHeaders(legacy)],
       catalogSheets: [
+        ...(legacy
+          ? [
+              {
+                name: 'Tipo de fecha',
+                header: 'Tipo de fecha',
+                values: ['Fecha completa', 'Solo mes y año'],
+              },
+            ]
+          : []),
         { name: 'Escuelas', header: 'Escuela', values: this.schoolOptions().map((o) => o.label) },
         {
           name: 'Organizadores',
           header: 'Organizador',
           values: this.catalogService.options('organizers').map((o) => o.name),
         },
-        { name: 'Modalidad', header: 'Modalidad', values: [...EVENT_MODALITIES] },
+        {
+          name: 'Modalidad',
+          header: 'Modalidad',
+          // En el registro actual "No especificado" no es una modalidad
+          // valida: solo aplica a los eventos historicos.
+          values: legacy
+            ? [...EVENT_MODALITIES]
+            : EVENT_MODALITIES.filter((modality) => modality !== 'No especificado'),
+        },
         {
           name: 'Tipos de evento',
           header: 'Tipo de evento',
-          values: this.eventTypeService.activeTypes().map((t) => t.label),
+          values: this.eventTypeService
+            .activeTypes()
+            .filter((type) => legacy || type.name !== 'Unspecified')
+            .map((type) => type.label),
         },
         { name: 'Estados', header: 'Estado', values: [...EVENT_STATUSES] },
       ],
-      listValidations: [
-        { column: 5, catalog: 'Tipos de evento', error: 'Selecciona un tipo de evento de la lista.' },
-        { column: 6, catalog: 'Modalidad', error: 'Selecciona una modalidad de la lista.' },
-        { column: 8, catalog: 'Estados', error: 'Selecciona un estado de la lista.' },
-        { column: 11, catalog: 'Organizadores', error: 'Selecciona un organizador de la lista.' },
-        { column: 12, catalog: 'Escuelas', error: 'Selecciona una escuela de la lista.' },
-      ],
+      listValidations: legacy
+        ? [
+            { column: 2, catalog: 'Tipo de fecha', error: 'Selecciona un tipo de fecha de la lista.' },
+            { column: 6, catalog: 'Tipos de evento', error: 'Selecciona un tipo de evento de la lista.' },
+            { column: 7, catalog: 'Modalidad', error: 'Selecciona una modalidad de la lista.' },
+            { column: 9, catalog: 'Estados', error: 'Selecciona un estado de la lista.' },
+            { column: 12, catalog: 'Organizadores', error: 'Selecciona un organizador de la lista.' },
+            { column: 13, catalog: 'Escuelas', error: 'Selecciona una escuela de la lista.' },
+          ]
+        : [
+            { column: 5, catalog: 'Tipos de evento', error: 'Selecciona un tipo de evento de la lista.' },
+            { column: 6, catalog: 'Modalidad', error: 'Selecciona una modalidad de la lista.' },
+            { column: 8, catalog: 'Estados', error: 'Selecciona un estado de la lista.' },
+            { column: 11, catalog: 'Organizadores', error: 'Selecciona un organizador de la lista.' },
+            { column: 12, catalog: 'Escuelas', error: 'Selecciona una escuela de la lista.' },
+          ],
     });
   }
 
@@ -511,11 +581,7 @@ export class EventNewComponent {
       return;
     }
 
-    const result = await this.eventService.importEvents(
-      rows,
-      this.importOrigin(),
-      this.importDateType()
-    );
+    const result = await this.eventService.importEvents(rows, this.importOrigin());
     this.importResult.set(result);
     this.importStep.set(2);
 
@@ -540,28 +606,59 @@ export class EventNewComponent {
       })
       .filter((cells, index) => !(index === 0 && this.isHeaderRow(cells)));
 
+    const legacy = this.isLegacyImport();
+
     return rows
       .filter((cells) => cells.some((cell) => cell.length > 0))
-      .map((cells) => ({
-        name: cells[0] ?? '',
-        // Los campos opcionales vacios viajan como undefined: si se enviaran
-        // como "", el API los rechazaria como fecha/valor invalido.
-        description: cells[1]?.trim() || undefined,
-        startDate: cells[2]?.trim() || undefined,
-        endDate: cells[3]?.trim() || undefined,
-        eventType: cells[4]?.trim() || undefined,
-        modality: cells[5]?.trim() || undefined,
-        location: cells[6]?.trim() || undefined,
-        status: cells[7]?.trim() || undefined,
-        capacity: cells[8]?.trim() ? Number(cells[8]) : undefined,
-        credits: cells[9]?.trim() ? Number(cells[9]) : undefined,
-        organizer: cells[10]?.trim() ?? '',
-        professionalSchool: cells[11]?.trim() ?? '',
-      }));
+      .map((cells) => {
+        if (legacy) {
+          return {
+            name: cells[0] ?? '',
+            dateType: parseImportDateType(cells[1]),
+            description: cells[2]?.trim() || undefined,
+            startDate: cells[3]?.trim() || undefined,
+            endDate: cells[4]?.trim() || undefined,
+            eventType: cells[5]?.trim() || undefined,
+            modality: cells[6]?.trim() || undefined,
+            location: cells[7]?.trim() || undefined,
+            status: cells[8]?.trim() || undefined,
+            capacity: cells[9]?.trim() ? Number(cells[9]) : undefined,
+            credits: cells[10]?.trim() ? Number(cells[10]) : undefined,
+            organizer: cells[11]?.trim() ?? '',
+            professionalSchool: cells[12]?.trim() ?? '',
+          };
+        }
+
+        return {
+          name: cells[0] ?? '',
+          dateType: 'LONG' as const,
+          // Los campos opcionales vacios viajan como undefined: si se enviaran
+          // como "", el API los rechazaria como fecha/valor invalido.
+          description: cells[1]?.trim() || undefined,
+          startDate: cells[2]?.trim() || undefined,
+          endDate: cells[3]?.trim() || undefined,
+          eventType: cells[4]?.trim() || undefined,
+          modality: cells[5]?.trim() || undefined,
+          location: cells[6]?.trim() || undefined,
+          status: cells[7]?.trim() || undefined,
+          capacity: cells[8]?.trim() ? Number(cells[8]) : undefined,
+          credits: cells[9]?.trim() ? Number(cells[9]) : undefined,
+          organizer: cells[10]?.trim() ?? '',
+          professionalSchool: cells[11]?.trim() ?? '',
+        };
+      });
   }
 
   private isHeaderRow(cells: string[]): boolean {
-    const first = (cells[0] ?? '').trim().toLowerCase();
+    // La plantilla puede traer marcas como "Nombre *" o "Capacidad (0 es sin
+    // límite)": se normaliza antes de comparar para no importar el encabezado
+    // como si fuera una fila de datos.
+    const first = (cells[0] ?? '')
+      .toLowerCase()
+      .replace(/\*/g, '')
+      .replace(/\([^)]*\)/g, '')
+      .replace(/\s+/g, ' ')
+      .trim();
     return (
       first === 'nombre' ||
       first === 'name' ||

@@ -10,11 +10,13 @@ import {
   EVENT_MODALITIES,
   EVENT_STATUSES,
   EventModality,
+  EventOrigin,
   EventStatus,
   ExportResult,
   eventDateRangeLabel,
   eventTypeLabel,
 } from '../../../../models';
+import { BadgeComponent } from '../../../../shared/components/ui/badge/badge.component';
 import { EmptyStateComponent } from '../../../../shared/components/ui/empty-state/empty-state.component';
 import { IconComponent } from '../../../../shared/components/ui/icon/icon.component';
 import { ModalComponent } from '../../../../shared/components/ui/modal/modal.component';
@@ -49,6 +51,7 @@ function compareEvents(a: AcademicEvent, b: AcademicEvent, key: EventSortKey): n
 @Component({
   selector: 'app-event-list',
   imports: [
+    BadgeComponent,
     RouterLink,
     EmptyStateComponent,
     IconComponent,
@@ -92,8 +95,14 @@ export class EventListComponent {
 
   readonly selectedStatus = signal<EventStatus | 'Todos'>('Todos');
   readonly selectedModality = signal<EventModality | 'Todas'>('Todas');
+  readonly selectedOrigin = signal<EventOrigin | 'Todos'>('Todos');
   readonly selectedType = signal<string>('Todos');
   readonly search = signal('');
+
+  readonly originOptions: { value: EventOrigin; label: string }[] = [
+    { value: 'CURRENT', label: 'Actual' },
+    { value: 'LEGACY', label: 'Histórico' },
+  ];
 
   /** Orden actual de la tabla: por defecto, los más recientes primero. */
   readonly sortKey = signal<EventSortKey>('date');
@@ -109,6 +118,7 @@ export class EventListComponent {
     this.eventService.filter({
       status: this.selectedStatus(),
       modality: this.selectedModality(),
+      origin: this.selectedOrigin(),
       search: this.search(),
     })
   );
@@ -131,7 +141,7 @@ export class EventListComponent {
    */
   readonly page = linkedSignal({
     source: () =>
-      `${this.search()}|${this.selectedStatus()}|${this.selectedModality()}|${this.selectedType()}|${this.sortKey()}|${this.sortDir()}|${this.pageSize()}`,
+      `${this.search()}|${this.selectedStatus()}|${this.selectedModality()}|${this.selectedOrigin()}|${this.selectedType()}|${this.sortKey()}|${this.sortDir()}|${this.pageSize()}`,
     computation: () => 1,
   });
 
@@ -234,6 +244,7 @@ export class EventListComponent {
       this.search().trim() !== '' ||
       this.selectedStatus() !== 'Todos' ||
       this.selectedModality() !== 'Todas' ||
+      this.selectedOrigin() !== 'Todos' ||
       this.selectedType() !== 'Todos',
   );
 
@@ -241,6 +252,7 @@ export class EventListComponent {
     this.search.set('');
     this.selectedStatus.set('Todos');
     this.selectedModality.set('Todas');
+    this.selectedOrigin.set('Todos');
     this.selectedType.set('Todos');
   }
 
@@ -288,6 +300,10 @@ export class EventListComponent {
     this.selectedModality.set(this.readValue(event) as EventModality | 'Todas');
   }
 
+  onOriginChange(event: Event): void {
+    this.selectedOrigin.set(this.readValue(event) as EventOrigin | 'Todos');
+  }
+
   onTypeChange(event: Event): void {
     this.selectedType.set(this.readValue(event));
   }
@@ -302,6 +318,10 @@ export class EventListComponent {
 
   typeLabel(event: AcademicEvent): string {
     return eventTypeLabel(event.eventTypeName);
+  }
+
+  isLegacy(event: AcademicEvent): boolean {
+    return event.origin === 'LEGACY';
   }
 
   participantsCount(event: AcademicEvent): number {

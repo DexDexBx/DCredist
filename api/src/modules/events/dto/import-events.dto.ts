@@ -40,6 +40,16 @@ export class ImportEventRowDto {
   @MaxLength(200)
   name!: string;
 
+  @ApiPropertyOptional({
+    enum: EventDateType,
+    description:
+      'Precision de las fechas de esta fila. Obligatorio en la carga historica: LONG (fecha completa) o SHORT (solo mes y anio).',
+  })
+  @Transform(emptyToUndefined)
+  @IsOptional()
+  @IsEnum(EventDateType)
+  dateType?: EventDateType;
+
   @ApiPropertyOptional({ example: 'Congreso anual de investigacion.' })
   @Transform(emptyToUndefined)
   @IsOptional()
