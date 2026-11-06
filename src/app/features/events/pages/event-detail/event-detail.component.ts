@@ -11,6 +11,7 @@ import {
   PARTICIPATION_STATUS_LABEL,
   ParticipationContext,
   ParticipationStatus,
+  eventDateRangeLabel,
   eventTypeLabel,
   isImportCompleted,
   isLateImportsEnabled,
@@ -29,11 +30,7 @@ import { PaginationComponent } from '../../../../shared/components/ui/pagination
 import { PanelComponent } from '../../../../shared/components/ui/panel/panel.component';
 import { isHistoricalEventDate } from '../../../../models';
 import { PARTICIPATION_STATUS_COLOR } from '../../../../shared/constants/status-ui';
-import {
-  formatDateRange,
-  formatLongDate,
-  formatSchedule,
-} from '../../../../shared/utils/date.utils';
+import { formatLongDate as formatLongDateValue } from '../../../../shared/utils/date.utils';
 import { EventStatusBadgeComponent } from '../../components/event-status-badge/event-status-badge.component';
 
 @Component({
@@ -203,14 +200,17 @@ export class EventDetailComponent {
     return Math.min(100, Math.round((this.registeredCount() / event.capacity) * 100));
   }
 
-  formatLongDate(value: string): string {
-    return isHistoricalEventDate(value) ? 'Sin fecha' : formatLongDate(value);
+  eventLongDate(event: AcademicEvent): string {
+    if (event.dateType === 'SHORT') {
+      return eventDateRangeLabel(event);
+    }
+    return isHistoricalEventDate(event.startDate)
+      ? 'Sin fecha'
+      : formatLongDateValue(event.startDate);
   }
 
   formatRange(event: AcademicEvent): string {
-    return isHistoricalEventDate(event.startDate) || isHistoricalEventDate(event.endDate)
-      ? 'Sin fecha'
-      : formatDateRange(event.startDate, event.endDate);
+    return eventDateRangeLabel(event);
   }
 
   eventTypeName(event: AcademicEvent): string {
@@ -218,9 +218,7 @@ export class EventDetailComponent {
   }
 
   formatSchedule(event: AcademicEvent): string {
-    return isHistoricalEventDate(event.startDate) || isHistoricalEventDate(event.endDate)
-      ? 'Sin fecha'
-      : formatDateRange(event.startDate, event.endDate);
+    return eventDateRangeLabel(event);
   }
 
   participationStatusColor(status: ParticipationStatus): BadgeColor {

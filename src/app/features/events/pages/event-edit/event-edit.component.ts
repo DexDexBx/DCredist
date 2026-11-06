@@ -18,11 +18,11 @@ import {
   EVENT_MODALITIES,
   EVENT_ORIGIN_LABEL,
   EVENT_STATUSES,
+  EventDateType,
   EventDraft,
   EventModality,
   EventOrigin,
   EventStatus,
-  HISTORICAL_EVENT_DATE,
   eventTypeLabel,
   isHistoricalEventDate,
 } from '../../../../models';
@@ -48,6 +48,15 @@ function optionalMinLength(min: number): ValidatorFn {
     }
     return value.length >= min ? null : { minlength: true };
   };
+}
+
+/** Valida el formato YYYY-MM del input de mes y anio. */
+function monthYearFormat(control: AbstractControl): ValidationErrors | null {
+  const value = (control.value ?? '').trim();
+  if (!value) {
+    return null;
+  }
+  return /^\d{4}-\d{2}$/.test(value) ? null : { monthYear: true };
 }
 
 /** La fecha de fin no puede ser anterior a la de inicio. */
@@ -165,6 +174,7 @@ export class EventEditComponent {
     {
       name: ['', [Validators.required, Validators.minLength(5)]],
       description: ['', [optionalMinLength(3)]],
+      dateType: ['LONG' as EventDateType, [Validators.required]],
       eventTypeId: ['', [Validators.required]],
       startDate: ['', [Validators.required]],
       endDate: ['', [Validators.required]],
@@ -176,7 +186,7 @@ export class EventEditComponent {
         '1',
         [
           Validators.required,
-          Validators.min(1),
+          Validators.min(0),
           Validators.max(21),
           Validators.pattern(/^\d{1,2}(\.\d{1,2})?$/),
         ],
@@ -188,6 +198,10 @@ export class EventEditComponent {
   );
 
   readonly isAdmin = computed(() => this.auth.currentUser()?.role === 'ADMIN');
+
+  readonly dateTypeSignal = signal<EventDateType>('LONG');
+  readonly isShortDate = computed(() => this.dateTypeSignal() === 'SHORT');
+  readonly dateInputType = computed(() => (this.isShortDate() ? 'month' : 'date'));
 
   readonly statusOptions = computed<DcSelectOption[]>(() => {
     if (this.isLegacy() || this.isAdmin()) {
@@ -212,6 +226,12 @@ export class EventEditComponent {
   constructor() {
     void this.eventTypeService.load();
 
+    this.form.controls.dateType.valueChanges.subscribe((value) => {
+      this.dateTypeSignal.set(value);
+      this.applyDateTypeValidators(value);
+      this.onDateTypeChange(value);
+    });
+
     effect(() => {
       const control = this.form.controls.status;
       if (this.statusLocked()) {
@@ -230,12 +250,27 @@ export class EventEditComponent {
       this.initialized = true;
       this.applyOriginValidators(event.origin ?? 'CURRENT');
 
+      const dateType = event.dateType ?? 'LONG';
+      const startDate =
+        dateType === 'SHORT'
+          ? event.startDate.slice(0, 7)
+          : isHistoricalEventDate(event.startDate)
+            ? ''
+            : event.startDate;
+      const endDate =
+        dateType === 'SHORT'
+          ? ''
+          : isHistoricalEventDate(event.endDate)
+            ? ''
+            : event.endDate;
+
       this.form.patchValue({
         name: event.name,
         description: event.description ?? '',
         eventTypeId: String(event.eventTypeId),
-        startDate: isHistoricalEventDate(event.startDate) ? '' : event.startDate,
-        endDate: isHistoricalEventDate(event.endDate) ? '' : event.endDate,
+        dateType,
+        startDate,
+        endDate,
         modality: event.modality === 'No especificado' ? '' : event.modality,
         location: event.location ?? '',
         status: event.status,
@@ -243,7 +278,12 @@ export class EventEditComponent {
         credits: String(event.credits),
         organizerId: String(event.organizerId),
         professionalSchoolId: String(event.professionalSchoolId),
-      });
+      }, { emitEvent: false });
+
+      // El patch inicial no emite valueChanges: sincronizamos la senal y los
+      // validadores con el dateType guardado.
+      this.dateTypeSignal.set(dateType);
+      this.applyDateTypeValidators(dateType);
     });
   }
 
@@ -253,14 +293,67 @@ export class EventEditComponent {
     const required = Validators.required;
     const controls = this.form.controls;
 
+    // Descripcion, ubicacion y capacidad son obligatorias SOLO en el registro
+    // actual; en el historico siguen siendo opcionales.
+    controls.description.setValidators(
+      isLegacy ? [optionalMinLength(3)] : [required, optionalMinLength(3)]
+    );
+    controls.location.setValidators(isLegacy ? [] : [required]);
+    controls.capacity.setValidators(
+      isLegacy
+        ? [Validators.pattern(/^(\d{1,9})?$/)]
+        : [required, Validators.pattern(/^\d{1,9}$/)]
+    );
     controls.eventTypeId.setValidators(isLegacy ? [] : [required]);
-    controls.startDate.setValidators(isLegacy ? [] : [required]);
-    controls.endDate.setValidators(isLegacy ? [] : [required]);
+    // Las fechas son obligatorias en ambos modos; su formato lo decide dateType.
+    controls.startDate.setValidators([required]);
     controls.modality.setValidators(isLegacy ? [] : [required]);
     controls.status.setValidators(isLegacy ? [] : [required]);
+    this.applyDateTypeValidators(controls.dateType.value);
 
-    for (const name of ['eventTypeId', 'startDate', 'endDate', 'modality', 'status'] as const) {
+    for (const name of [
+      'description',
+      'location',
+      'capacity',
+      'eventTypeId',
+      'startDate',
+      'modality',
+      'status',
+    ] as const) {
       controls[name].updateValueAndValidity();
+    }
+  }
+
+  private applyDateTypeValidators(dateType: EventDateType): void {
+    const required = Validators.required;
+    const controls = this.form.controls;
+
+    if (dateType === 'SHORT') {
+      controls.startDate.setValidators([required, monthYearFormat]);
+      controls.endDate.setValidators([]);
+    } else {
+      controls.startDate.setValidators([required]);
+      controls.endDate.setValidators([required]);
+    }
+
+    controls.startDate.updateValueAndValidity();
+    controls.endDate.updateValueAndValidity();
+  }
+
+  /** Ajusta los valores al cambiar entre fecha completa y solo mes/anio. */
+  private onDateTypeChange(dateType: EventDateType): void {
+    const start = this.form.controls.startDate.value;
+    const end = this.form.controls.endDate.value;
+
+    if (dateType === 'SHORT') {
+      const month = /^\d{4}-\d{2}/.test(start) ? start.slice(0, 7) : '';
+      this.form.patchValue({ startDate: month, endDate: '' }, { emitEvent: false });
+      return;
+    }
+
+    if (/^\d{4}-\d{2}$/.test(start)) {
+      const full = `${start}-29`;
+      this.form.patchValue({ startDate: full, endDate: end || full }, { emitEvent: false });
     }
   }
 
@@ -277,17 +370,16 @@ export class EventEditComponent {
     this.saving.set(true);
     const value = this.form.getRawValue();
     const isLegacy = this.isLegacy();
+    const dateType = value.dateType as EventDateType;
 
     const draft: EventDraft = {
       code: current.code,
       name: value.name,
       description: value.description,
       eventTypeId: value.eventTypeId ? Number(value.eventTypeId) : null,
-      startDate: isLegacy && !value.startDate ? HISTORICAL_EVENT_DATE : value.startDate,
-      endDate:
-        isLegacy && !value.endDate
-          ? value.startDate || HISTORICAL_EVENT_DATE
-          : value.endDate,
+      startDate: value.startDate,
+      endDate: dateType === 'SHORT' ? '' : value.endDate,
+      dateType,
       modality: (value.modality || (isLegacy ? 'No especificado' : '')) as EventModality,
       location: value.location,
       status: (value.status || (isLegacy ? 'Finalizado' : '')) as EventStatus,

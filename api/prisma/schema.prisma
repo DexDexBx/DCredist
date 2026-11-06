@@ -61,6 +61,13 @@ enum EventOrigin {
   LEGACY
 }
 
+/// Precision de la fecha del evento.
+/// LONG: dia, mes y anio. SHORT: solo mes y anio.
+enum EventDateType {
+  LONG
+  SHORT
+}
+
 /// VALID es la unica que suma creditos al historial del estudiante.
 enum ParticipationStatus {
   VALID
@@ -232,6 +239,9 @@ model Event {
   startDate DateTime @db.Date
   endDate   DateTime @db.Date
 
+  /// Precision de las fechas: completa (dia/mes/anio) o solo mes/anio.
+  dateType EventDateType @default(LONG) @map("date_type")
+
   modality EventModality @default(PRESENTIAL)
 
   /// Lugar fisico del evento (auditorio, aula, campus). No es la sede del
@@ -249,7 +259,7 @@ model Event {
   professionalSchoolId Int
   professionalSchool   ProfessionalSchool @relation(fields: [professionalSchoolId], references: [id], onDelete: Restrict)
 
-  /// Creditos que otorga el evento. Siempre entre 1 y 21.
+  /// Creditos que otorga el evento. Entre 0 y 21 (0 es valido).
   credits Float @default(1)
 
   status EventStatus @default(DRAFT)

@@ -90,7 +90,7 @@ export class StudentConstancyComponent {
     return PARTICIPATION_STATUS_COLOR[status];
   }
 
-  eventDates(event: Pick<AcademicEvent, 'startDate' | 'endDate'>): string {
+  eventDates(event: Pick<AcademicEvent, 'startDate' | 'endDate' | 'dateType'>): string {
     return eventDateRangeLabel(event);
   }
 

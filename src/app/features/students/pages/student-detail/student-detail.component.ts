@@ -121,7 +121,7 @@ export class StudentDetailComponent {
     return formatDateRange(start, end);
   }
 
-  eventDates(event: Pick<AcademicEvent, 'startDate' | 'endDate'>): string {
+  eventDates(event: Pick<AcademicEvent, 'startDate' | 'endDate' | 'dateType'>): string {
     return eventDateRangeLabel(event);
   }
 

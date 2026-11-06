@@ -9,6 +9,7 @@ import {
 import type { Prisma } from '../../generated/prisma/client';
 import {
   CatalogStatus,
+  EventDateType,
   EventModality,
   EventOrigin,
   EventStatus,
@@ -42,8 +43,6 @@ type EventRow = Prisma.EventGetPayload<{ include: typeof eventInclude }>;
 
 const DAY_MS = 86_400_000;
 
-/** Fecha sentinela para eventos historicos sin fecha (29-09-1999). */
-const HISTORICAL_DATE_ISO = '1999-09-29';
 const DEFAULT_DESCRIPTION = 'Sin descripción';
 const DEFAULT_LOCATION = 'Sin ubicación';
 const UNSPECIFIED_EVENT_TYPE_NAME = 'Unspecified';
@@ -232,23 +231,34 @@ export class EventsService {
   async create(dto: CreateEventDto, actor: Actor): Promise<EventDto> {
     const origin = dto.origin ?? EventOrigin.CURRENT;
     const isHistorical = origin === EventOrigin.LEGACY;
+    const dateType = dto.dateType ?? EventDateType.LONG;
 
-    // Fechas: obligatorias en un registro actual; sentinela en uno historico.
+    // Fechas obligatorias en ambos modos: completas (dia/mes/anio) o solo
+    // mes/anio. En el segundo caso el dia se guarda como 29 en ambas columnas.
     let startDate: Date;
     let endDate: Date;
 
-    if (isHistorical) {
-      startDate = dto.startDate ? toCalendarDate(dto.startDate) : toCalendarDate(HISTORICAL_DATE_ISO);
-      endDate = dto.endDate ? toCalendarDate(dto.endDate) : startDate;
+    if (dateType === EventDateType.SHORT) {
+      if (!dto.startDate || !isMonthYear(dto.startDate)) {
+        throw new BadRequestException(
+          'Indica el mes y año del evento con el formato YYYY-MM.'
+        );
+      }
+      startDate = monthYearToCalendarDate(dto.startDate);
+      endDate = startDate;
     } else {
       if (!dto.startDate || !dto.endDate) {
-        throw new BadRequestException('Las fechas de inicio y fin son obligatorias en un registro actual.');
+        throw new BadRequestException('Las fechas de inicio y fin son obligatorias.');
+      }
+      if (!isFullDate(dto.startDate) || !isFullDate(dto.endDate)) {
+        throw new BadRequestException(
+          'La fecha completa debe incluir día, mes y año (YYYY-MM-DD).'
+        );
       }
       startDate = toCalendarDate(dto.startDate);
       endDate = toCalendarDate(dto.endDate);
+      this.assertDates(startDate, endDate);
     }
-
-    this.assertDates(startDate, endDate);
     await this.assertSchoolAssignable(dto.professionalSchoolId, actor);
     await this.assertOrganizerAssignable(dto.organizerId);
 
@@ -271,13 +281,34 @@ export class EventsService {
     if (
       dto.credits !== undefined &&
       dto.credits !== null &&
-      (dto.credits < 1 || dto.credits > 21)
+      (dto.credits < 0 || dto.credits > 21)
     ) {
-      throw new BadRequestException('Los créditos del evento deben estar entre 1 y 21.');
+      throw new BadRequestException('Los créditos del evento deben estar entre 0 y 21.');
     }
 
-    const description = dto.description?.trim() || DEFAULT_DESCRIPTION;
-    const location = dto.location?.trim() || DEFAULT_LOCATION;
+    const rawDescription = dto.description?.trim() ?? '';
+    const rawLocation = dto.location?.trim() ?? '';
+
+    if (!isHistorical) {
+      if (!rawDescription) {
+        throw new BadRequestException(
+          'La descripción es obligatoria en un registro actual.'
+        );
+      }
+      if (!rawLocation) {
+        throw new BadRequestException(
+          'La ubicación o enlace es obligatorio en un registro actual.'
+        );
+      }
+      if (dto.capacity === undefined || dto.capacity === null) {
+        throw new BadRequestException(
+          'La capacidad es obligatoria en un registro actual (0 = sin límite).'
+        );
+      }
+    }
+
+    const description = rawDescription || DEFAULT_DESCRIPTION;
+    const location = rawLocation || DEFAULT_LOCATION;
     const modality = dto.modality ?? (isHistorical ? EventModality.UNSPECIFIED : EventModality.PRESENTIAL);
     const status = dto.status ?? (isHistorical ? EventStatus.COMPLETED : EventStatus.SCHEDULED);
 
@@ -305,6 +336,7 @@ export class EventsService {
           durationType: dto.durationType ?? this.deriveDurationType(startDate, endDate),
           startDate,
           endDate,
+          dateType,
           modality,
           location,
           origin,
@@ -391,10 +423,56 @@ export class EventsService {
       }
     }
 
-    const startDate = dto.startDate ? toCalendarDate(dto.startDate) : current.startDate;
-    const endDate = dto.endDate ? toCalendarDate(dto.endDate) : current.endDate;
+    if (current.origin !== EventOrigin.LEGACY) {
+      if (dto.description !== undefined && !dto.description.trim()) {
+        throw new BadRequestException(
+          'La descripción es obligatoria en un registro actual.'
+        );
+      }
+      if (dto.location !== undefined && !dto.location.trim()) {
+        throw new BadRequestException(
+          'La ubicación o enlace es obligatorio en un registro actual.'
+        );
+      }
+    }
 
-    this.assertDates(startDate, endDate);
+    const dateType = dto.dateType ?? current.dateType ?? EventDateType.LONG;
+
+    let startDate: Date;
+    let endDate: Date;
+
+    if (dateType === EventDateType.SHORT) {
+      if (dto.startDate !== undefined) {
+        if (!isMonthYear(dto.startDate)) {
+          throw new BadRequestException(
+            'La fecha incompleta debe tener solo mes y año (YYYY-MM).'
+          );
+        }
+        startDate = monthYearToCalendarDate(dto.startDate);
+        endDate = startDate;
+      } else if (dto.dateType === EventDateType.SHORT) {
+        startDate = monthYearToCalendarDate(formatMonthYear(current.startDate));
+        endDate = startDate;
+      } else {
+        startDate = current.startDate;
+        endDate = current.endDate;
+      }
+    } else {
+      if (dto.startDate !== undefined && !isFullDate(dto.startDate)) {
+        throw new BadRequestException(
+          'La fecha de inicio completa debe incluir día, mes y año (YYYY-MM-DD).'
+        );
+      }
+      if (dto.endDate !== undefined && !isFullDate(dto.endDate)) {
+        throw new BadRequestException(
+          'La fecha de fin debe incluir día, mes y año (YYYY-MM-DD).'
+        );
+      }
+
+      startDate = dto.startDate ? toCalendarDate(dto.startDate) : current.startDate;
+      endDate = dto.endDate ? toCalendarDate(dto.endDate) : current.endDate;
+      this.assertDates(startDate, endDate);
+    }
 
     if (dto.capacity !== undefined && dto.capacity !== null && dto.capacity < 0) {
       throw new BadRequestException('La capacidad no puede ser negativa.');
@@ -403,9 +481,9 @@ export class EventsService {
     if (
       dto.credits !== undefined &&
       dto.credits !== null &&
-      (dto.credits < 1 || dto.credits > 21)
+      (dto.credits < 0 || dto.credits > 21)
     ) {
-      throw new BadRequestException('Los créditos del evento deben estar entre 1 y 21.');
+      throw new BadRequestException('Los créditos del evento deben estar entre 0 y 21.');
     }
 
     if (dto.professionalSchoolId !== undefined) {
@@ -460,6 +538,7 @@ export class EventsService {
             : { durationType: this.deriveDurationType(startDate, endDate) }),
           startDate,
           endDate,
+          dateType,
           ...(dto.modality !== undefined ? { modality: dto.modality } : {}),
           ...(dto.location !== undefined
             ? { location: dto.location.trim() || DEFAULT_LOCATION }
@@ -513,6 +592,7 @@ export class EventsService {
   async importEvents(dto: ImportEventsDto, actor: Actor): Promise<EventImportResultDto> {
     const origin = dto.origin ?? EventOrigin.CURRENT;
     const isHistorical = origin === EventOrigin.LEGACY;
+    const dateType = dto.dateType ?? EventDateType.LONG;
     const issues: EventImportIssueDto[] = [];
 
     const [schools, organizers, eventTypes] = await Promise.all([
@@ -564,12 +644,23 @@ export class EventsService {
       // Fechas
       let startDate: Date;
       let endDate: Date;
-      if (isHistorical) {
-        startDate = row.startDate ? toCalendarDate(row.startDate) : toCalendarDate(HISTORICAL_DATE_ISO);
-        endDate = row.endDate ? toCalendarDate(row.endDate) : startDate;
+
+      if (dateType === EventDateType.SHORT) {
+        if (!row.startDate || !isMonthYear(row.startDate)) {
+          issues.push({ row: line, name, code: 'MISSING_DATES', message: 'Indica el mes y año de inicio (YYYY-MM).' });
+          skipped++;
+          continue;
+        }
+        startDate = monthYearToCalendarDate(row.startDate);
+        endDate = startDate;
       } else {
         if (!row.startDate || !row.endDate) {
-          issues.push({ row: line, name, code: 'MISSING_DATES', message: 'Faltan las fechas: son obligatorias en un registro actual.' });
+          issues.push({ row: line, name, code: 'MISSING_DATES', message: 'Faltan las fechas de inicio y fin.' });
+          skipped++;
+          continue;
+        }
+        if (!isFullDate(row.startDate) || !isFullDate(row.endDate)) {
+          issues.push({ row: line, name, code: 'INVALID_ROW', message: 'Las fechas completas deben usar YYYY-MM-DD.' });
           skipped++;
           continue;
         }
@@ -663,8 +754,29 @@ export class EventsService {
         continue;
       }
 
-      const description = row.description?.trim() || DEFAULT_DESCRIPTION;
-      if (row.description?.trim() && row.description.trim().length < 3) {
+      const rawDescription = row.description?.trim() ?? '';
+      const rawLocation = row.location?.trim() ?? '';
+
+      if (!isHistorical) {
+        if (!rawDescription) {
+          issues.push({ row: line, name, code: 'MISSING_DESCRIPTION', message: 'Falta la descripcion: obligatoria en un registro actual.' });
+          skipped++;
+          continue;
+        }
+        if (!rawLocation) {
+          issues.push({ row: line, name, code: 'MISSING_LOCATION', message: 'Falta la ubicacion: obligatoria en un registro actual.' });
+          skipped++;
+          continue;
+        }
+        if (row.capacity === undefined || row.capacity === null) {
+          issues.push({ row: line, name, code: 'MISSING_CAPACITY', message: 'Falta la capacidad: obligatoria en un registro actual (0 = sin limite).' });
+          skipped++;
+          continue;
+        }
+      }
+
+      const description = rawDescription || DEFAULT_DESCRIPTION;
+      if (rawDescription && rawDescription.length < 3) {
         issues.push({ row: line, name, code: 'INVALID_ROW', message: 'La descripcion debe tener al menos 3 caracteres.' });
         skipped++;
         continue;
@@ -677,8 +789,8 @@ export class EventsService {
         continue;
       }
 
-      if (row.credits < 1 || row.credits > 21 || !Number.isFinite(row.credits)) {
-        issues.push({ row: line, name, code: 'INVALID_ROW', message: 'Los creditos deben ser un numero entre 1 y 21.' });
+      if (row.credits < 0 || row.credits > 21 || !Number.isFinite(row.credits)) {
+        issues.push({ row: line, name, code: 'INVALID_ROW', message: 'Los creditos deben ser un numero entre 0 y 21.' });
         skipped++;
         continue;
       }
@@ -713,6 +825,7 @@ export class EventsService {
         durationType: this.deriveDurationType(startDate, endDate),
         startDate,
         endDate,
+        dateType,
         modality,
         location: row.location?.trim() || DEFAULT_LOCATION,
         origin,
@@ -934,6 +1047,26 @@ function normalizeLookup(value: string): string {
     .toLowerCase()
     .normalize('NFD')
     .replace(/[̀-ͯ]/g, '');
+}
+
+function isMonthYear(value: string): boolean {
+  return /^\d{4}-\d{2}$/.test(value.trim());
+}
+
+function isFullDate(value: string): boolean {
+  return /^\d{4}-\d{2}-\d{2}$/.test(value.trim());
+}
+
+/** "YYYY-MM" -> dia 29 del mes, a mediodia UTC. */
+function monthYearToCalendarDate(value: string): Date {
+  return toCalendarDate(`${value.trim()}-29`);
+}
+
+/** Fecha UTC -> "YYYY-MM". */
+function formatMonthYear(value: Date): string {
+  const year = value.getUTCFullYear();
+  const month = String(value.getUTCMonth() + 1).padStart(2, '0');
+  return `${year}-${month}`;
 }
 
 /**

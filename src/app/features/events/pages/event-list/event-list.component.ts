@@ -12,8 +12,8 @@ import {
   EventModality,
   EventStatus,
   ExportResult,
+  eventDateRangeLabel,
   eventTypeLabel,
-  isHistoricalEventDate,
 } from '../../../../models';
 import { EmptyStateComponent } from '../../../../shared/components/ui/empty-state/empty-state.component';
 import { IconComponent } from '../../../../shared/components/ui/icon/icon.component';
@@ -21,7 +21,6 @@ import { ModalComponent } from '../../../../shared/components/ui/modal/modal.com
 import { PageHeaderComponent } from '../../../../shared/components/ui/page-header/page-header.component';
 import { PaginationComponent } from '../../../../shared/components/ui/pagination/pagination.component';
 import { PanelComponent } from '../../../../shared/components/ui/panel/panel.component';
-import { formatDateRange } from '../../../../shared/utils/date.utils';
 import { EventStatusBadgeComponent } from '../../components/event-status-badge/event-status-badge.component';
 
 type EventSortKey = 'name' | 'date' | 'type' | 'modality' | 'credits' | 'capacity' | 'status';
@@ -298,9 +297,7 @@ export class EventListComponent {
   }
 
   formatRange(event: AcademicEvent): string {
-    return isHistoricalEventDate(event.startDate) || isHistoricalEventDate(event.endDate)
-      ? 'Sin fecha'
-      : formatDateRange(event.startDate, event.endDate);
+    return eventDateRangeLabel(event);
   }
 
   typeLabel(event: AcademicEvent): string {

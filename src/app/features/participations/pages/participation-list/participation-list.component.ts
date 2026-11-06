@@ -14,6 +14,7 @@ import {
   ParticipationQuery,
   ParticipationSortKey,
   ParticipationStatus,
+  eventDateRangeLabel,
   isHistoricalEventDate,
   isLateParticipation,
   primaryCertificateCode,
@@ -218,6 +219,10 @@ export class ParticipationListComponent {
    */
   participationDateLabel(row: ParticipationContext): string {
     const eventDate = row.event?.startDate;
+
+    if (eventDate && row.event?.dateType === 'SHORT') {
+      return eventDateRangeLabel(row.event);
+    }
 
     if (eventDate) {
       return isHistoricalEventDate(eventDate) ? 'Sin fecha' : formatMediumDate(eventDate);

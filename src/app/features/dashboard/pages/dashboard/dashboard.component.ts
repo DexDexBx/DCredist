@@ -5,14 +5,14 @@ import { AuthService } from '../../../../core/services/auth.service';
 import { EventService } from '../../../../core/services/event.service';
 import { ParticipationService } from '../../../../core/services/participation.service';
 import { StudentService } from '../../../../core/services/student.service';
-import { AcademicEvent } from '../../../../models';
+import { AcademicEvent, eventDateRangeLabel } from '../../../../models';
 import { IconComponent } from '../../../../shared/components/ui/icon/icon.component';
 import { PageHeaderComponent } from '../../../../shared/components/ui/page-header/page-header.component';
 import { PanelComponent } from '../../../../shared/components/ui/panel/panel.component';
 import { ModalComponent } from '../../../../shared/components/ui/modal/modal.component';
 import { CreditProgressComponent } from '../../../../shared/components/ui/credit-progress/credit-progress.component';
 import { StatCardComponent } from '../../../../shared/components/ui/stat-card/stat-card.component';
-import { formatDateRange, isSameDay } from '../../../../shared/utils/date.utils';
+import { isSameDay } from '../../../../shared/utils/date.utils';
 import { EventStatusBadgeComponent } from '../../../events/components/event-status-badge/event-status-badge.component';
 
 /** Evento de la agenda breve: hoy primero, luego los siguientes. */
@@ -124,7 +124,7 @@ export class DashboardComponent {
   }
 
   formatSchedule(event: AcademicEvent): string {
-    return formatDateRange(event.startDate, event.endDate);
+    return eventDateRangeLabel(event);
   }
 
   maxSchoolCredits(): number {

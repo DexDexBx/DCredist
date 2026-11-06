@@ -1,4 +1,5 @@
 ﻿import { Component, computed, inject, signal } from '@angular/core';
+import { toSignal } from '@angular/core/rxjs-interop';
 import {
   AbstractControl,
   FormBuilder,
@@ -16,11 +17,11 @@ import {
   EVENT_MODALITIES,
   EVENT_ORIGIN_LABEL,
   EVENT_STATUSES,
+  EventDateType,
   EventDraft,
   EventModality,
   EventOrigin,
   EventStatus,
-  HISTORICAL_EVENT_DATE,
 } from '../../../../models';
 import { CatalogOption } from '../../../../models/catalog.model';
 import { DcInputComponent } from '../../../../shared/components/form/dc-input/dc-input.component';
@@ -52,6 +53,15 @@ function optionalMinLength(min: number): ValidatorFn {
   };
 }
 
+/** Valida el formato YYYY-MM del input de mes y anio. */
+function monthYearFormat(control: AbstractControl): ValidationErrors | null {
+  const value = (control.value ?? '').trim();
+  if (!value) {
+    return null;
+  }
+  return /^\d{4}-\d{2}$/.test(value) ? null : { monthYear: true };
+}
+
 /** La fecha de fin no puede ser anterior a la de inicio. */
 function endAfterStartDate(group: AbstractControl): ValidationErrors | null {
   const start = group.get('startDate')?.value;
@@ -72,20 +82,30 @@ function endAfterStartDate(group: AbstractControl): ValidationErrors | null {
 }
 
 /** Encabezados de la plantilla de importacion de eventos. */
-const EVENT_IMPORT_HEADERS = [
-  'Nombre',
-  'Descripción',
-  'Fecha de inicio',
-  'Fecha de fin',
-  'Tipo de evento',
-  'Modalidad',
-  'Ubicación',
-  'Estado',
-  'Capacidad',
-  'Créditos',
-  'Organizador',
-  'Escuela',
-];
+/**
+ * Encabezados de la plantilla de importacion de eventos.
+ *
+ * Las fechas son obligatorias en ambos modos. Con fecha completa se piden
+ * inicio y fin; con solo mes/anio se usa el inicio (YYYY-MM) y el fin se
+ * ignora. Descripcion, ubicacion y capacidad solo son obligatorias en el
+ * registro actual.
+ */
+function buildImportHeaders(isLegacy: boolean, dateType: EventDateType): string[] {
+  return [
+    'Nombre',
+    isLegacy ? 'Descripción' : 'Descripción *',
+    dateType === 'SHORT' ? 'Fecha de inicio (mes y año) *' : 'Fecha de inicio *',
+    dateType === 'SHORT' ? 'Fecha de fin (se ignora)' : 'Fecha de fin *',
+    'Tipo de evento',
+    'Modalidad',
+    isLegacy ? 'Ubicación' : 'Ubicación *',
+    'Estado',
+    isLegacy ? 'Capacidad' : 'Capacidad *',
+    'Créditos',
+    'Organizador',
+    'Escuela',
+  ];
+}
 
 @Component({
   selector: 'app-event-new',
@@ -165,6 +185,7 @@ export class EventNewComponent {
     {
       name: ['', [Validators.required, Validators.minLength(5)]],
       description: ['', [optionalMinLength(3)]],
+      dateType: ['LONG' as EventDateType, [Validators.required]],
       eventTypeId: ['', [Validators.required]],
       startDate: ['', [Validators.required]],
       endDate: ['', [Validators.required]],
@@ -176,7 +197,7 @@ export class EventNewComponent {
         '1',
         [
           Validators.required,
-          Validators.min(1),
+          Validators.min(0),
           Validators.max(21),
           Validators.pattern(/^\d{1,2}(\.\d{1,2})?$/),
         ],
@@ -187,10 +208,20 @@ export class EventNewComponent {
     { validators: [endAfterStartDate] },
   );
 
+  private readonly dateTypeValue = toSignal(
+    this.form.controls.dateType.valueChanges,
+    { initialValue: this.form.controls.dateType.value },
+  );
+
+  readonly isShortDate = computed(() => this.dateTypeValue() === 'SHORT');
+  readonly dateInputType = computed(() => (this.isShortDate() ? 'month' : 'date'));
+
   // --- Importacion masiva ---
   readonly importOpen = signal(false);
   readonly importOrigin = signal<EventOrigin>('CURRENT');
   readonly isLegacyImport = computed(() => this.importOrigin() === 'LEGACY');
+  readonly importDateType = signal<EventDateType>('LONG');
+  readonly isShortImportDate = computed(() => this.importDateType() === 'SHORT');
   readonly importStep = signal<1 | 2>(1);
   readonly importText = signal('');
   readonly importFileName = signal<string | null>(null);
@@ -202,6 +233,10 @@ export class EventNewComponent {
   constructor() {
     void this.eventTypeService.load();
     this.applyOriginValidators(this.origin());
+    this.form.controls.dateType.valueChanges.subscribe((value) => {
+      this.applyDateTypeValidators(value);
+      this.onDateTypeChange(value);
+    });
 
     const fecha = this.route.snapshot.queryParamMap.get('fecha');
     if (fecha && /^\d{4}-\d{2}-\d{2}$/.test(fecha)) {
@@ -237,20 +272,67 @@ export class EventNewComponent {
     const required = Validators.required;
     const controls = this.form.controls;
 
+    // Descripcion, ubicacion y capacidad son obligatorias SOLO en el registro
+    // actual; en el historico siguen siendo opcionales.
+    controls.description.setValidators(
+      isLegacy ? [optionalMinLength(3)] : [required, optionalMinLength(3)]
+    );
+    controls.location.setValidators(isLegacy ? [] : [required]);
+    controls.capacity.setValidators(
+      isLegacy
+        ? [Validators.pattern(/^(\d{1,9})?$/)]
+        : [required, Validators.pattern(/^\d{1,9}$/)]
+    );
     controls.eventTypeId.setValidators(isLegacy ? [] : [required]);
-    controls.startDate.setValidators(isLegacy ? [] : [required]);
-    controls.endDate.setValidators(isLegacy ? [] : [required]);
+    // Las fechas son obligatorias en ambos modos; su formato lo decide dateType.
+    controls.startDate.setValidators([required]);
     controls.modality.setValidators(isLegacy ? [] : [required]);
     controls.status.setValidators(isLegacy ? [] : [required]);
+    this.applyDateTypeValidators(controls.dateType.value);
 
     for (const name of [
+      'description',
+      'location',
+      'capacity',
       'eventTypeId',
       'startDate',
-      'endDate',
       'modality',
       'status',
     ] as const) {
       controls[name].updateValueAndValidity();
+    }
+  }
+
+  private applyDateTypeValidators(dateType: EventDateType): void {
+    const required = Validators.required;
+    const controls = this.form.controls;
+
+    if (dateType === 'SHORT') {
+      controls.startDate.setValidators([required, monthYearFormat]);
+      controls.endDate.setValidators([]);
+    } else {
+      controls.startDate.setValidators([required]);
+      controls.endDate.setValidators([required]);
+    }
+
+    controls.startDate.updateValueAndValidity();
+    controls.endDate.updateValueAndValidity();
+  }
+
+  /** Ajusta los valores al cambiar entre fecha completa y solo mes/anio. */
+  private onDateTypeChange(dateType: EventDateType): void {
+    const start = this.form.controls.startDate.value;
+    const end = this.form.controls.endDate.value;
+
+    if (dateType === 'SHORT') {
+      const month = /^\d{4}-\d{2}/.test(start) ? start.slice(0, 7) : '';
+      this.form.patchValue({ startDate: month, endDate: '' }, { emitEvent: false });
+      return;
+    }
+
+    if (/^\d{4}-\d{2}$/.test(start)) {
+      const full = `${start}-29`;
+      this.form.patchValue({ startDate: full, endDate: end || full }, { emitEvent: false });
     }
   }
 
@@ -265,16 +347,15 @@ export class EventNewComponent {
     this.submitting.set(true);
     const value = this.form.getRawValue();
     const isLegacy = this.isLegacy();
+    const dateType = value.dateType as EventDateType;
 
     const draft: EventDraft = {
       name: value.name,
       description: value.description,
       eventTypeId: value.eventTypeId ? Number(value.eventTypeId) : null,
-      startDate: isLegacy && !value.startDate ? HISTORICAL_EVENT_DATE : value.startDate,
-      endDate:
-        isLegacy && !value.endDate
-          ? value.startDate || HISTORICAL_EVENT_DATE
-          : value.endDate,
+      startDate: value.startDate,
+      endDate: dateType === 'SHORT' ? '' : value.endDate,
+      dateType,
       modality: (value.modality || (isLegacy ? 'No especificado' : '')) as EventModality,
       location: value.location,
       status: (value.status || (isLegacy ? 'Finalizado' : '')) as EventStatus,
@@ -301,6 +382,7 @@ export class EventNewComponent {
         name: '',
         description: '',
         eventTypeId: '',
+        dateType: 'LONG',
         startDate: '',
         endDate: '',
         modality: '',
@@ -352,7 +434,18 @@ export class EventNewComponent {
   openImport(): void {
     this.resetImport();
     this.importOrigin.set(this.origin());
+    this.importDateType.set('LONG');
     this.importOpen.set(true);
+  }
+
+  setImportDateType(dateType: EventDateType): void {
+    if (this.importDateType() === dateType) {
+      return;
+    }
+    this.importDateType.set(dateType);
+    this.importResult.set(null);
+    this.importStep.set(1);
+    this.importError.set(null);
   }
 
   closeImport(): void {
@@ -383,7 +476,7 @@ export class EventNewComponent {
         ? 'DCredits_plantilla_eventos_historicos'
         : 'DCredits_plantilla_eventos',
       sheetName: 'Eventos',
-      rows: [EVENT_IMPORT_HEADERS],
+      rows: [buildImportHeaders(this.isLegacyImport(), this.importDateType())],
       catalogSheets: [
         { name: 'Escuelas', header: 'Escuela', values: this.schoolOptions().map((o) => o.label) },
         {
@@ -418,7 +511,11 @@ export class EventNewComponent {
       return;
     }
 
-    const result = await this.eventService.importEvents(rows, this.importOrigin());
+    const result = await this.eventService.importEvents(
+      rows,
+      this.importOrigin(),
+      this.importDateType()
+    );
     this.importResult.set(result);
     this.importStep.set(2);
 

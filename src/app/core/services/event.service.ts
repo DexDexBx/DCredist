@@ -5,15 +5,14 @@ import {
   AcademicEvent,
   EVENT_MODALITIES,
   EVENT_STATUSES,
+  EventDateType,
   EventDraft,
   EventModality,
   EventOrigin,
   EventStatus,
   EventValidation,
-  HISTORICAL_EVENT_DATE,
   acceptsParticipations,
   eventTypeLabel,
-  isHistoricalEventDate,
   isImportCompleted,
   isLateImportsEnabled,
 } from '../../models';
@@ -146,22 +145,30 @@ export class EventService {
 
     const startRaw = draft.startDate?.trim();
     const endRaw = draft.endDate?.trim();
+    const dateType = draft.dateType ?? 'LONG';
 
-    if (isLegacy) {
-      // Fechas opcionales: solo se valida el rango si ambas son fechas reales.
-      if (startRaw && endRaw && !isHistoricalEventDate(startRaw) && !isHistoricalEventDate(endRaw)) {
-        if (new Date(endRaw).getTime() < new Date(startRaw).getTime()) {
-          errors.endDate = 'La fecha de término no puede ser anterior a la de inicio.';
-        }
+    if (dateType === 'SHORT') {
+      if (!startRaw || !/^\d{4}-\d{2}$/.test(startRaw)) {
+        errors.startDate = 'Indica el mes y año del evento (YYYY-MM).';
       }
     } else {
       if (!startRaw) {
         errors.startDate = 'Indica una fecha de inicio válida.';
+      } else if (!/^\d{4}-\d{2}-\d{2}$/.test(startRaw)) {
+        errors.startDate = 'La fecha de inicio completa debe incluir día, mes y año.';
       }
       if (!endRaw) {
         errors.endDate = 'Indica una fecha de término válida.';
+      } else if (!/^\d{4}-\d{2}-\d{2}$/.test(endRaw)) {
+        errors.endDate = 'La fecha de fin completa debe incluir día, mes y año.';
       }
-      if (startRaw && endRaw && new Date(endRaw).getTime() < new Date(startRaw).getTime()) {
+      if (
+        startRaw &&
+        endRaw &&
+        /^\d{4}-\d{2}-\d{2}$/.test(startRaw) &&
+        /^\d{4}-\d{2}-\d{2}$/.test(endRaw) &&
+        new Date(endRaw).getTime() < new Date(startRaw).getTime()
+      ) {
         errors.endDate = 'La fecha de término no puede ser anterior a la de inicio.';
       }
     }
@@ -181,10 +188,10 @@ export class EventService {
     if (
       draft.credits === null ||
       draft.credits === undefined ||
-      draft.credits < 1 ||
+      draft.credits < 0 ||
       draft.credits > 21
     ) {
-      errors.credits = 'Los créditos deben estar entre 1 y 21.';
+      errors.credits = 'Los créditos deben estar entre 0 y 21.';
     }
 
     if (draft.capacity !== null && draft.capacity !== undefined && draft.capacity < 0) {
@@ -213,9 +220,24 @@ export class EventService {
     return this.createLocal(draft);
   }
 
+  /** Fechas calendario para el modo local; SHORT usa el dia 29 en ambas. */
+  private localDates(draft: EventDraft): { startDate: string; endDate: string } {
+    if ((draft.dateType ?? 'LONG') === 'SHORT') {
+      const month = draft.startDate.trim().slice(0, 7);
+      const date = month ? `${month}-29` : '';
+      return { startDate: date, endDate: date };
+    }
+
+    return {
+      startDate: toDateOnly(draft.startDate),
+      endDate: toDateOnly(draft.endDate),
+    };
+  }
+
   private createLocal(draft: EventDraft): AcademicEvent {
     const sequence = this.eventsState().reduce((max, item) => Math.max(max, item.id), 0) + 1;
     const actorName = this.auth.currentUser()?.fullName ?? '';
+    const dates = this.localDates(draft);
     const event: AcademicEvent = {
       id: sequence,
       code: draft.code?.trim() || `EVT-${new Date().getFullYear()}-${String(sequence).padStart(3, '0')}`,
@@ -223,8 +245,9 @@ export class EventService {
       description: draft.description.trim() || 'Sin descripción',
       eventTypeId: draft.eventTypeId ?? 0,
       eventTypeName: this.eventTypeService.nameOf(draft.eventTypeId),
-      startDate: toDateOnly(draft.startDate),
-      endDate: toDateOnly(draft.endDate),
+      startDate: dates.startDate,
+      endDate: dates.endDate,
+      dateType: draft.dateType ?? 'LONG',
       modality: draft.modality,
       location: draft.location.trim() || 'Sin ubicación',
       status: draft.status,
@@ -309,6 +332,7 @@ export class EventService {
 
   private updateLocal(id: number, draft: EventDraft): AcademicEvent {
     const current = this.findById(id) as AcademicEvent;
+    const dates = this.localDates(draft);
     const event: AcademicEvent = {
       ...current,
       name: draft.name.trim(),
@@ -316,8 +340,9 @@ export class EventService {
       eventTypeId: draft.eventTypeId ?? current.eventTypeId,
       eventTypeName:
         this.eventTypeService.nameOf(draft.eventTypeId) || current.eventTypeName,
-      startDate: toDateOnly(draft.startDate),
-      endDate: toDateOnly(draft.endDate),
+      startDate: dates.startDate,
+      endDate: dates.endDate,
+      dateType: draft.dateType ?? 'LONG',
       modality: draft.modality,
       location: draft.location.trim() || 'Sin ubicación',
       status: draft.status,
@@ -348,11 +373,12 @@ export class EventService {
    */
   async importEvents(
     rows: EventImportRow[],
-    origin: EventOrigin = 'CURRENT'
+    origin: EventOrigin = 'CURRENT',
+    dateType: EventDateType = 'LONG'
   ): Promise<EventImportResult> {
     if (this.dataMode.isApi) {
       try {
-        const result = await firstValueFrom(this.api.importEvents(rows, origin));
+        const result = await firstValueFrom(this.api.importEvents(rows, origin, dateType));
         await this.reloadFromApi();
         return {
           total: result.total,
@@ -373,7 +399,7 @@ export class EventService {
       }
     }
 
-    return this.importEventsLocal(rows, origin);
+    return this.importEventsLocal(rows, origin, dateType);
   }
 
   /** Mensaje legible del error HTTP para mostrarlo en el modal de importacion. */
@@ -399,7 +425,8 @@ export class EventService {
 
   private async importEventsLocal(
     rows: EventImportRow[],
-    origin: EventOrigin
+    origin: EventOrigin,
+    dateType: EventDateType
   ): Promise<EventImportResult> {
     const issues: { row: number; name: string; code: string; message: string }[] = [];
     const organizers = this.catalogService.options('organizers');
@@ -437,14 +464,51 @@ export class EventService {
         continue;
       }
 
+      if (dateType === 'SHORT') {
+        if (!row.startDate || !/^\d{4}-\d{2}$/.test(row.startDate.trim())) {
+          issues.push({ row: line, name, code: 'MISSING_DATES', message: 'Indica el mes y año de inicio (YYYY-MM).' });
+          skipped++;
+          continue;
+        }
+      } else {
+        if (!row.startDate || !row.endDate) {
+          issues.push({ row: line, name, code: 'MISSING_DATES', message: 'Faltan las fechas de inicio y fin.' });
+          skipped++;
+          continue;
+        }
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(row.startDate.trim()) || !/^\d{4}-\d{2}-\d{2}$/.test(row.endDate.trim())) {
+          issues.push({ row: line, name, code: 'INVALID_ROW', message: 'Las fechas completas deben usar YYYY-MM-DD.' });
+          skipped++;
+          continue;
+        }
+      }
+
+      if (origin === 'CURRENT') {
+        if (!(row.description ?? '').trim()) {
+          issues.push({ row: line, name, code: 'MISSING_DESCRIPTION', message: 'Falta la descripción: obligatoria en un registro actual.' });
+          skipped++;
+          continue;
+        }
+        if (!(row.location ?? '').trim()) {
+          issues.push({ row: line, name, code: 'MISSING_LOCATION', message: 'Falta la ubicación: obligatoria en un registro actual.' });
+          skipped++;
+          continue;
+        }
+        if (row.capacity === undefined || row.capacity === null) {
+          issues.push({ row: line, name, code: 'MISSING_CAPACITY', message: 'Falta la capacidad: obligatoria en un registro actual (0 = sin límite).' });
+          skipped++;
+          continue;
+        }
+      }
+
       if (row.credits === undefined || row.credits === null) {
         issues.push({ row: line, name, code: 'MISSING_CREDITS', message: 'Falta el número de créditos: es obligatorio.' });
         skipped++;
         continue;
       }
 
-      if (row.credits < 1 || row.credits > 21) {
-        issues.push({ row: line, name, code: 'INVALID_ROW', message: 'Los créditos deben ser un número entre 1 y 21.' });
+      if (row.credits < 0 || row.credits > 21) {
+        issues.push({ row: line, name, code: 'INVALID_ROW', message: 'Los créditos deben ser un número entre 0 y 21.' });
         skipped++;
         continue;
       }
@@ -462,14 +526,9 @@ export class EventService {
         name,
         description: (row.description ?? '').trim(),
         eventTypeId: type?.id ?? null,
-        startDate:
-          origin === 'LEGACY' && !row.startDate
-            ? HISTORICAL_EVENT_DATE
-            : (row.startDate ?? ''),
-        endDate:
-          origin === 'LEGACY' && !row.endDate
-            ? row.startDate ?? HISTORICAL_EVENT_DATE
-            : (row.endDate ?? ''),
+        startDate: row.startDate ?? '',
+        endDate: dateType === 'SHORT' ? '' : (row.endDate ?? ''),
+        dateType,
         modality: ((row.modality ?? '') as EventModality) || 'Presencial',
         location: (row.location ?? '').trim(),
         status: ((row.status ?? '') as EventStatus) || 'Finalizado',

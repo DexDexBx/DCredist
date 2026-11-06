@@ -18,7 +18,14 @@ let sequence = 0;
 export class DcInputComponent implements ControlValueAccessor {
   readonly label = input<string>('');
   readonly type = input<
-    'text' | 'email' | 'tel' | 'number' | 'date' | 'datetime-local' | 'password'
+    | 'text'
+    | 'email'
+    | 'tel'
+    | 'number'
+    | 'date'
+    | 'month'
+    | 'datetime-local'
+    | 'password'
   >('text');
   readonly placeholder = input<string>('');
   readonly hint = input<string>('');

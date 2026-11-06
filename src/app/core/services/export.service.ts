@@ -165,12 +165,14 @@ export class ExportService {
   private metadataRows(event: AcademicEvent): string[][] {
     const start = parseCalendarDate(event.startDate) ?? new Date(event.startDate);
     const end = parseCalendarDate(event.endDate) ?? new Date(event.endDate);
-    const multiDay = isMultiDayEvent(event);
-    const formatter = new Intl.DateTimeFormat('es', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-    });
+    const isShort = event.dateType === 'SHORT';
+    const multiDay = !isShort && isMultiDayEvent(event);
+    const formatter = new Intl.DateTimeFormat(
+      'es',
+      isShort
+        ? { month: 'long', year: 'numeric' }
+        : { day: '2-digit', month: '2-digit', year: 'numeric' }
+    );
 
     const values: Record<string, string> = {
       'Código del evento': event.code,

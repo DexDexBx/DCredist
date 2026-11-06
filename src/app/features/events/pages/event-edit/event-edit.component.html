@@ -111,29 +111,101 @@
         label="Descripción"
         placeholder="Resume los objetivos, la agenda y el público del evento."
         [rows]="5"
+        [required]="!isLegacy()"
         [invalid]="isInvalid('description')"
-        hint="Opcional. Mínimo 3 caracteres si se informa."
+        [hint]="
+          isLegacy()
+            ? 'Opcional. Mínimo 3 caracteres si se informa.'
+            : 'Obligatoria. Mínimo 3 caracteres.'
+        "
       />
       @if (isInvalid('description')) {
-      <p class="-mt-3 text-xs text-error-500">La descripción debe tener al menos 3 caracteres.</p>
+      <p class="-mt-3 text-xs text-error-500">
+        {{
+          isLegacy()
+            ? 'La descripción debe tener al menos 3 caracteres.'
+            : 'La descripción es obligatoria y debe tener al menos 3 caracteres.'
+        }}
+      </p>
       }
+
+      <div class="flex flex-col gap-2">
+        <span class="text-sm font-medium text-gray-700 dark:text-gray-200 dark:text-white/90">
+          Tipo de fecha <span class="text-error-500" aria-hidden="true">*</span>
+        </span>
+        <div class="grid gap-2 sm:grid-cols-2">
+          <label
+            class="flex cursor-pointer items-start gap-3 rounded-xl border px-4 py-3 text-sm transition-colors"
+            [class]="
+              form.controls.dateType.value === 'LONG'
+                ? 'border-brand-500 bg-brand-50 dark:border-brand-500/60 dark:bg-brand-500/10'
+                : 'border-gray-200 bg-white dark:border-gray-700 dark:bg-white/[0.03]'
+            "
+          >
+            <input
+              type="radio"
+              formControlName="dateType"
+              value="LONG"
+              class="mt-0.5 accent-brand-600"
+            />
+            <span>
+              <span class="block font-medium text-gray-900 dark:text-white/90">Fecha completa</span>
+              <span class="mt-0.5 block text-xs text-gray-500 dark:text-gray-400">Día, mes y año.</span>
+            </span>
+          </label>
+
+          <label
+            class="flex cursor-pointer items-start gap-3 rounded-xl border px-4 py-3 text-sm transition-colors"
+            [class]="
+              form.controls.dateType.value === 'SHORT'
+                ? 'border-brand-500 bg-brand-50 dark:border-brand-500/60 dark:bg-brand-500/10'
+                : 'border-gray-200 bg-white dark:border-gray-700 dark:bg-white/[0.03]'
+            "
+          >
+            <input
+              type="radio"
+              formControlName="dateType"
+              value="SHORT"
+              class="mt-0.5 accent-brand-600"
+            />
+            <span>
+              <span class="block font-medium text-gray-900 dark:text-white/90">Solo mes y año</span>
+              <span class="mt-0.5 block text-xs text-gray-500 dark:text-gray-400">
+                El día se registra como 29.
+              </span>
+            </span>
+          </label>
+        </div>
+      </div>
 
       <div class="grid gap-5 sm:grid-cols-2">
         <dc-input
           formControlName="startDate"
-          type="date"
-          label="Fecha de inicio"
-          [required]="!isLegacy()"
+          [type]="dateInputType()"
+          [label]="isShortDate() ? 'Mes y año' : 'Fecha de inicio'"
+          [required]="true"
+          [hint]="isShortDate() ? 'El día se registra como 29.' : ''"
           [invalid]="isInvalid('startDate')"
         />
+        @if (!isShortDate()) {
         <dc-input
           formControlName="endDate"
           type="date"
           label="Fecha de fin"
-          [required]="!isLegacy()"
+          [required]="true"
           [invalid]="isInvalid('endDate')"
         />
+        }
       </div>
+      @if (isInvalid('startDate')) {
+      <p class="-mt-3 text-xs text-error-500">
+        {{
+          isShortDate()
+            ? 'Indica el mes y año (YYYY-MM).'
+            : 'Indica la fecha de inicio completa.'
+        }}
+      </p>
+      }
       @if (isInvalid('endDate')) {
       <p class="-mt-3 text-xs text-error-500">
         @if (form.errors?.['endBeforeStart']) {
@@ -166,9 +238,13 @@
           formControlName="location"
           label="Ubicación o enlace"
           placeholder="Auditorio Central, Campus Norte"
-          hint="Opcional."
+          [required]="!isLegacy()"
+          [hint]="isLegacy() ? 'Opcional.' : 'Obligatoria.'"
           [invalid]="isInvalid('location')"
         />
+        @if (isInvalid('location')) {
+        <p class="mt-1 text-xs text-error-500">Indica la ubicación o enlace del evento.</p>
+        }
       </div>
       @if (isInvalid('eventTypeId')) {
       <p class="-mt-3 text-xs text-error-500">Selecciona el tipo de evento.</p>
@@ -183,11 +259,11 @@
             hint="Créditos que otorga el evento a cada participante."
             [required]="true"
             [invalid]="isInvalid('credits')"
-            [min]="1"
+            [min]="0"
           />
           @if (isInvalid('credits')) {
           <p class="mt-1.5 text-xs text-error-500">
-            Los créditos deben ser un número entre 1 y 21.
+            Los créditos deben ser un número entre 0 y 21.
           </p>
           }
         </div>
@@ -238,13 +314,22 @@
             type="number"
             label="Capacidad"
             placeholder="0"
-            hint="Usa 0 cuando el evento no tenga límite de participantes."
+            [required]="!isLegacy()"
+            [hint]="
+              isLegacy()
+                ? 'Usa 0 cuando el evento no tenga límite de participantes.'
+                : 'Obligatoria. Usa 0 si el evento no tiene límite de participantes.'
+            "
             [invalid]="isInvalid('capacity')"
-            [min]="1"
+            [min]="0"
           />
           @if (isInvalid('capacity')) {
           <p class="mt-1.5 text-xs text-error-500">
-            Solo números enteros iguales o mayores a 0, sin símbolos.
+            {{
+              form.controls.capacity.errors?.['required']
+                ? 'Ingresa la capacidad (0 = sin límite).'
+                : 'Solo números enteros iguales o mayores a 0, sin símbolos.'
+            }}
           </p>
           }
         </div>

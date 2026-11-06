@@ -85,7 +85,7 @@ export class CertificateDocumentComponent {
   /** Fecha de emision del documento. */
   readonly issuedOn = formatLongDate(new Date());
 
-  eventDates(event: Pick<AcademicEvent, 'startDate' | 'endDate'>): string {
+  eventDates(event: Pick<AcademicEvent, 'startDate' | 'endDate' | 'dateType'>): string {
     return eventDateRangeLabel(event);
   }
 

@@ -4,7 +4,6 @@ import {
   ArrayMaxSize,
   ArrayMinSize,
   IsArray,
-  IsDateString,
   IsEnum,
   IsInt,
   IsNumber,
@@ -15,7 +14,7 @@ import {
   Min,
   ValidateNested,
 } from 'class-validator';
-import { EventOrigin } from '../../../generated/prisma/client';
+import { EventDateType, EventOrigin } from '../../../generated/prisma/client';
 
 /**
  * Convierte cadenas vacias o solo espacios en `undefined`.
@@ -48,16 +47,20 @@ export class ImportEventRowDto {
   @MaxLength(2000)
   description?: string;
 
-  @ApiPropertyOptional({ example: '2019-10-05' })
+  // La validez y el formato se validan por fila en el servicio, porque dependen
+  // del dateType de la carga (LONG exige dia; SHORT ignora la fecha de fin).
+  @ApiPropertyOptional({ example: '2019-10-05', description: 'YYYY-MM-DD o YYYY-MM.' })
   @Transform(emptyToUndefined)
   @IsOptional()
-  @IsDateString()
+  @IsString()
+  @MaxLength(10)
   startDate?: string;
 
-  @ApiPropertyOptional({ example: '2019-10-07' })
+  @ApiPropertyOptional({ example: '2019-10-07', description: 'YYYY-MM-DD.' })
   @Transform(emptyToUndefined)
   @IsOptional()
-  @IsDateString()
+  @IsString()
+  @MaxLength(10)
   endDate?: string;
 
   @ApiPropertyOptional({ example: 'Congreso', description: 'Etiqueta en espanol del tipo.' })
@@ -107,7 +110,7 @@ export class ImportEventRowDto {
 
   @ApiPropertyOptional({
     example: 2,
-    description: 'Obligatorio en la carga. Se valida por fila (1 a 21).',
+    description: 'Obligatorio en la carga. Se valida por fila (0 a 21).',
   })
   @IsOptional()
   @Type(() => Number)
@@ -135,6 +138,16 @@ export class ImportEventsDto {
   @IsEnum(EventOrigin)
   origin?: EventOrigin;
 
+  @ApiPropertyOptional({
+    enum: EventDateType,
+    default: EventDateType.LONG,
+    description:
+      'LONG: cada fila trae fecha de inicio y fin completas. SHORT: la fecha de inicio es YYYY-MM y la de fin se ignora.',
+  })
+  @IsOptional()
+  @IsEnum(EventDateType)
+  dateType?: EventDateType;
+
   @ApiProperty({ type: [ImportEventRowDto] })
   @IsArray()
   @ArrayMinSize(1, { message: 'El archivo no contiene filas para importar.' })
@@ -155,7 +168,7 @@ export class EventImportIssueDto {
   @ApiProperty({
     example: 'INVALID_ROW',
     description:
-      'INVALID_ROW | DUPLICATE_CODE | MISSING_NAME | MISSING_DATES | MISSING_CREDITS | MISSING_EVENT_TYPE | MISSING_MODALITY | MISSING_STATUS | UNKNOWN_ORGANIZER | UNKNOWN_SCHOOL | FOREIGN_SCHOOL | DB_ERROR',
+      'INVALID_ROW | DUPLICATE_CODE | MISSING_NAME | MISSING_DESCRIPTION | MISSING_DATES | MISSING_LOCATION | MISSING_CAPACITY | MISSING_CREDITS | MISSING_EVENT_TYPE | MISSING_MODALITY | MISSING_STATUS | UNKNOWN_ORGANIZER | UNKNOWN_SCHOOL | FOREIGN_SCHOOL | DB_ERROR',
   })
   code!: string;
 

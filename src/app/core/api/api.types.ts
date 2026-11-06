@@ -183,6 +183,9 @@ export type ApiEventStatus = 'DRAFT' | 'SCHEDULED' | 'IN_PROGRESS' | 'COMPLETED'
 /** Procedencia de un evento. */
 export type ApiEventOrigin = 'CURRENT' | 'LEGACY';
 
+/** Precision de la fecha del evento. */
+export type ApiEventDateType = 'LONG' | 'SHORT';
+
 /** Tipo de evento academico (GET /event-types). */
 export interface ApiEventTypeEntry {
   id: number;
@@ -212,6 +215,7 @@ export interface ApiEvent {
   credits: number;
   status: ApiEventStatus;
   origin?: ApiEventOrigin;
+  dateType?: ApiEventDateType;
   userCreate: string;
   userUpdate: string;
   createdAt?: string;
@@ -287,7 +291,7 @@ export interface ApiEventPayload {
   name: string;
   description?: string;
   startDate: string;
-  endDate: string;
+  endDate?: string;
   modality?: ApiEventModality;
   location?: string;
   capacity?: number;
@@ -297,6 +301,7 @@ export interface ApiEventPayload {
   credits?: number;
   status?: ApiEventStatus;
   origin?: ApiEventOrigin;
+  dateType?: ApiEventDateType;
 }
 
 export interface ApiStudentPayload {

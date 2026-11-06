@@ -77,7 +77,7 @@ function toIso(value: string): string {
 
 /** Fecha calendario "YYYY-MM-DD" (sin hora) para eventos. */
 function toDateOnly(value: string): string {
-  if (/^\d{4}-\d{2}-\d{2}$/.test(value.trim())) {
+  if (/^\d{4}-\d{2}(-\d{2})?$/.test(value.trim())) {
     return value.trim();
   }
 
@@ -191,6 +191,7 @@ export function mapApiEvent(row: ApiEvent): AcademicEvent {
     location: row.location,
     status: STATUS_FROM_API[row.status] ?? 'Programado',
     origin: row.origin === 'LEGACY' ? 'LEGACY' : 'CURRENT',
+    dateType: row.dateType === 'SHORT' ? 'SHORT' : 'LONG',
     capacity: row.capacity ?? 0,
     organizerId: row.organizerId,
     organizer: row.organizer,
@@ -235,14 +236,18 @@ export function mapApiParticipation(row: ApiParticipation): Participation {
 }
 
 export function toApiEventPayload(draft: EventDraft): ApiEventPayload {
+  const dateType = draft.dateType ?? 'LONG';
+
   return {
     ...(draft.code?.trim() ? { code: draft.code.trim() } : {}),
     name: draft.name.trim(),
     // La descripcion es opcional: vacia viaja ausente y el backend la rellena.
     ...(draft.description.trim() ? { description: draft.description.trim() } : {}),
     eventTypeId: draft.eventTypeId ?? undefined,
-    startDate: toDateOnly(draft.startDate),
-    endDate: toDateOnly(draft.endDate),
+    // SHORT envia solo mes/anio; el backend duplica la fecha con dia 29.
+    startDate: dateType === 'SHORT' ? draft.startDate.trim() : toDateOnly(draft.startDate),
+    ...(dateType === 'SHORT' ? {} : { endDate: toDateOnly(draft.endDate) }),
+    dateType,
     modality: MODALITY_TO_API[draft.modality],
     ...(draft.location.trim() ? { location: draft.location.trim() } : {}),
     capacity: draft.capacity,
@@ -278,11 +283,24 @@ export function toApiEventPatch(
   if (full.eventTypeId !== current.eventTypeId) {
     patch.eventTypeId = full.eventTypeId;
   }
-  if (full.startDate !== current.startDate) {
-    patch.startDate = full.startDate;
+
+  const dateType = draft.dateType ?? 'LONG';
+  if (dateType !== (current.dateType ?? 'LONG')) {
+    patch.dateType = dateType;
   }
-  if (full.endDate !== current.endDate) {
-    patch.endDate = full.endDate;
+
+  if (dateType === 'SHORT') {
+    const currentMonth = current.startDate.slice(0, 7);
+    if (draft.startDate.trim() !== currentMonth) {
+      patch.startDate = draft.startDate.trim();
+    }
+  } else {
+    if (full.startDate !== current.startDate) {
+      patch.startDate = full.startDate;
+    }
+    if (full.endDate !== current.endDate) {
+      patch.endDate = full.endDate;
+    }
   }
   if (MODALITY_FROM_API[full.modality ?? 'PRESENTIAL'] !== current.modality) {
     patch.modality = full.modality;

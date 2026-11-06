@@ -33,6 +33,7 @@ const NUMERIC_HEADERS = new Set([
   'PARTICIPANTES',
   'CAPACIDAD',
   'Capacidad',
+  'Capacidad *',
   'Créditos',
 ]);
 

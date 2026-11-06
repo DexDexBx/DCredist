@@ -1,5 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import {
+  EventDateType,
   EventModality,
   EventOrigin,
   EventStatus,
@@ -27,6 +28,9 @@ export class EventDto {
   startDate!: Date;
   @ApiProperty({ example: '2026-10-07', description: 'Fecha calendario (YYYY-MM-DD).' })
   endDate!: Date;
+
+  @ApiProperty({ enum: EventDateType, description: 'LONG: fecha completa. SHORT: solo mes y anio.' })
+  dateType!: EventDateType;
   @ApiProperty({ enum: EventModality }) modality!: EventModality;
 
   @ApiProperty({

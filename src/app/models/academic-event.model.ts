@@ -23,6 +23,19 @@ export const EVENT_ORIGIN_LABEL: Record<EventOrigin, string> = {
 };
 
 /**
+ * Precision de la fecha del evento.
+ *
+ * LONG: dia, mes y anio (fecha completa).
+ * SHORT: solo mes y anio; el dia se guarda internamente como 29.
+ */
+export type EventDateType = 'LONG' | 'SHORT';
+
+export const EVENT_DATE_TYPE_LABEL: Record<EventDateType, string> = {
+  LONG: 'Fecha completa',
+  SHORT: 'Solo mes y año',
+};
+
+/**
  * Fecha sentinela de los eventos historicos sin fecha (29-09-1999).
  *
  * La base conserva las columnas DATE; en lugar de NULL se guarda este valor, que
@@ -98,6 +111,9 @@ export interface AcademicEvent {
   /** Creditos que otorga el evento a cada participante. */
   credits: number;
 
+  /** Precision de las fechas: fecha completa o solo mes y anio. */
+  dateType?: EventDateType;
+
   // --- Estado de importacion de participantes ---
 
   /**
@@ -155,6 +171,8 @@ export interface EventDraft {
   credits: number;
   /** CURRENT (por defecto) o LEGACY. */
   origin?: EventOrigin;
+  /** LONG (fecha completa) o SHORT (solo mes y anio). */
+  dateType?: EventDateType;
 }
 
 export interface EventValidation {
@@ -192,7 +210,7 @@ export function isMultiDayEvent(event: Pick<AcademicEvent, 'startDate' | 'endDat
 
 /** "15/10/2026" para un dia, "15/10/2026 - 18/10/2026" para varios. */
 export function eventDateRangeLabel(
-  event: Pick<AcademicEvent, 'startDate' | 'endDate'>,
+  event: Pick<AcademicEvent, 'startDate' | 'endDate' | 'dateType'>,
   locale = 'es'
 ): string {
   if (isHistoricalEventDate(event.startDate) || isHistoricalEventDate(event.endDate)) {
@@ -204,6 +222,15 @@ export function eventDateRangeLabel(
   if (!start || !end) {
     return '';
   }
+
+  // Fecha de solo mes y anio: no se muestra el dia.
+  if (event.dateType === 'SHORT') {
+    return new Intl.DateTimeFormat(locale, {
+      month: 'long',
+      year: 'numeric',
+    }).format(start);
+  }
+
   const short = new Intl.DateTimeFormat(locale, {
     day: '2-digit',
     month: '2-digit',

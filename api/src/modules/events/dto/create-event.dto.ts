@@ -1,7 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import {
-  IsDateString,
   IsEnum,
   IsInt,
   IsNotEmpty,
@@ -9,11 +8,13 @@ import {
   IsOptional,
   IsString,
   Max,
+  Matches,
   MaxLength,
   Min,
   MinLength,
 } from 'class-validator';
 import {
+  EventDateType,
   EventModality,
   EventOrigin,
   EventStatus,
@@ -70,19 +71,34 @@ export class EventFieldsDto {
   @ApiPropertyOptional({
     example: '2026-10-05',
     description:
-      'Fecha calendario (YYYY-MM-DD). Opcional en registros historicos: se usa una fecha sentinela (1999-09-29) que la interfaz muestra como "Sin fecha".',
+      'Fecha calendario: YYYY-MM-DD para fecha completa o YYYY-MM para solo mes y anio.',
   })
   @IsOptional()
-  @IsDateString()
+  @Matches(/^\d{4}-\d{2}(-\d{2})?$/, {
+    message: 'La fecha debe tener el formato YYYY-MM-DD o YYYY-MM.',
+  })
   startDate?: string;
 
   @ApiPropertyOptional({
     example: '2026-10-07',
-    description: 'Fecha calendario (YYYY-MM-DD). Igual o posterior a startDate.',
+    description:
+      'Fecha de fin (YYYY-MM-DD). Obligatoria con fecha completa; se ignora con fecha de solo mes y anio.',
   })
   @IsOptional()
-  @IsDateString()
+  @Matches(/^\d{4}-\d{2}-\d{2}$/, {
+    message: 'La fecha de fin debe tener el formato YYYY-MM-DD.',
+  })
   endDate?: string;
+
+  @ApiPropertyOptional({
+    enum: EventDateType,
+    default: EventDateType.LONG,
+    description:
+      'LONG: dia, mes y anio. SHORT: solo mes y anio (el dia se guarda como 29).',
+  })
+  @IsOptional()
+  @IsEnum(EventDateType)
+  dateType?: EventDateType;
 
   @ApiPropertyOptional({ enum: EventModality, default: EventModality.PRESENTIAL })
   @IsOptional()
@@ -121,11 +137,14 @@ export class EventFieldsDto {
   @Min(1)
   professionalSchoolId!: number;
 
-  @ApiPropertyOptional({ example: 2, description: 'Creditos que otorga el evento. Nunca negativo.' })
+  @ApiPropertyOptional({
+    example: 2,
+    description: 'Creditos que otorga el evento. Puede ser 0. Nunca negativo.',
+  })
   @IsOptional()
   @Type(() => Number)
   @IsNumber()
-  @Min(1, { message: 'Los créditos deben ser como mínimo 1.' })
+  @Min(0, { message: 'Los créditos no pueden ser negativos.' })
   @Max(21, { message: 'Los créditos no pueden superar 21.' })
   credits?: number;
 

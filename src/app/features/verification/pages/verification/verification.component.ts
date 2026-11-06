@@ -32,7 +32,7 @@ import {
   EVENT_STATUS_COLOR,
   PARTICIPATION_STATUS_COLOR,
 } from '../../../../shared/constants/status-ui';
-import { formatDateRange, formatLongDate } from '../../../../shared/utils/date.utils';
+import { formatLongDate } from '../../../../shared/utils/date.utils';
 
 /** Tipo de documento que se esta verificando. */
 export type VerificationKind = 'CERTIFICATE' | 'CONSTANCY';
@@ -178,11 +178,7 @@ export class VerificationComponent {
     return EVENT_STATUS_COLOR[status];
   }
 
-  dateRange(start: string, end: string): string {
-    return formatDateRange(start, end);
-  }
-
-  eventDates(event: Pick<AcademicEvent, 'startDate' | 'endDate'>): string {
+  eventDates(event: Pick<AcademicEvent, 'startDate' | 'endDate' | 'dateType'>): string {
     return eventDateRangeLabel(event);
   }
 

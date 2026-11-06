@@ -115,9 +115,11 @@
               <dd class="mt-0.5 text-sm text-gray-900 dark:text-white/90">
                 {{ formatRange(currentEvent) }}
               </dd>
+              @if (currentEvent.dateType !== 'SHORT') {
               <dd class="text-xs text-gray-500 dark:text-gray-400">
-                {{ formatLongDate(currentEvent.startDate) }}
+                {{ eventLongDate(currentEvent) }}
               </dd>
+              }
             </div>
           </div>
 
