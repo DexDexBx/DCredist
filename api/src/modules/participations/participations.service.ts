@@ -337,6 +337,7 @@ export class ParticipationsService {
           // undefined se guarda como NULL. Nunca se convierte en 0.
           grade: normalizeGrade(dto.grade),
           status: dto.status ?? ParticipationStatus.VALID,
+          descriptionStatus: dto.descriptionStatus?.trim() || 'valid',
           userCreate: authorName(actor),
           userUpdate: authorName(actor),
         },
@@ -373,6 +374,7 @@ export class ParticipationsService {
             origin,
             grade: normalizeGrade(dto.grade),
             status: dto.status ?? ParticipationStatus.VALID,
+            descriptionStatus: dto.descriptionStatus?.trim() || 'valid',
             userCreate: authorName(actor),
             userUpdate: authorName(actor),
           },
@@ -396,10 +398,27 @@ export class ParticipationsService {
     dto: UpdateParticipationDto,
     actor: Actor
   ): Promise<ParticipationWithEvent> {
-    await this.findOne(id, actor);
+    const participation = await this.findOne(id, actor);
 
     if (dto.credits !== undefined && dto.credits !== null && dto.credits < 0) {
       throw new BadRequestException('Los creditos no pueden ser negativos.');
+    }
+
+    const reason = dto.descriptionStatus?.trim() ?? '';
+    const statusChanged =
+      dto.status !== undefined && dto.status !== participation.status;
+    const requiresReason =
+      statusChanged &&
+      (dto.status === ParticipationStatus.CANCELLED ||
+        (dto.status === ParticipationStatus.VALID &&
+          participation.status === ParticipationStatus.CANCELLED));
+
+    if (requiresReason && !reason) {
+      throw new BadRequestException(
+        dto.status === ParticipationStatus.CANCELLED
+          ? 'Indica el motivo de la anulacion.'
+          : 'Indica el motivo de la reactivacion.'
+      );
     }
 
     try {
@@ -413,6 +432,7 @@ export class ParticipationsService {
           // null es un valor valido: significa "sin nota registrada".
           ...(dto.grade !== undefined ? { grade: normalizeGrade(dto.grade) } : {}),
           ...(dto.status !== undefined ? { status: dto.status } : {}),
+          ...(dto.descriptionStatus !== undefined ? { descriptionStatus: reason } : {}),
           // Cada modificacion registra quien la hizo; userCreate no se toca.
           userUpdate: authorName(actor),
         },
@@ -820,6 +840,7 @@ export class ParticipationsService {
       origin: row.origin,
       userCreate: row.userCreate,
       userUpdate: row.userUpdate,
+      descriptionStatus: row.descriptionStatus,
       createdAt: row.createdAt,
       updatedAt: row.updatedAt,
     };

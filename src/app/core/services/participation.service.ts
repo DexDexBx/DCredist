@@ -895,6 +895,7 @@ getParticipations(query: ParticipationQuery = {}): Participation[] {
       legacyCode,
       grade: normalizeGrade(draft.grade),
       status: 'VALID',
+      descriptionStatus: 'valid',
       origin,
       // Los registros que llegan por una recarga quedan marcados como
       // extemporaneos; el resto como carga regular.
@@ -942,6 +943,10 @@ getParticipations(query: ParticipationQuery = {}): Participation[] {
       credits: edit.credits ?? current.credits,
       grade: edit.grade !== undefined ? normalizeGrade(edit.grade) : current.grade,
       status: edit.status ?? current.status,
+      descriptionStatus:
+        edit.descriptionStatus !== undefined
+          ? edit.descriptionStatus.trim()
+          : current.descriptionStatus,
     };
 
     if (next.credits < 0) {
@@ -962,6 +967,9 @@ getParticipations(query: ParticipationQuery = {}): Participation[] {
             credits: next.credits,
             grade: next.grade,
             status: next.status,
+            ...(edit.descriptionStatus !== undefined
+              ? { descriptionStatus: next.descriptionStatus }
+              : {}),
           })
         );
         const participation = mapApiParticipation(updated);

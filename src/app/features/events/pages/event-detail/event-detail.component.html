@@ -348,7 +348,7 @@
                   @if (row.participation.status === 'VALID') {
                   <button
                     type="button"
-                    (click)="cancelParticipation(row.participation.id)"
+                    (click)="openStatusModal(row, 'CANCEL')"
                     class="rounded-lg border border-gray-200 px-2.5 py-1.5 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-100 dark:border-gray-800 dark:text-gray-200 dark:hover:bg-white/5"
                   >
                     Anular
@@ -356,7 +356,7 @@
                   } @else if (row.participation.status === 'CANCELLED') {
                   <button
                     type="button"
-                    (click)="reactivateParticipation(row.participation.id)"
+                    (click)="openStatusModal(row, 'REACTIVATE')"
                     class="rounded-lg border border-gray-200 px-2.5 py-1.5 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-100 dark:border-gray-800 dark:text-gray-200 dark:hover:bg-white/5"
                   >
                     Reactivar
@@ -440,7 +440,7 @@
           @if (row.participation.status === 'VALID') {
           <button
             type="button"
-            (click)="cancelParticipation(row.participation.id)"
+            (click)="openStatusModal(row, 'CANCEL')"
             class="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-100 dark:border-gray-800 dark:text-gray-200 dark:hover:bg-white/5"
           >
             Anular
@@ -448,7 +448,7 @@
           } @else if (row.participation.status === 'CANCELLED') {
           <button
             type="button"
-            (click)="reactivateParticipation(row.participation.id)"
+            (click)="openStatusModal(row, 'REACTIVATE')"
             class="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-100 dark:border-gray-800 dark:text-gray-200 dark:hover:bg-white/5"
           >
             Reactivar
@@ -596,6 +596,80 @@
       Entendido
     </button>
   </div>
+</app-modal>
+
+<!-- Motivo de anulacion o reactivacion -->
+<app-modal
+  [isOpen]="statusModal() !== null"
+  (close)="closeStatusModal()"
+  [showCloseButton]="false"
+  className="flex w-full max-w-md flex-col overflow-hidden rounded-3xl p-0"
+>
+  @if (statusModal(); as modal) {
+  <div class="px-6 py-6">
+    <div class="flex items-start gap-3">
+      <span
+        class="flex size-10 shrink-0 items-center justify-center rounded-xl"
+        [class]="
+          modal.action === 'CANCEL'
+            ? 'bg-error-50 text-error-600 dark:bg-error-500/10 dark:text-error-400'
+            : 'bg-success-50 text-success-600 dark:bg-success-500/10 dark:text-success-500'
+        "
+      >
+        <dc-icon [name]="modal.action === 'CANCEL' ? 'close' : 'refresh'" [size]="20" />
+      </span>
+      <div class="min-w-0">
+        <h2 class="text-base font-semibold text-gray-900 dark:text-white/90">
+          {{ modal.action === 'CANCEL' ? 'Anular participación' : 'Reactivar participación' }}
+        </h2>
+        <p class="mt-1 text-sm text-gray-600 dark:text-gray-300">
+          {{ studentName(modal.row) }} ·
+          {{ modal.action === 'CANCEL'
+            ? 'Indica el motivo de la anulación.'
+            : 'Describe el motivo de la reactivación.' }}
+        </p>
+      </div>
+    </div>
+
+    <label class="mt-4 flex flex-col gap-2">
+      <span class="text-sm font-medium text-gray-700 dark:text-white/90">Motivo</span>
+      <textarea
+        rows="3"
+        [value]="statusReason()"
+        (input)="statusReason.set($any($event.target).value)"
+        placeholder="Escribe el motivo..."
+        class="w-full rounded-xl border border-gray-300 bg-white px-3.5 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 focus:border-brand-600 focus:ring-3 focus:ring-brand-500/15 focus:outline-none dark:border-gray-700 dark:bg-white/[0.03] dark:text-white/90"
+      ></textarea>
+    </label>
+
+    @if (statusError()) {
+    <p class="mt-2 text-sm font-medium text-error-600 dark:text-error-400">
+      {{ statusError() }}
+    </p>
+    }
+
+    <div class="mt-5 flex flex-col gap-2 sm:flex-row sm:justify-end">
+      <button
+        type="button"
+        (click)="closeStatusModal()"
+        [disabled]="statusSaving()"
+        class="inline-flex h-10 items-center justify-center rounded-xl border border-gray-300 px-4 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-white/[0.05]"
+      >
+        Cancelar
+      </button>
+      <button
+        type="button"
+        (click)="confirmStatusChange()"
+        [disabled]="statusSaving()"
+        class="inline-flex h-10 items-center justify-center gap-2 rounded-xl px-4 text-sm font-semibold text-white transition-colors disabled:cursor-not-allowed disabled:opacity-50"
+        [class]="modal.action === 'CANCEL' ? 'bg-error-600 hover:bg-error-700' : 'bg-success-600 hover:bg-success-700'"
+      >
+        <dc-icon name="check" [size]="16" />
+        {{ statusSaving() ? 'Guardando…' : 'Enviar' }}
+      </button>
+    </div>
+  </div>
+  }
 </app-modal>
 
 <!-- Confirmacion de eliminacion definitiva de una participacion -->

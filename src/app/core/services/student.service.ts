@@ -391,6 +391,37 @@ export class StudentService {
     return student;
   }
 
+  /**
+   * Elimina definitivamente un estudiante (solo administradores).
+   *
+   * El backend vuelve a validar el rol y bloquea el borrado si el estudiante
+   * tiene cualquier participacion.
+   */
+  async delete(id: number): Promise<StudentDeleteResult> {
+    if (this.dataMode.isApi) {
+      try {
+        await firstValueFrom(this.api.deleteStudent(id));
+        this.studentsState.update((items) => items.filter((item) => item.id !== id));
+        return { ok: true };
+      } catch (error) {
+        return { ok: false, message: this.deleteErrorMessage(error) };
+      }
+    }
+
+    this.studentsState.update((items) => items.filter((item) => item.id !== id));
+    return { ok: true };
+  }
+
+  private deleteErrorMessage(error: unknown): string {
+    if (error instanceof HttpErrorResponse) {
+      const body = error.error as { message?: string | string[] } | null;
+      const detail = Array.isArray(body?.message) ? body.message.join('. ') : body?.message;
+      return detail ?? `No se pudo eliminar el estudiante (HTTP ${error.status}).`;
+    }
+
+    return 'No se pudo conectar con el API para eliminar el estudiante.';
+  }
+
   async update(id: number, draft: StudentDraft): Promise<Student | null> {
     if (!this.findById(id) || !this.validate(draft, id).valid) {
       return null;
@@ -828,4 +859,10 @@ function importKey(value: string | undefined): string {
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
     .replace(/\s+/g, ' ');
+}
+
+/** Resultado de eliminar un estudiante. */
+export interface StudentDeleteResult {
+  ok: boolean;
+  message?: string;
 }

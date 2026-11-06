@@ -1,9 +1,20 @@
-import { Body, Controller, Get, Param, ParseIntPipe, Patch, Post, Query } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  ParseIntPipe,
+  Patch,
+  Post,
+  Query,
+} from '@nestjs/common';
 import {
   ApiBadRequestResponse,
   ApiBody,
   ApiConflictResponse,
   ApiCreatedResponse,
+  ApiForbiddenResponse,
   ApiNotFoundResponse,
   ApiOkResponse,
   ApiOperation,
@@ -117,6 +128,23 @@ export class StudentsController {
     @CurrentActor() actor: Actor
   ) {
     return this.studentsService.update(id, dto, actor);
+  }
+
+  @Delete(':id')
+  @ApiOperation({
+    summary: 'Elimina un estudiante sin participaciones (solo administradores).',
+    description:
+      'Se bloquea si el estudiante tiene cualquier participacion, incluso anulada. Es un borrado definitivo.',
+  })
+  @ApiOkResponse({ description: 'Estudiante eliminado.' })
+  @ApiForbiddenResponse({ description: 'El usuario no es administrador.' })
+  @ApiConflictResponse({ description: 'El estudiante tiene participaciones asociadas.' })
+  @ApiNotFoundResponse({ description: 'El estudiante no existe.' })
+  remove(
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentActor() actor: Actor
+  ): Promise<{ deleted: boolean }> {
+    return this.studentsService.remove(id, actor);
   }
 
   @Post('import')

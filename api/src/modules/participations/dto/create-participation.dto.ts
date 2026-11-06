@@ -97,6 +97,16 @@ export class CreateParticipationDto {
   @IsOptional()
   @IsEnum(ParticipationOrigin)
   origin?: ParticipationOrigin;
+
+  @ApiPropertyOptional({
+    example: 'valid',
+    description:
+      'Descripcion del estado. Al anular o reactivar se envia el motivo (obligatorio).',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  descriptionStatus?: string;
 }
 
 /** Edicion parcial. El verificationCode nunca se modifica. */

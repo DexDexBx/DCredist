@@ -232,6 +232,9 @@ export function mapApiParticipation(row: ApiParticipation): Participation {
     origin: row.origin === 'LEGACY' ? 'LEGACY' : 'CURRENT',
     userCreate: row.userCreate ?? '',
     userUpdate: row.userUpdate ?? '',
+    // El motivo de anulacion/reactivacion se guarda en la tabla participations.
+    // Sin este mapeo la ficha y la constancia nunca lo reciben.
+    descriptionStatus: row.descriptionStatus ?? 'valid',
   };
 }
 

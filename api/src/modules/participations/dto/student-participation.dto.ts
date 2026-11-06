@@ -41,6 +41,12 @@ export class StudentParticipationDto {
 
   @ApiProperty({ example: 'Ana Torres', description: 'Usuario que la modifico por ultima vez.' })
   userUpdate!: string;
+
+  @ApiProperty({
+    example: 'valid',
+    description: 'Motivo o descripcion del estado (anulacion, reactivacion, etc.).',
+  })
+  descriptionStatus!: string;
   @ApiProperty() createdAt!: Date;
   @ApiProperty() updatedAt!: Date;
 }

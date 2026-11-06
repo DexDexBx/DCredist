@@ -20,6 +20,7 @@ import { StudentService } from '../../../../core/services/student.service';
 import { BadgeComponent } from '../../../../shared/components/ui/badge/badge.component';
 import { EmptyStateComponent } from '../../../../shared/components/ui/empty-state/empty-state.component';
 import { IconComponent } from '../../../../shared/components/ui/icon/icon.component';
+import { ModalComponent } from '../../../../shared/components/ui/modal/modal.component';
 import { PageHeaderComponent } from '../../../../shared/components/ui/page-header/page-header.component';
 import { PaginationComponent } from '../../../../shared/components/ui/pagination/pagination.component';
 import { PanelComponent } from '../../../../shared/components/ui/panel/panel.component';
@@ -35,6 +36,10 @@ interface StudentRow {
   completed: boolean;
   participations: number;
   pendingGrades: number;
+  /** Participaciones vigentes que ya tienen una nota registrada. */
+  gradedParticipations: number;
+  /** Participaciones anuladas (status CANCELLED). */
+  cancelledParticipations: number;
   /** Indice de la fila, para escalonar la entrada en pantalla. */
   position: number;
 }
@@ -54,6 +59,7 @@ const SORT_OPTIONS: { value: StudentSortKey; label: string }[] = [
     EmptyStateComponent,
     FormsModule,
     IconComponent,
+    ModalComponent,
     PageHeaderComponent,
     PaginationComponent,
     PanelComponent,
@@ -79,6 +85,49 @@ export class StudentListComponent {
 
   /** Estudiante cuyo certificado se esta previsualizando en el modal. */
   readonly certificateStudentId = signal<number | null>(null);
+
+  // --- Eliminacion de estudiantes (solo administradores) ---
+  readonly isAdmin = computed(() => this.auth.currentUser()?.role === 'ADMIN');
+  readonly deleteTarget = signal<StudentRow | null>(null);
+  readonly deleteError = signal<string | null>(null);
+  readonly deleting = signal(false);
+
+  /** El backend bloquea si hay cualquier participacion; aqui usamos el total. */
+  canDelete(row: StudentRow): boolean {
+    return this.isAdmin() && row.participations === 0;
+  }
+
+  requestDelete(row: StudentRow): void {
+    if (!this.canDelete(row)) {
+      return;
+    }
+
+    this.deleteError.set(null);
+    this.deleteTarget.set(row);
+  }
+
+  closeDelete(): void {
+    this.deleteTarget.set(null);
+    this.deleteError.set(null);
+  }
+
+  async confirmDelete(): Promise<void> {
+    const target = this.deleteTarget();
+    if (!target) {
+      return;
+    }
+
+    this.deleting.set(true);
+    const result = await this.studentService.delete(target.student.id);
+    this.deleting.set(false);
+
+    if (result.ok) {
+      this.deleteTarget.set(null);
+      return;
+    }
+
+    this.deleteError.set(result.message ?? 'No se pudo eliminar el estudiante.');
+  }
 
   /**
    * Texto realmente buscado.
@@ -189,6 +238,11 @@ export class StudentListComponent {
         completed: summary?.completed ?? false,
         participations: summary?.totalParticipations ?? 0,
         pendingGrades: summary?.pendingGrades ?? 0,
+        gradedParticipations: Math.max(
+          0,
+          (summary?.validParticipations ?? 0) - (summary?.pendingGrades ?? 0),
+        ),
+        cancelledParticipations: summary?.cancelledParticipations ?? 0,
         position,
       };
     });

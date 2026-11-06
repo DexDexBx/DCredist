@@ -249,6 +249,14 @@
                 <app-badge size="sm" color="light">Actual</app-badge>
                 }
               </div>
+              @if (
+                row.participation.status === 'CANCELLED' &&
+                row.participation.descriptionStatus
+              ) {
+              <p class="mt-1 text-xs text-error-600 dark:text-error-400">
+                Motivo: {{ row.participation.descriptionStatus }}
+              </p>
+              }
             </td>
           </tr>
           }
@@ -316,6 +324,13 @@
           <app-badge size="sm" color="light">Actual</app-badge>
           }
         </div>
+        @if (
+          row.participation.status === 'CANCELLED' && row.participation.descriptionStatus
+        ) {
+        <p class="mt-1 text-xs text-error-600 dark:text-error-400">
+          Motivo: {{ row.participation.descriptionStatus }}
+        </p>
+        }
 
         <div class="mt-3">
           <dc-certificate-code

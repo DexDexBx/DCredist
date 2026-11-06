@@ -181,6 +181,10 @@ export class DcreditsApiClient {
     return this.http.patch<ApiStudent>(API_ENDPOINTS.student(id), payload);
   }
 
+  deleteStudent(id: number): Observable<void> {
+    return this.http.delete<void>(API_ENDPOINTS.student(id));
+  }
+
   importStudents(rows: ApiStudentImportRow[]): Observable<ApiStudentImportResult> {
     return this.http.post<ApiStudentImportResult>(API_ENDPOINTS.studentImport, { rows });
   }

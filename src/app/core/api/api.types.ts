@@ -281,6 +281,8 @@ export interface ApiParticipation {
   userCreate?: string;
   /** Usuario que la modifico por ultima vez. */
   userUpdate?: string;
+  /** Motivo o descripcion del estado actual. */
+  descriptionStatus?: string;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -331,6 +333,8 @@ export interface ApiParticipationPayload {
   /** Solo en registros LEGACY: codigo original que se conserva tal cual. */
   verificationCode?: string;
   origin?: ApiParticipationOrigin;
+  /** Motivo del cambio de estado (anulacion o reactivacion). */
+  descriptionStatus?: string;
 }
 
 /** Fila de la carga masiva de participaciones. */

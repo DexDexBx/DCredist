@@ -210,10 +210,26 @@
             <p class="font-medium text-gray-900 dark:text-white/90">
               {{ row.student.lastName }}, {{ row.student.firstName }}
             </p>
+            @if (row.participations === 0) {
+            <p class="text-xs font-medium text-error-600 dark:text-error-500">
+              Sin participaciones
+            </p>
+            } @else {
             @if (row.pendingGrades > 0) {
             <p class="text-xs text-warning-600 dark:text-warning-500">
               {{ row.pendingGrades }} participación(es) sin nota
             </p>
+            }
+            @if (row.gradedParticipations > 0) {
+            <p class="text-xs font-medium text-success-600 dark:text-success-500">
+              {{ row.gradedParticipations }} participación(es) con nota
+            </p>
+            }
+            @if (row.cancelledParticipations > 0) {
+            <p class="text-xs font-medium text-error-600 dark:text-error-500">
+              {{ row.cancelledParticipations }} participación(es) cancelada(s)
+            </p>
+            }
             }
           </td>
           <td class="px-5 py-3 text-gray-600 dark:text-gray-300">
@@ -284,6 +300,22 @@
                 <dc-icon name="pencil" [size]="15" />
                 Editar
               </a>
+              @if (isAdmin()) {
+              <button
+                type="button"
+                (click)="requestDelete(row)"
+                [disabled]="!canDelete(row) || deleting()"
+                [attr.title]="
+                  canDelete(row)
+                    ? 'Eliminar estudiante'
+                    : 'No se puede eliminar: tiene participaciones asociadas'
+                "
+                class="inline-flex items-center gap-1 text-xs font-medium text-gray-500 transition-colors hover:text-error-600 disabled:cursor-not-allowed disabled:opacity-40 dark:text-gray-400 dark:hover:text-error-400"
+              >
+                <dc-icon name="trash" [size]="15" />
+                Eliminar
+              </button>
+              }
               }
             </div>
           </td>
@@ -332,6 +364,30 @@
         </span>
       </div>
 
+      @if (row.participations === 0) {
+      <p class="mt-1.5 text-xs font-medium text-error-600 dark:text-error-500">
+        Sin participaciones
+      </p>
+      } @else if (row.pendingGrades > 0 || row.gradedParticipations > 0) {
+      <div class="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
+        @if (row.pendingGrades > 0) {
+        <span class="text-warning-600 dark:text-warning-500">
+          {{ row.pendingGrades }} sin nota
+        </span>
+        }
+        @if (row.gradedParticipations > 0) {
+        <span class="font-medium text-success-600 dark:text-success-500">
+          {{ row.gradedParticipations }} con nota
+        </span>
+        }
+        @if (row.cancelledParticipations > 0) {
+        <span class="font-medium text-error-600 dark:text-error-500">
+          {{ row.cancelledParticipations }} cancelada(s)
+        </span>
+        }
+      </div>
+      }
+
       <div class="mt-3 flex flex-wrap items-center gap-2">
         @if (row.completed) {
         <button
@@ -361,6 +417,22 @@
           <dc-icon name="pencil" [size]="14" />
           Editar
         </a>
+        @if (isAdmin()) {
+        <button
+          type="button"
+          (click)="requestDelete(row)"
+          [disabled]="!canDelete(row) || deleting()"
+          [attr.title]="
+            canDelete(row)
+              ? 'Eliminar estudiante'
+              : 'No se puede eliminar: tiene participaciones asociadas'
+          "
+          class="inline-flex items-center gap-1 rounded-lg border border-error-200 bg-error-50 px-2.5 py-1 text-xs font-medium text-error-700 transition-colors hover:bg-error-100 disabled:cursor-not-allowed disabled:opacity-40 dark:border-error-500/20 dark:bg-error-500/10 dark:text-error-400 dark:hover:bg-error-500/20"
+        >
+          <dc-icon name="trash" [size]="14" />
+          Eliminar
+        </button>
+        }
         }
       </div>
     </li>
@@ -390,3 +462,59 @@
   [studentId]="certificateStudentId()"
   (close)="closeCertificate()"
 />
+
+<!-- Confirmacion de eliminacion de estudiante -->
+<app-modal
+  [isOpen]="deleteTarget() !== null"
+  (close)="closeDelete()"
+  [showCloseButton]="false"
+  className="flex w-full max-w-md flex-col overflow-hidden rounded-3xl p-0"
+>
+  @if (deleteTarget(); as target) {
+  <div class="px-6 py-6">
+    <div class="flex items-start gap-3">
+      <span
+        class="flex size-10 shrink-0 items-center justify-center rounded-xl bg-error-50 text-error-600 dark:bg-error-500/10 dark:text-error-400"
+      >
+        <dc-icon name="trash" [size]="20" />
+      </span>
+      <div class="min-w-0">
+        <h2 class="text-base font-semibold text-gray-900 dark:text-white/90">
+          Eliminar estudiante
+        </h2>
+        <p class="mt-1 text-sm text-gray-600 dark:text-gray-300">
+          ¿Seguro que deseas eliminar a
+          <span class="font-medium">{{ target.student.lastName }}, {{ target.student.firstName }}</span>
+          ({{ target.student.universityCode }})? Esta acción es definitiva: la data no se podrá
+          recuperar.
+        </p>
+        @if (deleteError()) {
+        <p class="mt-2 text-sm font-medium text-error-600 dark:text-error-400">
+          {{ deleteError() }}
+        </p>
+        }
+      </div>
+    </div>
+
+    <div class="mt-5 flex flex-col gap-2 sm:flex-row sm:justify-end">
+      <button
+        type="button"
+        (click)="closeDelete()"
+        [disabled]="deleting()"
+        class="inline-flex h-10 items-center justify-center rounded-xl border border-gray-300 px-4 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-white/[0.05]"
+      >
+        Cancelar
+      </button>
+      <button
+        type="button"
+        (click)="confirmDelete()"
+        [disabled]="deleting()"
+        class="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-error-600 px-4 text-sm font-semibold text-white transition-colors hover:bg-error-700 disabled:cursor-not-allowed disabled:opacity-50"
+      >
+        <dc-icon name="trash" [size]="16" />
+        {{ deleting() ? 'Eliminando…' : 'Eliminar definitivamente' }}
+      </button>
+    </div>
+  </div>
+  }
+</app-modal>

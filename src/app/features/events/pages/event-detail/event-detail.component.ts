@@ -72,7 +72,15 @@ export class EventDetailComponent {
   readonly institutionalColumns = INSTITUTIONAL_EXPORT_COLUMNS;
 
   readonly lastExport = signal<ExportResult | null>(null);
-  readonly cancelledId = signal<number | null>(null);
+
+  // --- Anular / reactivar con motivo ---
+  readonly statusModal = signal<{
+    row: ParticipationContext;
+    action: 'CANCEL' | 'REACTIVATE';
+  } | null>(null);
+  readonly statusReason = signal('');
+  readonly statusError = signal<string | null>(null);
+  readonly statusSaving = signal(false);
 
   // --- Eliminacion definitiva de participaciones (solo administradores) ---
   readonly isAdmin = computed(() => this.auth.currentUser()?.role === 'ADMIN');
@@ -254,15 +262,48 @@ export class EventDetailComponent {
     this.lastExport.set(this.exportService.downloadEventParticipants(this.eventIdNumber()));
   }
 
-  /** Anula una participacion: deja de sumar creditos, pero conserva el codigo. */
-  cancelParticipation(participationId: number): void {
-    void this.participationService.cancel(participationId);
-    this.cancelledId.set(participationId);
+  /** Abre el modal de anulacion o reactivacion con su motivo. */
+  openStatusModal(row: ParticipationContext, action: 'CANCEL' | 'REACTIVATE'): void {
+    this.statusReason.set('');
+    this.statusError.set(null);
+    this.statusModal.set({ row, action });
   }
 
-  reactivateParticipation(participationId: number): void {
-    void this.participationService.update(participationId, { status: 'VALID' });
-    this.cancelledId.set(null);
+  closeStatusModal(): void {
+    this.statusModal.set(null);
+    this.statusReason.set('');
+    this.statusError.set(null);
+  }
+
+  async confirmStatusChange(): Promise<void> {
+    const modal = this.statusModal();
+    if (!modal) {
+      return;
+    }
+
+    const reason = this.statusReason().trim();
+    if (!reason) {
+      this.statusError.set(
+        modal.action === 'CANCEL'
+          ? 'Escribe el motivo de la anulación.'
+          : 'Escribe el motivo de la reactivación.'
+      );
+      return;
+    }
+
+    this.statusSaving.set(true);
+    const result = await this.participationService.update(modal.row.participation.id, {
+      status: modal.action === 'CANCEL' ? 'CANCELLED' : 'VALID',
+      descriptionStatus: reason,
+    });
+    this.statusSaving.set(false);
+
+    if (result) {
+      this.closeStatusModal();
+      return;
+    }
+
+    this.statusError.set('No se pudo actualizar la participación. Intenta nuevamente.');
   }
 
   requestDeleteParticipation(row: ParticipationContext): void {

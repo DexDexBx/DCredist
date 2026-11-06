@@ -11,6 +11,7 @@ import {
   CatalogStatus,
   ParticipationStatus,
   StudentStatus,
+  UserRole,
 } from '../../generated/prisma/client';
 import type { Actor } from '../../common/actor/actor.types';
 import { isGeneralSchool } from '../../common/actor/actor.guard';
@@ -324,6 +325,31 @@ export class StudentsService {
    * Los errores se devuelven juntos y con el numero de fila, para que la
    * institucion corrija el archivo de una sola vez.
    */
+  /**
+   * Elimina definitivamente un estudiante. Solo administradores y solo si no
+   * tiene ninguna participacion (incluidas las anuladas).
+   */
+  async remove(id: number, actor: Actor): Promise<{ deleted: boolean }> {
+    if (actor.role !== UserRole.ADMIN) {
+      throw new ForbiddenException('Solo un administrador puede eliminar estudiantes.');
+    }
+
+    const student = await this.findOne(id, actor);
+
+    const participations = await this.prisma.participation.count({
+      where: { studentId: id },
+    });
+
+    if (participations > 0) {
+      throw new ConflictException(
+        `No se puede eliminar al estudiante ${student.universityCode}: tiene ${participations} participación(es) asociada(s).`
+      );
+    }
+
+    await this.prisma.student.delete({ where: { id } });
+    return { deleted: true };
+  }
+
   async importStudents(
     dto: ImportStudentsDto,
     actor: Actor

@@ -321,6 +321,10 @@ model Participation {
   userCreate String @default("Usuario 1")
   userUpdate String @default("Usuario 1")
 
+  /// Motivo o descripcion del estado actual. Al anular o reactivar, el front
+  /// envia el motivo y se guarda aqui. Para un registro vigente es "valid".
+  descriptionStatus String @default("valid") @map("description_status") @db.VarChar(500)
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

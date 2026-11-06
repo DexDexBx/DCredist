@@ -74,6 +74,9 @@ export interface Participation {
   /** Usuario que la modifico por ultima vez. */
   userUpdate?: string;
 
+  /** Motivo o descripcion del estado actual (anulacion/reactivacion). */
+  descriptionStatus?: string;
+
   /**
    * Origen de la carga que registro esta participacion.
    *
@@ -111,6 +114,8 @@ export interface ParticipationEdit {
   credits?: number;
   grade?: string;
   status?: ParticipationStatus;
+  /** Motivo del cambio de estado; obligatorio al anular o reactivar. */
+  descriptionStatus?: string;
 }
 
 /** Participacion con su evento y su estudiante resueltos, para vistas y exportes. */
