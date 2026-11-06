@@ -36,6 +36,10 @@ async function main(): Promise<void> {
     });
   }
 
+  // El modulo de certificados ya no forma parte de DCredits V1. Se elimina de
+  // las bases antiguas; sus permisos caen en cascada.
+  await prisma.module.deleteMany({ where: { name: 'certificates' } });
+
   const modules = await prisma.module.findMany({
     select: { id: true, name: true },
     orderBy: { name: 'asc' },

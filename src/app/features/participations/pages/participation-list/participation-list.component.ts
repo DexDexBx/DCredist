@@ -28,6 +28,7 @@ import { EmptyStateComponent } from '../../../../shared/components/ui/empty-stat
 import { DcComboboxComponent } from '../../../../shared/components/form/dc-combobox/dc-combobox.component';
 import { DcSelectOption } from '../../../../shared/components/form/dc-select/dc-select.component';
 import { IconComponent } from '../../../../shared/components/ui/icon/icon.component';
+import { ModalComponent } from '../../../../shared/components/ui/modal/modal.component';
 import { PageHeaderComponent } from '../../../../shared/components/ui/page-header/page-header.component';
 import { PaginationComponent } from '../../../../shared/components/ui/pagination/pagination.component';
 import { PanelComponent } from '../../../../shared/components/ui/panel/panel.component';
@@ -53,6 +54,7 @@ import { AuthService } from '../../../../core/services/auth.service';
     EmptyStateComponent,
     FormsModule,
     IconComponent,
+    ModalComponent,
     PageHeaderComponent,
     PaginationComponent,
     PanelComponent,
@@ -112,12 +114,16 @@ export class ParticipationListComponent {
    * escribe y se filtra por codigo, nombre u organizador.
    */
   readonly eventOptions = computed<DcSelectOption[]>(() =>
-    this.events().map((event) => ({
-      value: String(event.id),
-      label: event.code ? `${event.code} · ${event.name}` : event.name,
-      description: [event.organizer, event.modality].filter(Boolean).join(' · '),
-      search: `${event.code ?? ''} ${event.name} ${event.organizer ?? ''}`,
-    }))
+    [...this.events()]
+      // El filtro sigue el orden natural del registro (id ascendente), no el
+      // orden en que llegaron los eventos desde el API.
+      .sort((a, b) => a.id - b.id)
+      .map((event) => ({
+        value: String(event.id),
+        label: event.code ? `${event.code} · ${event.name}` : event.name,
+        description: [event.organizer, event.modality].filter(Boolean).join(' · '),
+        search: `${event.code ?? ''} ${event.name} ${event.organizer ?? ''}`,
+      }))
   );
 
   readonly query = computed<ParticipationQuery>(() => {
@@ -151,6 +157,64 @@ export class ParticipationListComponent {
   );
 
   readonly hasResults = computed(() => this.pageData().total > 0);
+
+  // --- Edicion de nota (solo el campo grade) ---
+  /** Participacion cuyo modal de nota esta abierto. */
+  readonly gradeTarget = signal<ParticipationContext | null>(null);
+  readonly gradeInput = signal('');
+  readonly gradeError = signal<string | null>(null);
+  readonly gradeSaving = signal(false);
+
+  openGradeModal(row: ParticipationContext): void {
+    const current = row.participation.grade;
+    this.gradeInput.set(current === 'sin nota' ? '' : current);
+    this.gradeError.set(null);
+    this.gradeTarget.set(row);
+  }
+
+  closeGradeModal(): void {
+    this.gradeTarget.set(null);
+    this.gradeInput.set('');
+    this.gradeError.set(null);
+  }
+
+  onGradeInput(value: string): void {
+    this.gradeInput.set(value);
+    this.gradeError.set(null);
+  }
+
+  async saveGrade(): Promise<void> {
+    const target = this.gradeTarget();
+    if (!target) {
+      return;
+    }
+
+    const raw = this.gradeInput().trim().replace(',', '.');
+    const numeric = Number(raw);
+
+    if (raw === '') {
+      this.gradeError.set('Ingresa una nota entre 0 y 20.');
+      return;
+    }
+
+    if (!Number.isFinite(numeric) || numeric < 0 || numeric > 20) {
+      this.gradeError.set('La nota debe ser un número entre 0 y 20.');
+      return;
+    }
+
+    this.gradeSaving.set(true);
+    const updated = await this.participationService.update(target.participation.id, {
+      grade: String(numeric),
+    });
+    this.gradeSaving.set(false);
+
+    if (updated) {
+      this.closeGradeModal();
+      return;
+    }
+
+    this.gradeError.set('No se pudo guardar la nota. Intenta nuevamente.');
+  }
 
   /** Los totales del historial son de seis cifras: necesitan separador de miles. */
   formatCount(value: number): string {

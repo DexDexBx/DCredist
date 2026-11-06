@@ -146,6 +146,7 @@
           <th scope="col" class="px-5 py-3 text-right">Nota</th>
           <th scope="col" class="px-5 py-3">C&#243;digo del certificado</th>
           <th scope="col" class="px-5 py-3">Estado</th>
+          <th scope="col" class="px-5 py-3"><span class="sr-only">Acciones</span></th>
         </tr>
       </thead>
 
@@ -203,6 +204,20 @@
               }
             </div>
           </td>
+          <td class="px-5 py-3 text-right">
+            @if (auth.can('participations', 'MANAGE')) {
+            <button
+              type="button"
+              (click)="openGradeModal(row)"
+              class="inline-flex items-center gap-1 text-xs font-medium text-gray-500 transition-colors hover:text-brand-600 dark:text-gray-400 dark:hover:text-brand-300"
+              aria-label="Editar nota"
+              title="Editar nota"
+            >
+              <dc-icon name="pencil" [size]="15" />
+              Editar
+            </button>
+            }
+          </td>
         </tr>
         }
       </tbody>
@@ -257,6 +272,17 @@
               [historical]="row.participation.origin === 'LEGACY'"
             />
       </div>
+
+      @if (auth.can('participations', 'MANAGE')) {
+      <button
+        type="button"
+        (click)="openGradeModal(row)"
+        class="mt-3 inline-flex items-center gap-1 rounded-lg border border-gray-200 px-2.5 py-1 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-100 dark:border-gray-800 dark:text-gray-300 dark:hover:bg-white/5"
+      >
+        <dc-icon name="pencil" [size]="14" />
+        Editar nota
+      </button>
+      }
     </li>
     }
   </ul>
@@ -281,3 +307,73 @@
   />
   }
 </dc-panel>
+
+<!-- Edicion de la nota de una participacion -->
+<app-modal
+  [isOpen]="gradeTarget() !== null"
+  (close)="closeGradeModal()"
+  [showCloseButton]="false"
+  className="flex w-full max-w-md flex-col overflow-hidden rounded-3xl p-0"
+>
+  @if (gradeTarget(); as target) {
+  <div class="px-6 py-6">
+    <div class="flex items-start gap-3">
+      <span
+        class="flex size-10 shrink-0 items-center justify-center rounded-xl bg-brand-50 text-brand-600 dark:bg-brand-500/10 dark:text-brand-300"
+      >
+        <dc-icon name="pencil" [size]="20" />
+      </span>
+      <div class="min-w-0">
+        <h2 class="text-base font-semibold text-gray-900 dark:text-white/90">Editar nota</h2>
+        <p class="mt-1 text-sm text-gray-600 dark:text-gray-300">
+          {{ studentName(target) }} · {{ eventName(target) }}
+        </p>
+        <p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
+          Solo se modificará la nota. La participación conserva su código y sus créditos.
+        </p>
+      </div>
+    </div>
+
+    <label class="mt-4 flex flex-col gap-2">
+      <span class="text-sm font-medium text-gray-700 dark:text-white/90">Nota (0 - 20)</span>
+      <input
+        type="number"
+        min="0"
+        max="20"
+        step="0.01"
+        inputmode="decimal"
+        [value]="gradeInput()"
+        (input)="onGradeInput($any($event.target).value)"
+        placeholder="Ej. 18.5"
+        class="h-11 w-full rounded-xl border border-gray-300 bg-white px-3.5 text-sm text-gray-900 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-600 focus:ring-3 focus:ring-brand-500/15 focus:outline-none dark:border-gray-700 dark:bg-white/[0.03] dark:text-white/90"
+      />
+    </label>
+
+    @if (gradeError()) {
+    <p class="mt-2 text-sm font-medium text-error-600 dark:text-error-400">
+      {{ gradeError() }}
+    </p>
+    }
+
+    <div class="mt-5 flex flex-col gap-2 sm:flex-row sm:justify-end">
+      <button
+        type="button"
+        (click)="closeGradeModal()"
+        [disabled]="gradeSaving()"
+        class="inline-flex h-10 items-center justify-center rounded-xl border border-gray-300 px-4 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-white/[0.05]"
+      >
+        Cancelar
+      </button>
+      <button
+        type="button"
+        (click)="saveGrade()"
+        [disabled]="gradeSaving()"
+        class="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-brand-600 px-4 text-sm font-semibold text-white transition-colors hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-50"
+      >
+        <dc-icon name="check" [size]="16" />
+        {{ gradeSaving() ? 'Guardando…' : 'Guardar nota' }}
+      </button>
+    </div>
+  </div>
+  }
+</app-modal>
