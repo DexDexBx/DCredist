@@ -40,8 +40,8 @@
 </div>
 }
 
-<form [formGroup]="form" (ngSubmit)="onSubmit()" class="grid gap-6 xl:grid-cols-3">
-  <dc-panel class="xl:col-span-2" title="Registro manual" subtitle="Datos permanentes del estudiante.">
+<form [formGroup]="form" (ngSubmit)="onSubmit()" class="grid min-w-0 max-w-full gap-6 overflow-x-hidden xl:grid-cols-3">
+  <dc-panel class="min-w-0 xl:col-span-2" title="Registro manual" subtitle="Datos permanentes del estudiante.">
     <div class="grid gap-4 sm:grid-cols-2">
       <div>
         <dc-input
@@ -135,6 +135,7 @@
   </dc-panel>
 
   <dc-panel
+    class="min-w-0 overflow-hidden"
     title="Importación incremental"
     subtitle="Agrega o completa estudiantes sin reemplazar el padrón."
   >
@@ -211,11 +212,11 @@
 
       @if (importFileName(); as fileName) {
       <div
-        class="flex items-center justify-between gap-3 rounded-xl border border-success-200 bg-success-50 px-3.5 py-2.5 dark:border-success-500/20 dark:bg-success-500/10"
+        class="flex min-w-0 max-w-full items-center justify-between gap-3 rounded-xl border border-success-200 bg-success-50 px-3.5 py-2.5 dark:border-success-500/20 dark:bg-success-500/10"
       >
-        <span class="flex min-w-0 items-center gap-2 text-sm font-medium text-success-700 dark:text-success-300">
-          <dc-icon name="document" [size]="16" />
-          <span class="truncate">{{ fileName }}</span>
+        <span class="flex min-w-0 items-start gap-2 text-sm font-medium text-success-700 dark:text-success-300">
+          <dc-icon name="document" [size]="16" class="mt-0.5 shrink-0" />
+          <span class="min-w-0 flex-1 break-all">{{ fileName }}</span>
         </span>
         <button
           type="button"
@@ -245,7 +246,7 @@
       [value]="importText()"
       (input)="importText.set($any($event.target).value); clearImportFile()"
       placeholder="2219001;RAMIREZ;CAMILA;INGENIERIA DE SISTEMAS;TRUJILLO"
-      class="mt-2 w-full rounded-xl border border-gray-300 bg-white px-3.5 py-2.5 font-mono text-xs text-gray-900 placeholder:text-gray-400 focus:border-brand-600 focus:ring-3 focus:ring-brand-500/15 focus:outline-none dark:border-gray-700 dark:bg-white/[0.03] dark:text-white/90"
+      class="mt-2 w-full max-w-full rounded-xl border border-gray-300 bg-white px-3.5 py-2.5 font-mono text-xs text-gray-900 placeholder:text-gray-400 focus:border-brand-600 focus:ring-3 focus:ring-brand-500/15 focus:outline-none dark:border-gray-700 dark:bg-white/[0.03] dark:text-white/90"
     ></textarea>
 
     <div class="mt-4 flex flex-wrap items-center gap-2">
@@ -273,23 +274,23 @@
 
     @if (importSummary(); as summary) {
     <div
-      class="mt-5 rounded-xl border p-4 text-sm"
+      class="mt-5 min-w-0 max-w-full overflow-hidden rounded-xl border p-4 text-sm [overflow-wrap:anywhere]"
       [class]="
         summary.message
           ? 'border-error-200 bg-error-50 dark:border-error-500/30 dark:bg-error-500/10'
           : 'border-gray-200 bg-gray-50 dark:border-gray-800 dark:bg-white/[0.03]'
       "
     >
-      <p class="font-medium text-gray-900 dark:text-white/90">
+      <p class="font-medium break-words text-gray-900 dark:text-white/90">
         {{ summary.message ? 'La importación no se aplicó' : 'Resultado de la importación' }}
       </p>
 
       @if (summary.message) {
-      <p class="mt-1 text-error-700 dark:text-error-400">{{ summary.message }}</p>
+      <p class="mt-1 break-words text-error-700 dark:text-error-400">{{ summary.message }}</p>
       @if (summary.issues?.length) {
-      <ul class="mt-2 max-h-64 space-y-1 overflow-y-auto text-error-700 dark:text-error-400">
+      <ul class="mt-2 max-h-64 max-w-full space-y-1 overflow-x-hidden overflow-y-auto text-error-700 dark:text-error-400">
         @for (issue of importIssuesPreview(); track issue.row + issue.message) {
-        <li>
+        <li class="break-words">
           <span class="font-medium">Fila {{ issue.row }}</span>
           @if (issue.universityCode) {
           <span class="font-mono">({{ issue.universityCode }})</span>
@@ -305,7 +306,7 @@
       }
       }
       } @else {
-      <ul class="mt-2 space-y-1 text-gray-600 dark:text-gray-300">
+      <ul class="mt-2 max-w-full space-y-1 break-words text-gray-600 dark:text-gray-300">
         <li>{{ summary.total }} fila(s) leída(s)</li>
         <li>{{ summary.created }} estudiante(s) nuevo(s)</li>
         <li>{{ summary.updated }} estudiante(s) ya registrado(s) en el padrón</li>
@@ -314,8 +315,24 @@
         }
         @if (summary.invalid.length) {
         <li class="text-error-600 dark:text-error-500">
-          {{ summary.invalid.length }} fila(s) inválida(s): código no numérico, nombres con
-          símbolos o escuela/sede faltante → {{ summary.invalid.join(', ') }}
+          <p class="break-words">
+            {{ summary.invalid.length }} fila(s) inválida(s): código no numérico, nombres con
+            símbolos o escuela/sede faltante.
+          </p>
+          <div
+            class="mt-1.5 max-h-32 max-w-full overflow-x-hidden overflow-y-auto rounded-lg border border-error-200 bg-white/60 px-2.5 py-2 dark:border-error-500/20 dark:bg-error-500/5"
+          >
+            <ul class="space-y-0.5 font-mono text-xs">
+              @for (code of importInvalidPreview(); track $index) {
+              <li class="break-all">{{ code }}</li>
+              }
+            </ul>
+          </div>
+          @if (importInvalidRemaining() > 0) {
+          <p class="mt-1 text-xs font-medium break-words">
+            y {{ importInvalidRemaining() }} código(s) más.
+          </p>
+          }
         </li>
         }
       </ul>

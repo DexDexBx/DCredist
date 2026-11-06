@@ -76,6 +76,15 @@ export class StudentNewComponent {
   readonly importIssuesPreview = computed(() =>
     (this.importSummary()?.issues ?? []).slice(0, 200)
   );
+
+  /** Codigos invalidos visibles: evita que un archivo enorme rompa el ancho. */
+  readonly importInvalidPreview = computed(() =>
+    (this.importSummary()?.invalid ?? []).slice(0, 50)
+  );
+  readonly importInvalidRemaining = computed(
+    () => Math.max(0, (this.importSummary()?.invalid.length ?? 0) - this.importInvalidPreview().length)
+  );
+
   readonly importing = signal(false);
 
   /** Las escuelas y sedes salen del catalogo administrable. */
