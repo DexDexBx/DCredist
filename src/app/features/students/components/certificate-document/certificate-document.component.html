@@ -162,22 +162,11 @@
                 <p class="text-[10px] font-semibold tracking-[0.2em] text-gray-500 uppercase">
                   Validación
                 </p>
-                <div class="mt-1 flex flex-wrap items-center gap-2">
-                  <span class="font-mono text-sm font-semibold tracking-wide break-all text-gray-800 select-all">
+                <div class="mt-1">
+                  <span class="font-mono text-sm font-bold tracking-wide break-all text-gray-900 select-all">
                     {{ validationCode() }}
                   </span>
-                  <button
-                    type="button"
-                    (click)="copyValidationCode()"
-                    class="dc-no-print inline-flex items-center gap-1 rounded border border-gray-300 px-1.5 py-0.5 text-[10px] text-gray-500 transition-colors hover:bg-white"
-                  >
-                    <dc-icon name="copy" [size]="11" />
-                    {{ copied() ? 'Copiado' : 'Copiar' }}
-                  </button>
                 </div>
-                <p class="mt-1.5 font-mono text-[10px] break-all text-gray-400">
-                  {{ verificationPath() }}
-                </p>
               </div>
               <div class="text-left sm:text-right">
                 <p class="text-[10px] tracking-[0.2em] text-gray-400 uppercase">Emitida el</p>

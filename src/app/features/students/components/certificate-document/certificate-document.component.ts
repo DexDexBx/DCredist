@@ -68,8 +68,6 @@ export class CertificateDocumentComponent {
 
   readonly requiredCredits = REQUIRED_CREDITS;
 
-  readonly copied = signal(false);
-
   readonly student = computed<Student | undefined>(() =>
     this.studentService.findById(this.studentId())
   );
@@ -104,11 +102,6 @@ export class CertificateDocumentComponent {
     return student ? buildCertificateValidationCode(student) : '';
   });
 
-  /** Ruta de consulta con la que se valida el documento. */
-  readonly verificationPath = computed(
-    () => `/verify?tipo=constancia&codigo=${this.validationCode()}`
-  );
-
   /** Fecha de emision: la persistida en la constancia. */
   readonly issuedOn = computed(() => {
     const stored = this.constancy();
@@ -119,14 +112,4 @@ export class CertificateDocumentComponent {
     return eventDateRangeLabel(event);
   }
 
-  async copyValidationCode(): Promise<void> {
-    try {
-      await navigator.clipboard.writeText(this.validationCode());
-    } catch {
-      return;
-    }
-
-    this.copied.set(true);
-    window.setTimeout(() => this.copied.set(false), 2000);
-  }
 }

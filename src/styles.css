@@ -937,3 +937,12 @@ El padron historico hace que la interfaz espere: mientras la consulta corre,
     animation: none;
   }
 }
+/*
+ * La constancia siempre se lee sobre fondo blanco, incluso si la aplicación
+ * está en modo oscuro. Sin esta regla, los códigos internos heredaban el
+ * `dark:text-gray-100` de su componente y quedaban casi invisibles en la
+ * previsualización normal (aunque en impresión se vieran bien).
+ */
+.dc-certificate-print dc-certificate-code span {
+  color: #101828 !important;
+}

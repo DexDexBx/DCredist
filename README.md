@@ -1,34 +1,37 @@
 # DCredits
 
-DCredits es un sistema web para gestionar la participacion de personas en eventos
-academicos y generar un codigo unico de participacion asociado a cada registro.
+DCredits es una plataforma web para gestionar eventos académicos, estudiantes,
+participaciones y créditos, además de emitir y verificar constancias de créditos.
+
+El sistema está compuesto por un frontend Angular y un API NestJS con PostgreSQL
+y Prisma.
 
 ## Estado actual
 
-El frontend consume el API NestJS de `api/` cuando esta disponible: al arrancar
-hidrata eventos, estudiantes y participaciones, y las escrituras (alta de eventos
-y estudiantes, estado de un estudiante, registro/anulacion de participaciones e
-importaciones) se envian al backend. Si el API no responde, la aplicacion arranca
-igual con datos de demostracion y lo indica en la cabecera con la etiqueta
-**Datos de demostración**.
+El frontend consume el API real de `api/`. La información de estudiantes,
+eventos, participaciones, usuarios y catálogos vive en PostgreSQL.
 
-Funcionalidades disponibles en la interfaz:
+Funcionalidades principales:
 
-- Dashboard con estadisticas de participacion y creditos.
-- Eventos academicos: listado con filtros, alta (actual o historico), detalle,
-  calendario e importacion masiva (actual e historica con plantilla Excel).
-- Calendario de eventos con vistas diaria, semanal, mensual y anual.
-- Padron de estudiantes: listado, alta, ficha, creditos e importacion masiva.
-- Registro de participaciones (una por evento y estudiante) e importacion de
-  codigos universitarios.
-- Registro de participaciones historicas: conserva el codigo de verificacion
-  original de la data antigua, tanto en el alta manual como en la importacion
-  masiva (la plantilla incluye la columna del codigo).
-- Codigo unico de participacion (`DC-AAAA-XXXXXX`) y su pagina de verificacion.
-- Exportacion Excel por evento en formato institucional.
-- Perfiles de acceso de demostracion con navegacion y rutas restringidas por rol.
+- **Portal público de bienvenida** con acceso para estudiantes y administrativos.
+- **Portal del estudiante** para validar su código universitario y escuela,
+  consultar créditos, historial de participaciones y constancia.
+- **Dashboard** con estadísticas de participación y créditos.
+- **Eventos académicos**: listado, filtros por origen, detalle, alta, edición,
+  calendario e importación masiva actual/histórica.
+- **Estudiantes**: padrón, ficha, créditos, constancia, historial, importación
+  masiva y eliminación controlada.
+- **Participaciones**: registro actual e histórico, importación masiva, edición
+  de nota, anulación y reactivación con motivo.
+- **Constancias de créditos** persistidas en base de datos, con código único e
+  inmutable y estado activo/inactivo según los créditos vigentes.
+- **Verificación** de códigos de participación y de constancias.
+- **Usuarios, roles y permisos** por módulo.
+- **Catálogos** de escuelas profesionales, sedes, organizadores y tipos de evento.
 
 ## Stack
+
+### Frontend
 
 - Angular 22
 - TypeScript
@@ -37,124 +40,325 @@ Funcionalidades disponibles en la interfaz:
 - Tailwind CSS v4
 - FullCalendar v7
 
-## Scripts
+### Backend
 
-```bash
-npm install     # instalar dependencias
-npm start       # servidor de desarrollo
-npm run build   # build de produccion
-npm run watch   # build en modo watch
+- NestJS 11
+- Prisma 7
+- PostgreSQL
+- Swagger en `/docs`
+
+## Requisitos
+
+- Node.js compatible con Angular 22
+- PostgreSQL
+- npm
+
+## Estructura
+
+```text
+.
+├── src/app/                 # Frontend Angular
+│   ├── core/                # API, guards, interceptores y servicios singleton
+│   ├── layout/              # Layout administrativo y de autenticación
+│   ├── features/
+│   │   ├── auth/
+│   │   ├── catalogs/
+│   │   ├── dashboard/
+│   │   ├── events/
+│   │   ├── participations/
+│   │   ├── student-portal/  # Consulta pública de créditos
+│   │   ├── students/
+│   │   ├── users/
+│   │   ├── verification/
+│   │   └── welcome/         # Página pública de bienvenida
+│   ├── models/
+│   └── shared/
+│
+└── api/                     # Backend NestJS
+    ├── prisma/
+    │   ├── schema.prisma
+    │   ├── migrations/
+    │   ├── seed-demo.ts
+    │   └── demo-data.ts
+    └── src/
+        ├── common/
+        └── modules/
 ```
 
-## Ejecutar con el API
+## Puesta en marcha local
 
-El backend NestJS + Prisma + PostgreSQL vive en `api/`. Desde otra terminal:
+### 1. Instalar dependencias
+
+```bash
+npm install
+cd api
+npm install
+```
+
+### 2. Configurar la base de datos
+
+Copia `api/.env.example` como `api/.env` y ajusta:
+
+```env
+DATABASE_URL="postgresql://USUARIO:CONTRASEÑA@localhost:5432/dcredits?schema=public"
+PORT=3000
+```
+
+### 3. Aplicar migraciones y generar el cliente Prisma
 
 ```bash
 cd api
-npm install
-npm run prisma:deploy     # aplica las migraciones
-npm run seed:demo         # carga los datos de demostracion
-npm start                 # API en http://localhost:3000 (Swagger en /docs)
-npx prisma migrate reset  # Borra la BD y crea las migraciones de 0
+npm run prisma:deploy
+npm run prisma:generate
 ```
 
-El frontend usa `proxy.conf.json` para enviar `/api/*` a `http://localhost:3000`,
-asi que no hay que configurar ninguna URL. Si el API no esta corriendo, el
-frontend arranca igual con datos de demostracion.
+### 4. Cargar datos de demostración
 
-## Rutas
-
-| Ruta                        | Descripcion                    |
-| --------------------------- | ------------------------------ |
-| `/`                         | Dashboard                      |
-| `/events`                   | Listado de eventos             |
-| `/events/new`               | Nuevo evento                   |
-| `/events/calendar`          | Calendario de eventos          |
-| `/events/:id`               | Detalle del evento             |
-| `/events/:id/edit`          | Editar evento                  |
-| `/students`                 | Padron de estudiantes           |
-| `/students/new`             | Nuevo estudiante               |
-| `/students/:id`             | Ficha del estudiante           |
-| `/students/:id/edit`        | Editar estudiante              |
-| `/participations`           | Participaciones registradas    |
-| `/participations/register`  | Registrar participacion        |
-| `/verify`                   | Verificar codigo de participacion |
-| `/users`                    | Usuarios y perfiles (solo admin)  |
-| `/catalogs/:kind`           | Catálogos: organizadores, escuelas y sedes |
-| `/signin`                   | Acceso de demostracion          |
-| `/signup`                   | Crear cuenta (no habilitado)    |
-| `/**`                       | Pagina no encontrada           |
-
-## Arquitectura
-
-```
-src/app/
-├── core/
-│   ├── api/          # contrato de endpoints y configuracion HTTP
-│   ├── interceptors/ # interceptores de HttpClient
-│   └── services/     # servicios singleton y acceso a datos
-│
-├── layout/           # app-layout, header, sidebar, backdrop, auth-page-layout
-│
-├── features/
-│   ├── auth/         # pantallas y formularios de acceso (prototipo)
-│   ├── catalogs/     # organizadores, escuelas profesionales y sedes
-│   ├── dashboard/    # resumen y estadisticas
-│   ├── errors/       # pagina no encontrada
-│   ├── events/       # eventos academicos y calendario
-│   ├── participations/ # registro y listado de participaciones
-│   ├── students/     # padron de estudiantes
-│   ├── users/        # usuarios, perfiles y permisos
-│   └── verification/ # consulta del codigo de participacion
-│
-├── models/           # modelos de dominio
-└── shared/
-    ├── components/   # UI reutilizable y componentes de formulario
-    ├── constants/    # mapeos de estado a presentacion
-    └── utils/        # formato de fechas, texto y CSV
+```bash
+npm run seed:demo
 ```
 
-## Alcance de V1
+Esto crea catálogos, roles, permisos y una cuenta administradora de desarrollo:
 
-- Eventos Academicos
-- Registro de eventos
-- Gestion de participantes
-- Registro de participacion
-- Codigo unico de participacion
-- Consulta de participacion mediante ese codigo
-- Calendario de eventos
-- Informacion y estadisticas basicas de participacion
+```text
+Correo: admin@dcredits.com
+Contraseña: admin123
+```
 
-La V1 no incluye certificados PDF, firma digital, pagos, facturacion,
-ecommerce, gestion academica completa, aulas virtuales, cursos, LMS, RRHH
-ni proyectos institucionales.
+> No usar estas credenciales en producción.
 
-## Datos y autenticacion
+### 5. Levantar el API
 
-Eventos, estudiantes y participaciones provienen del API cuando este responde; en
-caso contrario se usan datos de demostracion. La **autenticacion sigue siendo de
-demostracion**: la sesion se guarda en `localStorage`, las cuentas viven en
-`core/services/mock-data/users.mock.ts` y no existe backend de usuarios. Rutas,
-menú y botones se filtran por permisos: cada usuario tiene un nivel por módulo
-(sin acceso, solo ver o gestionar).
+```bash
+npm start
+```
 
-Cuentas de demostracion:
+- API: `http://localhost:3000/api`
+- Swagger: `http://localhost:3000/docs`
 
-| Perfil                  | Correo                      | Contrasena     |
-| ----------------------- | --------------------------- | -------------- |
-| Administrador           | admin@dcredits.com         | admin123       |
+### 6. Levantar el frontend
 
-El modulo `/users` muestra un directorio mock de ~100 usuarios (busqueda por
-nombre o correo, filtro por perfil y estado, y paginacion) para que la pantalla se
-vea con el volumen real que tendra. Solo los 4 perfiles de la tabla pueden iniciar
-sesion; los demas son registros sin credencial. El Administrador puede revisar los
-perfiles y ajustar los accesos por usuario y por modulo; esos ajustes se guardan en
-`localStorage`. Los catalogos (`/catalogs/organizers`, `/catalogs/schools`,
-`/catalogs/headquarters`) alimentan los formularios de eventos y estudiantes y
-tambien son datos mock en memoria: al recargar vuelven las semillas.
+Desde la raíz del proyecto:
+
+```bash
+npm start
+```
+
+El frontend usa `proxy.conf.json` para enviar `/api/*` a `http://localhost:3000`.
+
+## Migraciones y producción
+
+El proyecto usa **una sola migración base**:
+
+```text
+api/prisma/migrations/20261107140000_init_dcredits/migration.sql
+```
+
+Incluye el esquema completo y los catálogos iniciales:
+
+- Módulos.
+- Tipos de evento, incluido `Unspecified`.
+- Roles: `ADMIN`, `COORDINATOR`, `ORGANIZER`, `OPERATOR`, `VIEWER`.
+
+### Despliegue en una base nueva
+
+```bash
+cd api
+npm ci
+npx prisma migrate deploy
+npx prisma generate
+npm run build
+npm run start:prod
+```
+
+Reglas:
+
+- Usar `prisma migrate deploy`; nunca `prisma migrate dev` en producción.
+- No usar `prisma migrate reset` en producción.
+- La migración base crea catálogos, pero **no crea el usuario administrador ni la
+  escuela `general`**. Eso debe hacerlo el proceso de aprovisionamiento o un seed
+  de producción.
+
+### Base de desarrollo existente
+
+Si ya tienes una base de desarrollo con historial de migraciones anterior, no
+ejecutes `migrate deploy` directamente: la línea base intentaría crear tablas que
+ya existen. Puedes:
+
+- reiniciar la base con `npm run prisma:reset`, o
+- conservar los datos adoptando la línea base en el historial de migraciones.
+
+## Rutas del frontend
+
+| Ruta | Descripción |
+| --- | --- |
+| `/welcome` | Bienvenida pública |
+| `/student` | Portal público del estudiante |
+| `/` | Dashboard administrativo |
+| `/signin` | Inicio de sesión |
+| `/no-access` | Cuenta sin módulos habilitados |
+| `/events` | Listado de eventos |
+| `/events/new` | Nuevo evento |
+| `/events/calendar` | Calendario de eventos |
+| `/events/:id` | Detalle del evento |
+| `/events/:id/edit` | Editar evento |
+| `/students` | Padrón de estudiantes |
+| `/students/new` | Nuevo estudiante |
+| `/students/:id` | Ficha del estudiante |
+| `/students/:id/edit` | Editar estudiante |
+| `/students/:id/constancy` | Constancia de avance |
+| `/students/:id/certificate` | Constancia de créditos |
+| `/participations` | Listado de participaciones |
+| `/participations/register` | Registrar participación |
+| `/verify` | Verificar códigos de participación y constancia |
+| `/users` | Usuarios, roles y permisos |
+| `/users/new` | Nuevo usuario |
+| `/users/:id` | Ficha del usuario |
+| `/catalogs/:kind` | Catálogos del sistema |
+
+## Flujo del portal estudiantil
+
+1. El estudiante entra a `/student`.
+2. Ingresa su código universitario y selecciona su escuela profesional.
+3. El API valida que el código exista y que pertenezca a esa escuela.
+4. Si es correcto, muestra:
+   - créditos acumulados,
+   - participaciones válidas y canceladas,
+   - historial de participaciones,
+   - código de constancia, si alcanzó la meta.
+5. Si alcanza los 21 créditos, aparece una celebración con el código de
+   constancia y se registra la constancia en la base de datos.
+
+## Constancias de créditos
+
+La tabla `constancies` tiene relación 1:1 con `students`:
+
+- `code`: código único e inmutable.
+- `studentId`: estudiante.
+- `issuedAt`: fecha de emisión.
+- `creditsAtIssue`: créditos al momento de emitir.
+- `currentCredits`: créditos actuales.
+- `status`: `ACTIVE` o `INACTIVE`.
+
+Reglas:
+
+- La constancia se crea una sola vez, cuando el estudiante alcanza la meta.
+- El código nunca cambia.
+- Si los créditos bajan, la constancia pasa a `INACTIVE` y se actualiza
+  `currentCredits`.
+- Si los créditos vuelven a subir, se reactiva con el mismo código.
+- La verificación administrativa consulta el código persistido en la base de
+  datos, no una fórmula del frontend.
+
+## Reglas de negocio principales
+
+- Los créditos de una participación provienen del evento.
+- Al cambiar los créditos de un evento, se actualizan sus participaciones y se
+  recalculan las constancias afectadas.
+- Solo las participaciones `VALID` suman créditos.
+- Un estudiante no puede registrarse dos veces en el mismo evento.
+- El código de participación es único y estable.
+- En registros históricos se conserva el código original de participación.
+- Anular o reactivar una participación exige un motivo.
+- Los eventos actuales usan fechas completas; los históricos pueden usar fecha
+  completa o solo mes/año.
+- La eliminación de eventos y estudiantes se bloquea si tienen participaciones.
+
+## Roles y permisos
+
+Roles disponibles:
+
+- `ADMIN`
+- `COORDINATOR`
+- `ORGANIZER`
+- `OPERATOR`
+- `VIEWER`
+
+Cada usuario tiene un `roleId` y una matriz propia de permisos por módulo:
+
+- `NONE`: sin acceso.
+- `VIEW`: solo consulta.
+- `MANAGE`: crear, editar y eliminar.
+
+Los permisos por módulo viven en `user_module_permissions`.
+
+## Autenticación
+
+El login se valida contra la tabla `users` con contraseña hasheada mediante
+scrypt.
+
+El frontend conserva la sesión y envía la cabecera:
+
+```text
+X-User-Id: <id del usuario>
+```
+
+El API usa esa cabecera para resolver el usuario y su alcance por escuela. Es un
+mecanismo de la V1; no es JWT ni autenticación fuerte.
+
+## API principal
+
+Todas las rutas cuelgan de `/api`, excepto Swagger.
+
+Endpoints públicos:
+
+```text
+POST /auth/login
+GET  /students/portal/schools
+POST /students/portal/consult
+```
+
+Requieren `X-User-Id`:
+
+```text
+GET    /students
+GET    /students/:id
+POST   /students
+PATCH  /students/:id
+DELETE /students/:id
+GET    /students/:id/constancy
+GET    /students/:id/credits
+POST   /students/import
+
+GET    /events
+POST   /events
+PATCH  /events/:id
+DELETE /events/:id
+POST   /events/import
+
+GET    /participations
+POST   /participations
+PATCH  /participations/:id
+DELETE /participations/:id
+POST   /participations/import
+
+GET    /verification/:code
+GET    /verification/constancies/:code
+
+GET    /users
+POST   /users
+PATCH  /users/:id
+GET    /users/:id/permissions
+PUT    /users/:id/permissions
+```
+
+## Calidad y builds
+
+Frontend:
+
+```bash
+npm run build
+```
+
+API:
+
+```bash
+cd api
+npm run build
+npx tsc --noEmit
+```
 
 ## Licencia
 
-Este proyecto se desarrollo sobre una base tecnica de terceros.
-Revisa el archivo de licencia en la raiz del repositorio antes de distribuir.
+Este proyecto se desarrolló sobre una base técnica de terceros. Revisa el
+archivo de licencia en la raíz del repositorio antes de distribuir.

@@ -74,10 +74,10 @@ export class CertificateCodeComponent {
     }
   });
 
-  /** Los codigos anteriores conservan sus caracteres especiales al mostrarse. */
-  monoClass = computed(() =>
-    this.isLegacy()
-      ? 'font-mono text-warning-700 dark:text-warning-400'
-      : 'font-mono text-gray-700 dark:text-gray-200'
-  );
+  /**
+   * Los codigos anteriores conservan sus caracteres especiales al mostrarse.
+   * El color es siempre oscuro: el origen se indica con el badge, no con un
+   * texto demasiado claro que se pierda al imprimir.
+   */
+  monoClass = computed(() => 'font-mono font-medium text-gray-900 dark:text-gray-100');
 }
