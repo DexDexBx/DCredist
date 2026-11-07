@@ -57,7 +57,7 @@ export class ActorGuard implements CanActivate {
       select: {
         id: true,
         fullName: true,
-        role: true,
+        role: { select: { name: true } },
         status: true,
         professionalSchoolId: true,
         professionalSchool: { select: { name: true } },
@@ -71,7 +71,7 @@ export class ActorGuard implements CanActivate {
     request.actor = {
       id: user.id,
       fullName: user.fullName,
-      role: user.role,
+      role: user.role.name as Actor['role'],
       professionalSchoolId: user.professionalSchoolId,
       professionalSchoolName: user.professionalSchool.name,
       isGlobal: isGeneralSchool(user.professionalSchool.name),

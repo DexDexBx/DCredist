@@ -1,7 +1,7 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { verifyPassword } from '../../common/password';
-import { UserStatus } from '../../generated/prisma/client';
+import { UserRole, UserStatus } from '../../generated/prisma/client';
 import { UsersService } from '../users/users.service';
 import { LoginResponseDto } from './dto/login-response.dto';
 import { LoginDto } from './dto/login.dto';
@@ -27,7 +27,10 @@ export class AuthService {
     const email = dto.email.trim().toLowerCase();
     const user = await this.prisma.user.findUnique({
       where: { email },
-      include: { professionalSchool: { select: { name: true } } },
+      include: {
+        professionalSchool: { select: { name: true } },
+        role: { select: { name: true } },
+      },
     });
 
     // Primero se valida la contraseña: el estado de la cuenta solo se revela a
@@ -46,7 +49,7 @@ export class AuthService {
       id: user.id,
       fullName: user.fullName,
       email: user.email,
-      role: user.role,
+      role: user.role.name as UserRole,
       status: user.status,
       professionalSchoolId: user.professionalSchoolId,
       professionalSchoolName: user.professionalSchool.name,

@@ -23,6 +23,7 @@ import {
 
 /** Todo usuario viaja con el nombre de cada modulo para calcular sus ajustes. */
 const permissionsInclude = {
+  role: { select: { name: true } },
   permissions: { include: { module: { select: { name: true } } } },
   professionalSchool: { select: { name: true } },
 } satisfies Prisma.UserInclude;
@@ -73,6 +74,7 @@ export class UsersService {
 
   async create(dto: CreateUserDto, actor: Actor): Promise<UserDto> {
     await this.assertSchoolAssignable(dto.professionalSchoolId, actor);
+    const role = await this.resolveRole(dto.role);
 
     try {
       const created = await this.prisma.$transaction(async (tx) => {
@@ -83,14 +85,14 @@ export class UsersService {
             passwordHash: hashPassword(dto.password),
             // La contraseña la elige quien crea la cuenta: no es temporal.
             mustChangePassword: false,
-            role: dto.role,
+            role: { connect: { id: role.id } },
             status: dto.status ?? UserStatus.ACTIVE,
             professionalSchool: { connect: { id: dto.professionalSchoolId } },
           },
         });
 
         // Un usuario nuevo arranca con el preset de su rol.
-        await replacePermissions(tx, user.id, user.role);
+        await replacePermissions(tx, user.id, dto.role);
 
         return user;
       });
@@ -105,7 +107,10 @@ export class UsersService {
   async update(id: number, dto: UpdateUserDto, actor: Actor): Promise<UserDto> {
     const current = await this.prisma.user.findUnique({
       where: { id },
-      select: { role: true, professionalSchoolId: true },
+      select: {
+        role: { select: { name: true } },
+        professionalSchoolId: true,
+      },
     });
 
     if (!current) {
@@ -129,7 +134,8 @@ export class UsersService {
       data.mustChangePassword = false;
     }
     if (dto.role !== undefined) {
-      data.role = dto.role;
+      const role = await this.resolveRole(dto.role);
+      data.role = { connect: { id: role.id } };
     }
     if (dto.status !== undefined) {
       data.status = dto.status;
@@ -140,7 +146,7 @@ export class UsersService {
     }
 
     const nextRole = dto.role;
-    const roleChanged = nextRole !== undefined && nextRole !== current.role;
+    const roleChanged = nextRole !== undefined && nextRole !== current.role.name;
 
     try {
       await this.prisma.$transaction(async (tx) => {
@@ -166,7 +172,7 @@ export class UsersService {
   async findPermissions(id: number): Promise<UserPermissionsDto> {
     const user = await this.prisma.user.findUnique({
       where: { id },
-      select: { role: true },
+      select: { role: { select: { name: true } } },
     });
 
     if (!user) {
@@ -189,7 +195,9 @@ export class UsersService {
     return {
       permissions: modules.map((module) => ({
         module: module.name,
-        permission: byModule.get(module.id) ?? defaultPermission(user.role, module.name),
+        permission:
+          byModule.get(module.id) ??
+          defaultPermission(user.role.name as UserRole, module.name),
       })),
     };
   }
@@ -198,7 +206,7 @@ export class UsersService {
   async updatePermissions(id: number, dto: UpdateUserPermissionsDto): Promise<UserPermissionsDto> {
     const user = await this.prisma.user.findUnique({
       where: { id },
-      select: { role: true },
+      select: { role: { select: { name: true } } },
     });
 
     if (!user) {
@@ -206,7 +214,7 @@ export class UsersService {
     }
 
     await this.prisma.$transaction((tx) =>
-      replacePermissions(tx, id, user.role, dto.permissions)
+      replacePermissions(tx, id, user.role.name as UserRole, dto.permissions)
     );
 
     return this.findPermissions(id);
@@ -223,7 +231,7 @@ export class UsersService {
       ];
     }
     if (query.role) {
-      where.role = query.role;
+      where.role = { is: { name: query.role } };
     }
     if (query.status) {
       where.status = query.status;
@@ -267,6 +275,20 @@ export class UsersService {
     if (targetUserId === actor.id && schoolId !== actor.professionalSchoolId) {
       throw new ForbiddenException('No puedes cambiar tu propia escuela profesional.');
     }
+  }
+
+  /** Resuelve el nombre de rol contra el catalogo `roles`. */
+  private async resolveRole(name: UserRole): Promise<{ id: number }> {
+    const role = await this.prisma.role.findUnique({
+      where: { name },
+      select: { id: true },
+    });
+
+    if (!role) {
+      throw new BadRequestException('El rol seleccionado no existe.');
+    }
+
+    return role;
   }
 
   /** Traduce la violacion UNIQUE del correo a 409 y deja pasar el resto. */
@@ -321,15 +343,16 @@ function normalizeName(fullName: string): string {
 }
 
 function toUserDto(row: UserRow): UserDto {
+  const role = row.role.name as UserRole;
   const permissionsOverridden = row.permissions.filter(
-    (entry) => defaultPermission(row.role, entry.module.name) !== entry.permission
+    (entry) => defaultPermission(role, entry.module.name) !== entry.permission
   ).length;
 
   return {
     id: row.id,
     fullName: row.fullName,
     email: row.email,
-    role: row.role,
+    role,
     status: row.status,
     professionalSchoolId: row.professionalSchoolId,
     professionalSchoolName: row.professionalSchool.name,

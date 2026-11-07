@@ -89,7 +89,9 @@ enum CatalogStatus {
   INACTIVE
 }
 
-/// Perfil funcional de quien opera DCredits.
+/// Nombres canonicos de los perfiles que opera DCredits.
+/// La relacion real usuario-rol vive en la tabla `roles`; este enum se conserva
+/// como catalogo de nombres conocido por el codigo y por el seed.
 /// ORGANIZER = organizador de la escuela, OPERATOR = operador de registro.
 enum UserRole {
   ADMIN
@@ -120,8 +122,8 @@ enum PermissionLevel {
 /// no representa una escuela real y no se ofrece en los formularios de
 /// estudiantes, eventos ni participaciones.
 model ProfessionalSchool {
-  id   Int           @id @default(autoincrement())
-  name String        @unique @db.VarChar(150)
+  id     Int           @id @default(autoincrement())
+  name   String        @unique @db.VarChar(150)
   status CatalogStatus @default(ACTIVE)
 
   users    User[]
@@ -137,8 +139,8 @@ model ProfessionalSchool {
 
 /// Sede o filial de la institucion. Se usa en el padron de estudiantes.
 model Location {
-  id   Int           @id @default(autoincrement())
-  name String        @unique @db.VarChar(150)
+  id     Int           @id @default(autoincrement())
+  name   String        @unique @db.VarChar(150)
   status CatalogStatus @default(ACTIVE)
 
   students Student[]
@@ -152,8 +154,8 @@ model Location {
 
 /// Area o dependencia que organiza eventos academicos.
 model Organizer {
-  id   Int           @id @default(autoincrement())
-  name String        @unique @db.VarChar(150)
+  id     Int           @id @default(autoincrement())
+  name   String        @unique @db.VarChar(150)
   status CatalogStatus @default(ACTIVE)
 
   events Event[]
@@ -201,7 +203,7 @@ model Student {
   professionalSchoolId Int
   professionalSchool   ProfessionalSchool @relation(fields: [professionalSchoolId], references: [id], onDelete: Restrict)
   locationId           Int
-  location             Location @relation(fields: [locationId], references: [id], onDelete: Restrict)
+  location             Location           @relation(fields: [locationId], references: [id], onDelete: Restrict)
 
   status StudentStatus @default(ACTIVE)
 
@@ -231,7 +233,7 @@ model Event {
   durationType EventType @default(SINGLE_DAY) @map("duration_type")
 
   /// Tipo academico del evento (congreso, seminario, taller, ...).
-  eventTypeId Int
+  eventTypeId      Int
   eventTypeCatalog EventTypeCatalog @relation(fields: [eventTypeId], references: [id], onDelete: Restrict)
 
   /// Fechas calendario del evento (solo dia, sin hora). No se impone limite
@@ -247,15 +249,15 @@ model Event {
   /// Lugar fisico del evento (auditorio, aula, campus). No es la sede del
   /// estudiante: esa vive en Location y solo aplica al padron.
   location String @default("Sin ubicación")
-  capacity Int @default(0)
+  capacity Int    @default(0)
 
   /// Procedencia del registro: actual o historico.
   origin EventOrigin @default(CURRENT)
 
   /// Organizador y escuela a la que pertenece el evento. La escuela acota lo
   /// que cada usuario puede ver y modificar.
-  organizerId Int
-  organizer   Organizer @relation(fields: [organizerId], references: [id], onDelete: Restrict)
+  organizerId          Int
+  organizer            Organizer          @relation(fields: [organizerId], references: [id], onDelete: Restrict)
   professionalSchoolId Int
   professionalSchool   ProfessionalSchool @relation(fields: [professionalSchoolId], references: [id], onDelete: Restrict)
 
@@ -290,7 +292,7 @@ model Event {
 model Participation {
   id Int @id @default(autoincrement())
 
-  event   Event   @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  event   Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
   eventId Int
 
   student   Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
@@ -335,6 +337,22 @@ model Participation {
   @@map("participations")
 }
 
+/// Perfil funcional reutilizable. Varios usuarios pueden compartir el mismo
+/// rol y cada usuario tiene exactamente uno.
+model Role {
+  id     Int           @id @default(autoincrement())
+  name   String        @unique @db.VarChar(50)
+  status CatalogStatus @default(ACTIVE)
+
+  users User[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
+  @@map("roles")
+}
+
 /// Usuarios que operan DCredits: administracion, organizadores y operadores de
 /// registro. Cada escuela profesional tiene al menos un organizador y un
 /// operador.
@@ -354,7 +372,8 @@ model User {
   /// true mientras la cuenta siga con la contraseña temporal.
   mustChangePassword Boolean @default(true)
 
-  role   UserRole   @default(VIEWER)
+  roleId Int
+  role   Role       @relation(fields: [roleId], references: [id], onDelete: Restrict)
   status UserStatus @default(ACTIVE)
 
   /// Escuela profesional de la que depende el usuario. La escuela llamada
@@ -369,7 +388,7 @@ model User {
   /// rol con otras personas.
   permissions UserModulePermission[]
 
-  @@index([role])
+  @@index([roleId])
   @@index([professionalSchoolId])
   @@map("users")
 }

@@ -27,6 +27,28 @@ const prisma = createPrismaClient();
 // ---------------------------------------------------------------------------
 
 async function main(): Promise<void> {
+  // --- Roles ----------------------------------------------------------------
+  // La tabla roles reemplaza al enum como fuente de verdad de la relacion.
+  // Se cargan los mismos nombres que ya conoce el codigo.
+  const roleNames = [
+    UserRole.ADMIN,
+    UserRole.COORDINATOR,
+    UserRole.ORGANIZER,
+    UserRole.OPERATOR,
+    UserRole.VIEWER,
+  ] as const;
+  const roleIds = new Map<UserRole, number>();
+
+  for (const name of roleNames) {
+    const role = await prisma.role.upsert({
+      where: { name },
+      create: { name },
+      update: {},
+      select: { id: true },
+    });
+    roleIds.set(name, role.id);
+  }
+
   // --- Modulos --------------------------------------------------------------
   for (const name of MODULE_NAMES) {
     await prisma.module.upsert({
@@ -58,26 +80,30 @@ async function main(): Promise<void> {
   });
 
   // --- Usuario demo ---------------------------------------------------------
-  // `upsert` por correo: si ya existe no se toca su contrasena ni su rol.
+  // `upsert` por correo: si ya existe no se toca su contrasena, pero se asegura
+  // de que quede vinculado al rol ADMIN.
+  const adminRoleId = roleIds.get(UserRole.ADMIN)!;
   const admin = await prisma.user.upsert({
-    where: { email: 'admin@dcredits.demo' },
+    where: { email: 'admin@dcredits.com' },
     create: {
       fullName: 'Super Admin',
       email: 'admin@dcredits.com',
       passwordHash: hashPassword('admin123'),
       mustChangePassword: false,
-      role: UserRole.ADMIN,
+      roleId: adminRoleId,
       status: UserStatus.ACTIVE,
       professionalSchoolId: generalSchool.id,
     },
-    update: {},
+    update: { roleId: adminRoleId },
   });
 
   // --- Matriz de permisos ---------------------------------------------------
   // Rellena solo las cuentas que aun no tengan filas (por ejemplo, las creadas
   // antes de existir la tabla de permisos).
   let permissionsCreated = 0;
-  const users = await prisma.user.findMany({ select: { id: true, role: true } });
+  const users = await prisma.user.findMany({
+    select: { id: true, role: { select: { name: true } } },
+  });
 
   for (const user of users) {
     const existing = await prisma.userModulePermission.count({
@@ -92,7 +118,7 @@ async function main(): Promise<void> {
       data: modules.map((module) => ({
         userId: user.id,
         moduleId: module.id,
-        permission: defaultPermission(user.role, module.name),
+        permission: defaultPermission(user.role.name as UserRole, module.name),
       })),
       skipDuplicates: true,
     });

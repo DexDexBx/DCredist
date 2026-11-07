@@ -1,9 +1,9 @@
 -- LINEA BASE DE DCREDITS
 --
--- Consolida en una sola migracion el esquema final de la base de datos.
--- Se creo antes del primer despliegue, cuando el historial incremental todavia
--- no era necesario en produccion. A partir de aqui, cada cambio nuevo debe
--- agregarse como una migracion incremental (no se reescribe esta linea base).
+-- Consolida en una sola migracion el esquema final de la base de datos y los
+-- catalogos iniciales. Se creo antes del primer despliegue. A partir de aqui,
+-- cada cambio nuevo debe agregarse como una migracion incremental (no se
+-- reescribe esta linea base).
 
 -- CreateSchema
 CREATE SCHEMA IF NOT EXISTS "public";
@@ -151,13 +151,24 @@ CREATE TABLE "participations" (
 );
 
 -- CreateTable
+CREATE TABLE "roles" (
+    "id" SERIAL NOT NULL,
+    "name" VARCHAR(50) NOT NULL,
+    "status" "CatalogStatus" NOT NULL DEFAULT 'ACTIVE',
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "roles_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
 CREATE TABLE "users" (
     "id" SERIAL NOT NULL,
     "fullName" TEXT NOT NULL,
     "email" TEXT NOT NULL,
     "passwordHash" TEXT NOT NULL,
     "mustChangePassword" BOOLEAN NOT NULL DEFAULT true,
-    "role" "UserRole" NOT NULL DEFAULT 'VIEWER',
+    "roleId" INTEGER NOT NULL,
     "status" "UserStatus" NOT NULL DEFAULT 'ACTIVE',
     "professionalSchoolId" INTEGER NOT NULL,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -256,10 +267,16 @@ CREATE INDEX "participations_origin_idx" ON "participations"("origin");
 CREATE UNIQUE INDEX "participations_eventId_studentId_key" ON "participations"("eventId", "studentId");
 
 -- CreateIndex
+CREATE UNIQUE INDEX "roles_name_key" ON "roles"("name");
+
+-- CreateIndex
+CREATE INDEX "roles_status_idx" ON "roles"("status");
+
+-- CreateIndex
 CREATE UNIQUE INDEX "users_email_key" ON "users"("email");
 
 -- CreateIndex
-CREATE INDEX "users_role_idx" ON "users"("role");
+CREATE INDEX "users_roleId_idx" ON "users"("roleId");
 
 -- CreateIndex
 CREATE INDEX "users_professionalSchoolId_idx" ON "users"("professionalSchoolId");
@@ -292,6 +309,9 @@ ALTER TABLE "participations" ADD CONSTRAINT "participations_eventId_fkey" FOREIG
 ALTER TABLE "participations" ADD CONSTRAINT "participations_studentId_fkey" FOREIGN KEY ("studentId") REFERENCES "students"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
+ALTER TABLE "users" ADD CONSTRAINT "users_roleId_fkey" FOREIGN KEY ("roleId") REFERENCES "roles"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
 ALTER TABLE "users" ADD CONSTRAINT "users_professionalSchoolId_fkey" FOREIGN KEY ("professionalSchoolId") REFERENCES "professional_schools"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
@@ -301,8 +321,6 @@ ALTER TABLE "user_module_permissions" ADD CONSTRAINT "user_module_permissions_us
 ALTER TABLE "user_module_permissions" ADD CONSTRAINT "user_module_permissions_moduleId_fkey" FOREIGN KEY ("moduleId") REFERENCES "modules"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- Catalogo inicial de modulos.
--- `name` es el identificador estable que usa el frontend. El orden de insercion
--- deja los ids 1..8 consecutivos.
 INSERT INTO "modules" ("name") VALUES
     ('dashboard'),
     ('calendar'),
@@ -314,8 +332,7 @@ INSERT INTO "modules" ("name") VALUES
     ('catalogs')
 ON CONFLICT ("name") DO NOTHING;
 
--- Catalogo inicial de tipos de evento academico (nombres en ingles; la
--- interfaz los traduce al espanol).
+-- Catalogo inicial de tipos de evento.
 INSERT INTO "event_types" ("name", "updatedAt") VALUES
     ('Congress', CURRENT_TIMESTAMP),
     ('Seminar', CURRENT_TIMESTAMP),
@@ -324,5 +341,15 @@ INSERT INTO "event_types" ("name", "updatedAt") VALUES
     ('Forum', CURRENT_TIMESTAMP),
     ('Conference', CURRENT_TIMESTAMP),
     ('Webinar', CURRENT_TIMESTAMP),
-    ('Exhibition', CURRENT_TIMESTAMP)
+    ('Exhibition', CURRENT_TIMESTAMP),
+    ('Unspecified', CURRENT_TIMESTAMP)
+ON CONFLICT ("name") DO NOTHING;
+
+-- Catalogo inicial de roles. El estado por defecto es ACTIVE.
+INSERT INTO "roles" ("name", "updatedAt") VALUES
+    ('ADMIN', CURRENT_TIMESTAMP),
+    ('COORDINATOR', CURRENT_TIMESTAMP),
+    ('ORGANIZER', CURRENT_TIMESTAMP),
+    ('OPERATOR', CURRENT_TIMESTAMP),
+    ('VIEWER', CURRENT_TIMESTAMP)
 ON CONFLICT ("name") DO NOTHING;
