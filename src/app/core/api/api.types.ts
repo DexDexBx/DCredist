@@ -176,6 +176,45 @@ export interface ApiStudentImportResult {
   issues: ApiStudentImportIssue[];
 }
 
+export type ApiConstancyStatus = 'ACTIVE' | 'INACTIVE';
+
+/** Constancia persistida de creditos. */
+export interface ApiConstancy {
+  code: string;
+  status: ApiConstancyStatus;
+  issuedAt: string;
+  creditsAtIssue: number;
+  currentCredits: number;
+}
+
+/** Resumen de creditos devuelto al verificar una constancia. */
+export interface ApiConstancySummary {
+  studentId: number;
+  totalCredits: number;
+  creditsTarget: number;
+  progress: number;
+  remainingCredits: number;
+  completed: boolean;
+  totalParticipations: number;
+  validParticipations: number;
+  cancelledParticipations: number;
+  pendingParticipations: number;
+  eventsParticipated: number;
+  pendingGrades: number;
+  certificateCount: number;
+}
+
+/** Resultado de verificar un codigo de constancia. */
+export interface ApiConstancyVerificationResult {
+  outcome: 'VALID' | 'NOT_ISSUED' | 'NOT_FOUND' | 'INVALID_FORMAT';
+  message: string;
+  constancy: ApiConstancy | null;
+  student: ApiStudent | null;
+  summary: ApiConstancySummary | null;
+  issuedOn: string | null;
+  meetsRequirement: boolean;
+}
+
 /** Escuela profesional del portal publico del estudiante. */
 export interface ApiStudentPortalSchool {
   id: number;
@@ -228,6 +267,7 @@ export interface ApiStudentPortalResult {
   totalParticipations: number;
   validParticipations: number;
   cancelledParticipations: number;
+  constancy: ApiConstancy | null;
   history: ApiStudentPortalHistoryItem[];
 }
 

@@ -2,6 +2,8 @@ import { Injectable } from '@nestjs/common';
 import type { Prisma } from '../../generated/prisma/client';
 import { ParticipationStatus } from '../../generated/prisma/client';
 import type { Actor } from '../../common/actor/actor.types';
+import { ConstanciesService } from '../constancies/constancies.service';
+import { ConstancyVerificationResultDto } from '../constancies/dto/constancy.dto';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import {
   MAX_VERIFICATION_CODE_LENGTH,
@@ -26,7 +28,14 @@ import { MIN_SUGGESTION_LENGTH } from './dto/suggest-verification-codes.dto';
  */
 @Injectable()
 export class VerificationService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly constancies: ConstanciesService
+  ) {}
+
+  verifyConstancy(input: string, actor: Actor): Promise<ConstancyVerificationResultDto> {
+    return this.constancies.verify(input, actor);
+  }
 
   async verify(input: string, actor: Actor): Promise<VerificationResultDto> {
     const historical = normalizeHistoricalCode(input);

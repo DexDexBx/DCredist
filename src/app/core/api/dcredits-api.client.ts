@@ -4,6 +4,8 @@ import { Observable } from 'rxjs';
 import { API_ENDPOINTS } from './api-endpoints';
 import {
   ApiCatalogEntry,
+  ApiConstancy,
+  ApiConstancyVerificationResult,
   ApiCatalogKind,
   ApiCatalogPayload,
   ApiEvent,
@@ -194,6 +196,10 @@ export class DcreditsApiClient {
 
   // --- Portal publico del estudiante ---
 
+  getStudentConstancy(studentId: number): Observable<ApiConstancy | null> {
+    return this.http.get<ApiConstancy | null>(API_ENDPOINTS.studentConstancy(studentId));
+  }
+
   listStudentPortalSchools(): Observable<ApiStudentPortalSchool[]> {
     return this.http.get<ApiStudentPortalSchool[]>(API_ENDPOINTS.studentPortalSchools);
   }
@@ -256,6 +262,12 @@ export class DcreditsApiClient {
   suggestCodes(query: string, limit = 5): Observable<string[]> {
     const params = new HttpParams().set('q', query).set('limit', String(limit));
     return this.http.get<string[]>(API_ENDPOINTS.verificationBase, { params });
+  }
+
+  verifyConstancy(code: string): Observable<ApiConstancyVerificationResult> {
+    return this.http.get<ApiConstancyVerificationResult>(
+      API_ENDPOINTS.verificationConstancy(code)
+    );
   }
 }
 

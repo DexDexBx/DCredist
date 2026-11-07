@@ -68,6 +68,13 @@ enum EventDateType {
   SHORT
 }
 
+/// Estado de una constancia de creditos emitida.
+/// ACTIVE: el estudiante mantiene la meta. INACTIVE: sus creditos bajaron.
+enum ConstancyStatus {
+  ACTIVE
+  INACTIVE
+}
+
 /// VALID es la unica que suma creditos al historial del estudiante.
 enum ParticipationStatus {
   VALID
@@ -208,6 +215,7 @@ model Student {
   status StudentStatus @default(ACTIVE)
 
   participations Participation[]
+  constancy      Constancy?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -216,6 +224,30 @@ model Student {
   @@index([locationId])
   @@index([status])
   @@map("students")
+}
+
+/// Constancia de creditos emitida a un estudiante.
+///
+/// Se crea una sola vez, cuando el estudiante alcanza la meta. El codigo es
+/// inmutable; si luego baja de creditos, se actualizan `currentCredits` y
+/// `status` sin tocar `code`, `issuedAt` ni `creditsAtIssue`.
+model Constancy {
+  id   Int    @id @default(autoincrement())
+  code String @unique @db.VarChar(120)
+
+  studentId Int     @unique
+  student   Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  issuedAt       DateTime        @default(now())
+  creditsAtIssue Float
+  currentCredits Float
+  status         ConstancyStatus @default(ACTIVE)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
+  @@map("constancies")
 }
 
 /// Evento academico. Los creditos son los que otorga a cada participante.

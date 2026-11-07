@@ -146,9 +146,9 @@ export class VerificationComponent {
     return OUTCOME_ICON[this.activeOutcome() ?? 'NOT_FOUND'];
   }
 
-  onVerify(): void {
+  async onVerify(): Promise<void> {
     if (this.kind() === 'CONSTANCY') {
-      this.constancy.set(this.verificationService.verifyConstancy(this.code()));
+      this.constancy.set(await this.verificationService.verifyConstancy(this.code()));
       return;
     }
     this.response.set(this.verificationService.verify(this.code()));

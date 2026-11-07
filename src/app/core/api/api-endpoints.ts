@@ -85,6 +85,7 @@ export const API_ENDPOINTS = {
   studentParticipations: (id: number) => `${API_BASE_URL}/students/${id}/participations`,
   studentCredits: (id: number) => `${API_BASE_URL}/students/${id}/credits`,
   studentImport: `${API_BASE_URL}/students/import`,
+  studentConstancy: (id: number) => `${API_BASE_URL}/students/${id}/constancy`,
   studentPortalSchools: `${API_BASE_URL}/students/portal/schools`,
   studentPortalConsult: `${API_BASE_URL}/students/portal/consult`,
 
@@ -103,6 +104,8 @@ export const API_ENDPOINTS = {
 
   verification: (code: string) => `${API_BASE_URL}/verification/${encodeURIComponent(code)}`,
   verificationBase: `${API_BASE_URL}/verification`,
+  verificationConstancy: (code: string) =>
+    `${API_BASE_URL}/verification/constancies/${encodeURIComponent(code)}`,
 
   reportsDashboard: `${API_BASE_URL}/reports/dashboard`,
   reportsSchoolCredits: `${API_BASE_URL}/reports/schools/credits`,

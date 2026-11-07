@@ -1,4 +1,5 @@
 import type { AcademicEvent } from './academic-event.model';
+import type { ConstancyRecord } from './constancy.model';
 import type { StudentCreditSummary } from './credit.model';
 import type { Participation } from './participation.model';
 import type { Student } from './student.model';
@@ -25,4 +26,6 @@ export interface ConstancyVerificationResult {
   issuedOn: string | null;
   /** ¿El estudiante sigue cumpliendo el minimo para que la constancia valga? */
   meetsRequirement: boolean;
+  /** Registro persistido con el codigo inmutable de la constancia. */
+  constancy: ConstancyRecord | null;
 }

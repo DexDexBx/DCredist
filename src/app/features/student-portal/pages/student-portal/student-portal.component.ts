@@ -13,7 +13,6 @@ import {
   StudentPortalSchool,
 } from '../../../../models/student-portal.model';
 import { eventTypeLabel } from '../../../../models/academic-event.model';
-import { buildCertificateValidationCode } from '../../../../models/certificate.model';
 import { formatDateRange, parseCalendarDate } from '../../../../shared/utils/date.utils';
 
 /**
@@ -51,15 +50,7 @@ export class StudentPortalComponent {
   readonly celebrationOpen = signal(false);
   readonly celebrationSeconds = signal(15);
   readonly codeCopied = signal(false);
-  readonly celebrationCode = computed(() => {
-    const profile = this.student();
-    return profile
-      ? buildCertificateValidationCode({
-          id: profile.id,
-          universityCode: profile.universityCode,
-        })
-      : '';
-  });
+  readonly celebrationCode = computed(() => this.student()?.constancy?.code ?? '');
 
   /** Posiciones y colores de las explosiones decorativas. */
   readonly celebrationBursts = [

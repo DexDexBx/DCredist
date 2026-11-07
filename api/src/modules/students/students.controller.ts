@@ -23,6 +23,7 @@ import {
 import type { Actor } from '../../common/actor/actor.types';
 import { CurrentActor } from '../../common/actor/current-actor.decorator';
 import { Public } from '../../common/actor/public.decorator';
+import { ConstancyDto } from '../constancies/dto/constancy.dto';
 import { StudentParticipationDto } from '../participations/dto/student-participation.dto';
 import { ParticipationsService } from '../participations/participations.service';
 import {
@@ -124,6 +125,21 @@ export class StudentsController {
     @CurrentActor() actor: Actor
   ): Promise<StudentCreditSummaryDto> {
     return this.studentsService.getCreditSummary(id, actor);
+  }
+
+  @Get(':id/constancy')
+  @ApiOperation({
+    summary: 'Constancia de creditos persistida del estudiante.',
+    description:
+      'La crea si el estudiante ya cumple la meta y la mantiene actualizada sin cambiar su codigo.',
+  })
+  @ApiOkResponse({ type: ConstancyDto })
+  @ApiNotFoundResponse({ description: 'El estudiante no existe.' })
+  getConstancy(
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentActor() actor: Actor
+  ): Promise<ConstancyDto | null> {
+    return this.studentsService.getConstancy(id, actor);
   }
 
   @Get(':id/participations')

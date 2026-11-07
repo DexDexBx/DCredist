@@ -22,6 +22,7 @@ import { assertCanReadSchool } from '../../common/actor/school-scope';
 import { BULK_INSERT_BATCH_SIZE, chunk } from '../../common/prisma/bulk';
 import { isUniqueViolation } from '../../common/prisma/prisma-errors';
 import { PrismaService } from '../../common/prisma/prisma.service';
+import { ConstanciesService } from '../constancies/constancies.service';
 import { CreateEventDto } from './dto/create-event.dto';
 import { EventDto } from './dto/event.dto';
 import {
@@ -90,7 +91,10 @@ const EVENT_STATUS_TRANSITIONS: Partial<Record<EventStatus, readonly EventStatus
 export class EventsService {
   private readonly logger = new Logger(EventsService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly constancies: ConstanciesService
+  ) {}
 
   /**
    * Listado con filtros opcionales.
@@ -529,6 +533,16 @@ export class EventsService {
     const nextCredits = dto.credits ?? 1;
     const creditsChanged = dto.credits !== undefined && nextCredits !== current.credits;
 
+    const affectedStudentIds = creditsChanged
+      ? (
+          await this.prisma.participation.findMany({
+            where: { eventId: id },
+            select: { studentId: true },
+            distinct: ['studentId'],
+          })
+        ).map((row) => row.studentId)
+      : [];
+
     try {
       const updated = await this.prisma.$transaction(async (tx) => {
         const event = await tx.event.update({
@@ -586,6 +600,7 @@ export class EventsService {
         return event;
       });
 
+      await this.constancies.syncMany(affectedStudentIds);
       return toEventDto(updated);
     } catch (error) {
       if (isUniqueViolation(error, 'code')) {

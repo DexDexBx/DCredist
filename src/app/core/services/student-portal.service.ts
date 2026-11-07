@@ -72,6 +72,15 @@ function mapProfile(row: ApiStudentPortalResult): StudentPortalProfile {
     totalParticipations: row.totalParticipations,
     validParticipations: row.validParticipations,
     cancelledParticipations: row.cancelledParticipations,
+    constancy: row.constancy
+      ? {
+          code: row.constancy.code,
+          status: row.constancy.status,
+          issuedAt: row.constancy.issuedAt,
+          creditsAtIssue: row.constancy.creditsAtIssue,
+          currentCredits: row.constancy.currentCredits,
+        }
+      : null,
     history: row.history.map((item) => ({
       id: item.id,
       eventId: item.eventId,

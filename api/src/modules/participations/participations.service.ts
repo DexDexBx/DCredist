@@ -19,6 +19,7 @@ import { assertCanReadSchool } from '../../common/actor/school-scope';
 import { BULK_INSERT_BATCH_SIZE, chunk } from '../../common/prisma/bulk';
 import { isUniqueViolation } from '../../common/prisma/prisma-errors';
 import { PrismaService } from '../../common/prisma/prisma.service';
+import { ConstanciesService } from '../constancies/constancies.service';
 import {
   MAX_VERIFICATION_CODE_LENGTH,
   generateUniqueVerificationCode,
@@ -58,7 +59,10 @@ const CONTEXT_INCLUDE = {
 export class ParticipationsService {
   private readonly logger = new Logger(ParticipationsService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly constancies: ConstanciesService
+  ) {}
 
   /**
    * Lista global. `search` cubre codigo universitario, apellidos y nombres.
@@ -326,7 +330,7 @@ export class ParticipationsService {
         : await generateUniqueVerificationCode(this.prisma);
 
     try {
-      return await this.prisma.participation.create({
+      const created = await this.prisma.participation.create({
         data: {
           eventId: dto.eventId,
           studentId: dto.studentId,
@@ -343,6 +347,9 @@ export class ParticipationsService {
         },
         include: EVENT_INCLUDE,
       });
+
+      await this.syncConstancy(dto.studentId);
+      return created;
     } catch (error) {
       if (isUniqueViolation(error, 'eventId,studentId') || isUniqueViolation(error, 'eventId')) {
         throw new ConflictException(
@@ -364,7 +371,7 @@ export class ParticipationsService {
         // codigo nuevo en lugar de fallar.
         this.logger.warn('Colision de verificationCode; se reintenta la generacion.');
 
-        return this.prisma.participation.create({
+        const created = await this.prisma.participation.create({
           data: {
             eventId: dto.eventId,
             studentId: dto.studentId,
@@ -380,6 +387,9 @@ export class ParticipationsService {
           },
           include: EVENT_INCLUDE,
         });
+
+        await this.syncConstancy(dto.studentId);
+        return created;
       }
 
       this.logger.error('No se pudo crear la participacion.', error);
@@ -422,7 +432,7 @@ export class ParticipationsService {
     }
 
     try {
-      return await this.prisma.participation.update({
+      const updated = await this.prisma.participation.update({
         where: { id },
         data: {
           ...(dto.participationDate !== undefined
@@ -438,6 +448,9 @@ export class ParticipationsService {
         },
         include: EVENT_INCLUDE,
       });
+
+      await this.syncConstancy(participation.studentId);
+      return updated;
     } catch (error) {
       this.logger.error(`No se pudo actualizar la participacion "${id}".`, error);
       throw error;
@@ -455,8 +468,9 @@ export class ParticipationsService {
       throw new ForbiddenException('Solo un administrador puede eliminar participaciones.');
     }
 
-    await this.findOne(id, actor);
+    const participation = await this.findOne(id, actor);
     await this.prisma.participation.delete({ where: { id } });
+    await this.syncConstancy(participation.studentId);
     return { deleted: true };
   }
 
@@ -694,6 +708,10 @@ export class ParticipationsService {
 
     const registered = await this.insertImportedRows(dto, event, insertable, issues, origin, actor);
 
+    // Los creditos pudieron cambiar con la carga: se actualizan las
+    // constancias de todos los estudiantes alcanzados.
+    await this.constancies.syncMany(insertable.map((item) => item.studentId));
+
     issues.sort((a, b) => a.row - b.row);
 
     return {
@@ -703,6 +721,18 @@ export class ParticipationsService {
       skipped: issues.length,
       issues,
     };
+  }
+
+  /** Actualiza la constancia de un estudiante sin romper la operacion principal. */
+  private async syncConstancy(studentId: number): Promise<void> {
+    try {
+      await this.constancies.syncForStudent(studentId);
+    } catch (error) {
+      this.logger.error(
+        `No se pudo actualizar la constancia del estudiante ${studentId}.`,
+        error
+      );
+    }
   }
 
   /**

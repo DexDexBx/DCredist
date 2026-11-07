@@ -1,9 +1,11 @@
-import { Component, computed, inject, input, signal } from '@angular/core';
+import { Component, computed, effect, inject, input, signal } from '@angular/core';
+import { ConstancyService } from '../../../../core/services/constancy.service';
 import { CreditService } from '../../../../core/services/credit.service';
 import { EventService } from '../../../../core/services/event.service';
 import { StudentService } from '../../../../core/services/student.service';
 import {
   AcademicEvent,
+  ConstancyRecord,
   Participation,
   REQUIRED_CREDITS,
   Student,
@@ -42,8 +44,27 @@ export class CertificateDocumentComponent {
   private readonly studentService = inject(StudentService);
   private readonly eventService = inject(EventService);
   private readonly creditService = inject(CreditService);
+  private readonly constancyService = inject(ConstancyService);
 
   readonly studentId = input.required<number>();
+  readonly constancy = signal<ConstancyRecord | null>(null);
+  private loadedForStudentId: number | null = null;
+
+  constructor() {
+    effect(() => {
+      const student = this.student();
+      if (!student || this.loadedForStudentId === student.id) {
+        return;
+      }
+
+      this.loadedForStudentId = student.id;
+      void this.loadConstancy(student.id);
+    });
+  }
+
+  private async loadConstancy(studentId: number): Promise<void> {
+    this.constancy.set(await this.constancyService.getForStudent(studentId));
+  }
 
   readonly requiredCredits = REQUIRED_CREDITS;
 
@@ -73,6 +94,12 @@ export class CertificateDocumentComponent {
 
   /** Codigo general de validacion del documento. */
   readonly validationCode = computed(() => {
+    const stored = this.constancy();
+    if (stored) {
+      return stored.code;
+    }
+
+    // Respaldo visual mientras carga el API; el codigo oficial es el persistido.
     const student = this.student();
     return student ? buildCertificateValidationCode(student) : '';
   });
@@ -82,8 +109,11 @@ export class CertificateDocumentComponent {
     () => `/verify?tipo=constancia&codigo=${this.validationCode()}`
   );
 
-  /** Fecha de emision del documento. */
-  readonly issuedOn = formatLongDate(new Date());
+  /** Fecha de emision: la persistida en la constancia. */
+  readonly issuedOn = computed(() => {
+    const stored = this.constancy();
+    return formatLongDate(stored ? stored.issuedAt : new Date());
+  });
 
   eventDates(event: Pick<AcademicEvent, 'startDate' | 'endDate' | 'dateType'>): string {
     return eventDateRangeLabel(event);

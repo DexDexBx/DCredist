@@ -16,6 +16,7 @@ import {
 import type { Actor } from '../../common/actor/actor.types';
 import { isGeneralSchool } from '../../common/actor/actor.guard';
 import { assertCanReadSchool, assertCanWriteSchool } from '../../common/actor/school-scope';
+import { ConstanciesService } from '../constancies/constancies.service';
 import { BULK_INSERT_BATCH_SIZE, chunk } from '../../common/prisma/bulk';
 import { isUniqueViolation } from '../../common/prisma/prisma-errors';
 import { PrismaService } from '../../common/prisma/prisma.service';
@@ -72,7 +73,10 @@ type StudentRow = Prisma.StudentGetPayload<{ include: typeof studentInclude }>;
 export class StudentsService {
   private readonly logger = new Logger(StudentsService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly constancies: ConstanciesService
+  ) {}
 
   /**
    * Listado con filtros opcionales. Todos se combinan con AND.
@@ -199,6 +203,12 @@ export class StudentsService {
     };
   }
 
+  /** Constancia persistida del estudiante, con control de alcance. */
+  async getConstancy(studentId: number, actor: Actor) {
+    await this.findOne(studentId, actor);
+    return this.constancies.findForStudent(studentId);
+  }
+
   /**
    * Creditos acumulados, calculados con SQL sobre PostgreSQL.
    *
@@ -265,6 +275,7 @@ export class StudentsService {
     }
 
     const summary = await this.creditSummaryFor(student.id);
+    const constancy = await this.constancies.syncForStudent(student.id);
 
     return {
       id: student.id,
@@ -284,6 +295,15 @@ export class StudentsService {
       totalParticipations: summary.totalParticipations,
       validParticipations: summary.validParticipations,
       cancelledParticipations: summary.cancelledParticipations,
+      constancy: constancy
+        ? {
+            code: constancy.code,
+            status: constancy.status,
+            issuedAt: constancy.issuedAt,
+            creditsAtIssue: constancy.creditsAtIssue,
+            currentCredits: constancy.currentCredits,
+          }
+        : null,
       history: student.participations.map((participation) => ({
         id: participation.id,
         eventId: participation.eventId,

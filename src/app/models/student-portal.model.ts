@@ -1,3 +1,5 @@
+import type { ConstancyRecord } from './constancy.model';
+
 /** Escuela profesional que se ofrece en el portal publico del estudiante. */
 export interface StudentPortalSchool {
   id: number;
@@ -43,6 +45,7 @@ export interface StudentPortalProfile {
   totalParticipations: number;
   validParticipations: number;
   cancelledParticipations: number;
+  constancy: ConstancyRecord | null;
   history: StudentPortalHistoryItem[];
 }
 

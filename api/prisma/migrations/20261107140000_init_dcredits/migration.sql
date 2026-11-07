@@ -1,9 +1,8 @@
 -- LINEA BASE DE DCREDITS
 --
--- Consolida en una sola migracion el esquema final de la base de datos y los
--- catalogos iniciales. Se creo antes del primer despliegue. A partir de aqui,
--- cada cambio nuevo debe agregarse como una migracion incremental (no se
--- reescribe esta linea base).
+-- Esquema completo y catalogos iniciales para el primer despliegue.
+-- A partir de aqui, cada cambio nuevo debe agregarse como migracion
+-- incremental; esta linea base no se reescribe.
 
 -- CreateSchema
 CREATE SCHEMA IF NOT EXISTS "public";
@@ -25,6 +24,9 @@ CREATE TYPE "EventOrigin" AS ENUM ('CURRENT', 'LEGACY');
 
 -- CreateEnum
 CREATE TYPE "EventDateType" AS ENUM ('LONG', 'SHORT');
+
+-- CreateEnum
+CREATE TYPE "ConstancyStatus" AS ENUM ('ACTIVE', 'INACTIVE');
 
 -- CreateEnum
 CREATE TYPE "ParticipationStatus" AS ENUM ('VALID', 'CANCELLED', 'PENDING');
@@ -101,6 +103,21 @@ CREATE TABLE "students" (
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
     CONSTRAINT "students_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "constancies" (
+    "id" SERIAL NOT NULL,
+    "code" VARCHAR(120) NOT NULL,
+    "studentId" INTEGER NOT NULL,
+    "issuedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "creditsAtIssue" DOUBLE PRECISION NOT NULL,
+    "currentCredits" DOUBLE PRECISION NOT NULL,
+    "status" "ConstancyStatus" NOT NULL DEFAULT 'ACTIVE',
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "constancies_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -231,6 +248,15 @@ CREATE INDEX "students_locationId_idx" ON "students"("locationId");
 CREATE INDEX "students_status_idx" ON "students"("status");
 
 -- CreateIndex
+CREATE UNIQUE INDEX "constancies_code_key" ON "constancies"("code");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "constancies_studentId_key" ON "constancies"("studentId");
+
+-- CreateIndex
+CREATE INDEX "constancies_status_idx" ON "constancies"("status");
+
+-- CreateIndex
 CREATE UNIQUE INDEX "events_code_key" ON "events"("code");
 
 -- CreateIndex
@@ -294,6 +320,9 @@ ALTER TABLE "students" ADD CONSTRAINT "students_professionalSchoolId_fkey" FOREI
 ALTER TABLE "students" ADD CONSTRAINT "students_locationId_fkey" FOREIGN KEY ("locationId") REFERENCES "locations"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
+ALTER TABLE "constancies" ADD CONSTRAINT "constancies_studentId_fkey" FOREIGN KEY ("studentId") REFERENCES "students"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
 ALTER TABLE "events" ADD CONSTRAINT "events_eventTypeId_fkey" FOREIGN KEY ("eventTypeId") REFERENCES "event_types"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
@@ -345,7 +374,7 @@ INSERT INTO "event_types" ("name", "updatedAt") VALUES
     ('Unspecified', CURRENT_TIMESTAMP)
 ON CONFLICT ("name") DO NOTHING;
 
--- Catalogo inicial de roles. El estado por defecto es ACTIVE.
+-- Catalogo inicial de roles.
 INSERT INTO "roles" ("name", "updatedAt") VALUES
     ('ADMIN', CURRENT_TIMESTAMP),
     ('COORDINATOR', CURRENT_TIMESTAMP),

@@ -2,6 +2,7 @@ import { Controller, Get, Param, Query } from '@nestjs/common';
 import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { Actor } from '../../common/actor/actor.types';
 import { CurrentActor } from '../../common/actor/current-actor.decorator';
+import { ConstancyVerificationResultDto } from '../constancies/dto/constancy.dto';
 import { SuggestVerificationCodesDto } from './dto/suggest-verification-codes.dto';
 import { VerificationResultDto } from './dto/verification-result.dto';
 import { VerificationService } from './verification.service';
@@ -23,6 +24,20 @@ export class VerificationController {
     @CurrentActor() actor: Actor
   ): Promise<VerificationResultDto> {
     return this.verificationService.verify(code, actor);
+  }
+
+  @Get('constancies/:code')
+  @ApiOperation({
+    summary: 'Verifica un codigo de constancia de creditos.',
+    description:
+      'Consulta el codigo persistido en la tabla constancies y devuelve el estado actual de la constancia.',
+  })
+  @ApiOkResponse({ type: ConstancyVerificationResultDto })
+  verifyConstancy(
+    @Param('code') code: string,
+    @CurrentActor() actor: Actor
+  ): Promise<ConstancyVerificationResultDto> {
+    return this.verificationService.verifyConstancy(code, actor);
   }
 
   @Get()

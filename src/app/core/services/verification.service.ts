@@ -1,15 +1,15 @@
 import { Injectable, inject } from '@angular/core';
+import { HttpErrorResponse } from '@angular/common/http';
+import { firstValueFrom } from 'rxjs';
 import {
   ConstancyVerificationResult,
   Participation,
-  REQUIRED_CREDITS,
   StudentCreditSummary,
   VerificationResult,
-  buildCertificateValidationCode,
   isValidVerificationCode,
-  meetsCertificateRequirement,
   primaryCertificateCode,
 } from '../../models';
+import { DcreditsApiClient } from '../api/dcredits-api.client';
 import { CreditService } from './credit.service';
 import { EventService } from './event.service';
 import { ParticipationService } from './participation.service';
@@ -61,6 +61,7 @@ export class VerificationService {
   private readonly eventService = inject(EventService);
   private readonly studentService = inject(StudentService);
   private readonly creditService = inject(CreditService);
+  private readonly api = inject(DcreditsApiClient);
 
   /** Completa el prefijo por comodidad: "2026-8F4K2P" -> "DC-2026-8F4K2P". */
   normalizeInput(value: string): string {
@@ -138,20 +139,15 @@ export class VerificationService {
   }
 
   /**
-   * Verificacion de una CONSTANCIA de creditos (documento a nivel estudiante).
+   * Verificacion de una CONSTANCIA de creditos.
    *
-   * El codigo tiene el formato CONST-<codigo universitario>-XXXXXX. Es
-   * determinista: se reconstruye a partir del estudiante y se compara, de modo
-   * que un codigo alterado no coincide.
-   *
-   * Ademas de que el codigo exista, la constancia debe seguir VIGENTE: el
-   * estudiante tiene que mantener los creditos requeridos. Si los perdio (por
-   * ejemplo, al anularse una participacion) la constancia ya no vale.
+   * El codigo ya no se reconstruye en el frontend: se consulta el registro
+   * persistido en `constancies`. El backend ademas sincroniza los creditos y el
+   * estado antes de responder.
    */
-  verifyConstancy(value: string): ConstancyVerificationResponse {
-    const raw = value.trim().toUpperCase();
-
-    if (!raw) {
+  async verifyConstancy(value: string): Promise<ConstancyVerificationResponse> {
+    const code = value.trim();
+    if (!code) {
       return {
         outcome: 'INVALID_FORMAT',
         message: 'Ingresa el código de la constancia para verificar.',
@@ -159,72 +155,40 @@ export class VerificationService {
       };
     }
 
-    const parts = raw.split('-');
-    if (parts[0] !== 'CONST' || parts.length < 3) {
+    try {
+      const row = await firstValueFrom(this.api.verifyConstancy(code));
+
       return {
-        outcome: 'INVALID_FORMAT',
-        message: 'El código de constancia tiene el formato CONST-<código>-XXXXXX.',
-        result: null,
+        outcome: row.outcome,
+        message: row.message,
+        result:
+          row.student && row.summary
+            ? {
+                student: row.student,
+                summary: row.summary,
+                issuedOn: row.issuedOn,
+                meetsRequirement: row.meetsRequirement,
+                constancy: row.constancy,
+              }
+            : null,
       };
-    }
-
-    // El codigo universitario es todo lo que queda entre "CONST" y el hash final.
-    const universityCode = parts.slice(1, -1).join('-');
-    const student = this.studentService.findByUniversityCode(universityCode);
-
-    if (!student || buildCertificateValidationCode(student).toUpperCase() !== raw) {
+    } catch (error) {
       return {
         outcome: 'NOT_FOUND',
-        message: 'No encontramos ninguna constancia con ese código.',
+        message: this.constancyErrorMessage(error),
         result: null,
       };
     }
-
-    const history = this.creditService.getStudentHistory(student.id);
-    const summary = this.creditService.getStudentCreditSummary(student.id);
-    const meetsRequirement = meetsCertificateRequirement(summary.totalCredits);
-    const result: ConstancyVerificationResult = {
-      student,
-      summary,
-      issuedOn: this.constancyIssuedOn(history),
-      meetsRequirement,
-    };
-
-    if (!meetsRequirement) {
-      return {
-        outcome: 'NOT_ISSUED',
-        message: `El código es válido, pero el estudiante aún no alcanza los ${REQUIRED_CREDITS} créditos requeridos: la constancia no está vigente.`,
-        result,
-      };
-    }
-
-    return {
-      outcome: 'VALID',
-      message: 'Constancia verificada correctamente.',
-      result,
-    };
   }
 
-  /**
-   * Fecha en que se alcanzo el minimo de creditos: se acumulan las
-   * participaciones vigentes de la mas antigua a la mas reciente y se toma la
-   * que cruza el umbral. Es la fecha que se considera "emision" de la constancia.
-   */
-  private constancyIssuedOn(participations: Participation[]): string | null {
-    const valid = participations
-      .filter((participation) => participation.status === 'VALID')
-      .slice()
-      .sort((a, b) => a.participationDate.localeCompare(b.participationDate));
-
-    let total = 0;
-    for (const participation of valid) {
-      total += participation.credits;
-      if (total >= REQUIRED_CREDITS) {
-        return participation.participationDate;
-      }
+  private constancyErrorMessage(error: unknown): string {
+    if (error instanceof HttpErrorResponse) {
+      const body = error.error as { message?: string | string[] } | null;
+      const detail = Array.isArray(body?.message) ? body.message.join('. ') : body?.message;
+      return detail ?? `No se pudo verificar la constancia (HTTP ${error.status}).`;
     }
 
-    return null;
+    return 'No se pudo conectar con el servidor para verificar la constancia.';
   }
 
   /** Verificacion simple: devuelve el resultado o null si el codigo no existe. */

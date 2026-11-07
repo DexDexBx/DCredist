@@ -1,6 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { Transform, Type } from 'class-transformer';
 import { IsInt, IsString, Matches, Min } from 'class-validator';
+import { ConstancyDto } from '../../constancies/dto/constancy.dto';
 import {
   EventDateType,
   EventModality,
@@ -77,6 +78,9 @@ export class StudentPortalResultDto {
   @ApiProperty({ example: 3 }) totalParticipations!: number;
   @ApiProperty({ example: 3 }) validParticipations!: number;
   @ApiProperty({ example: 0 }) cancelledParticipations!: number;
+
+  @ApiProperty({ type: ConstancyDto, nullable: true })
+  constancy!: ConstancyDto | null;
 
   @ApiProperty({ type: [StudentPortalHistoryItemDto] })
   history!: StudentPortalHistoryItemDto[];
