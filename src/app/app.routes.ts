@@ -15,6 +15,23 @@ import { permissionGuard } from './core/guards/permission.guard';
  */
 export const routes: Routes = [
   {
+    path: 'welcome',
+    loadComponent: () =>
+      import('./features/welcome/pages/welcome/welcome.component').then(
+        (module) => module.WelcomeComponent
+      ),
+    title: 'Bienvenido | DCredits',
+    canActivate: [guestGuard],
+  },
+  {
+    path: 'student',
+    loadComponent: () =>
+      import('./features/student-portal/pages/student-portal/student-portal.component').then(
+        (module) => module.StudentPortalComponent
+      ),
+    title: 'Portal del estudiante | DCredits',
+  },
+  {
     path: '',
     component: AppLayoutComponent,
     canActivate: [authGuard],

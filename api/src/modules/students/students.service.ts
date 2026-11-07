@@ -30,12 +30,40 @@ import {
 import { QueryStudentsDto } from './dto/query-students.dto';
 import { StudentCreditSummaryDto } from './dto/student-credit-summary.dto';
 import { StudentDetail } from './dto/student-detail.dto';
+import {
+  StudentPortalConsultDto,
+  StudentPortalResultDto,
+  StudentPortalSchoolDto,
+} from './dto/student-portal.dto';
 import { StudentFacetsDto, StudentListItemDto } from './dto/student-list-item.dto';
 
 /** El estudiante siempre viaja con los nombres de su escuela y su sede. */
 const studentInclude = {
   professionalSchool: { select: { id: true, name: true } },
   location: { select: { id: true, name: true } },
+} satisfies Prisma.StudentInclude;
+
+/** Datos del evento que ve el estudiante en su historial publico. */
+const portalStudentInclude = {
+  ...studentInclude,
+  participations: {
+    orderBy: { participationDate: 'desc' },
+    include: {
+      event: {
+        select: {
+          id: true,
+          code: true,
+          name: true,
+          startDate: true,
+          endDate: true,
+          dateType: true,
+          modality: true,
+          location: true,
+          eventTypeCatalog: { select: { name: true } },
+        },
+      },
+    },
+  },
 } satisfies Prisma.StudentInclude;
 
 type StudentRow = Prisma.StudentGetPayload<{ include: typeof studentInclude }>;
@@ -192,6 +220,94 @@ export class StudentsService {
 
     assertCanReadSchool(actor, student.professionalSchoolId);
 
+    return this.creditSummaryFor(studentId);
+  }
+
+  /**
+   * Escuelas profesionales que puede elegir un estudiante en el portal publico.
+   * Solo se ofrecen escuelas activas y nunca la escuela interna `general`.
+   */
+  async findPortalSchools(): Promise<StudentPortalSchoolDto[]> {
+    return this.prisma.professionalSchool.findMany({
+      where: {
+        status: CatalogStatus.ACTIVE,
+        NOT: { name: { equals: 'general', mode: 'insensitive' } },
+      },
+      select: { id: true, name: true },
+      orderBy: { name: 'asc' },
+    });
+  }
+
+  /**
+   * Consulta publica del estudiante.
+   *
+   * Valida dos cosas antes de devolver datos: que el codigo exista y que el
+   * estudiante pertenezca a la escuela seleccionada. No expone el padron
+   * completo: solo el perfil y su resumen de creditos.
+   */
+  async consultPortal(dto: StudentPortalConsultDto): Promise<StudentPortalResultDto> {
+    const universityCode = dto.universityCode.trim();
+    const student = await this.prisma.student.findUnique({
+      where: { universityCode },
+      include: portalStudentInclude,
+    });
+
+    if (!student) {
+      throw new NotFoundException(
+        'No encontramos un estudiante con ese código universitario.'
+      );
+    }
+
+    if (student.professionalSchoolId !== dto.professionalSchoolId) {
+      throw new BadRequestException(
+        'El código universitario no pertenece a la escuela profesional seleccionada.'
+      );
+    }
+
+    const summary = await this.creditSummaryFor(student.id);
+
+    return {
+      id: student.id,
+      universityCode: student.universityCode,
+      lastName: student.lastName,
+      firstName: student.firstName,
+      professionalSchoolId: student.professionalSchoolId,
+      professionalSchool: student.professionalSchool.name,
+      locationId: student.locationId,
+      location: student.location.name,
+      status: student.status,
+      totalCredits: summary.totalCredits,
+      creditsTarget: summary.creditsTarget,
+      progress: summary.progress,
+      remainingCredits: summary.remainingCredits,
+      completed: summary.completed,
+      totalParticipations: summary.totalParticipations,
+      validParticipations: summary.validParticipations,
+      cancelledParticipations: summary.cancelledParticipations,
+      history: student.participations.map((participation) => ({
+        id: participation.id,
+        eventId: participation.eventId,
+        eventCode: participation.event.code,
+        eventName: participation.event.name,
+        eventTypeName: participation.event.eventTypeCatalog.name,
+        eventDateType: participation.event.dateType,
+        eventStartDate: participation.event.startDate,
+        eventEndDate: participation.event.endDate,
+        modality: participation.event.modality,
+        location: participation.event.location,
+        participationDate: participation.participationDate,
+        credits: participation.credits,
+        grade: participation.grade,
+        status: participation.status,
+        origin: participation.origin,
+        descriptionStatus: participation.descriptionStatus,
+        verificationCode: participation.verificationCode,
+      })),
+    };
+  }
+
+  /** Resumen de creditos sin control de alcance; el llamador valida el acceso. */
+  private async creditSummaryFor(studentId: number): Promise<StudentCreditSummaryDto> {
     const grouped = await this.prisma.participation.groupBy({
       by: ['status'],
       where: { studentId },

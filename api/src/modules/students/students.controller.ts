@@ -22,6 +22,7 @@ import {
 } from '@nestjs/swagger';
 import type { Actor } from '../../common/actor/actor.types';
 import { CurrentActor } from '../../common/actor/current-actor.decorator';
+import { Public } from '../../common/actor/public.decorator';
 import { StudentParticipationDto } from '../participations/dto/student-participation.dto';
 import { ParticipationsService } from '../participations/participations.service';
 import {
@@ -33,6 +34,11 @@ import {
 import { QueryStudentsDto } from './dto/query-students.dto';
 import { StudentCreditSummaryDto } from './dto/student-credit-summary.dto';
 import { StudentDetail } from './dto/student-detail.dto';
+import {
+  StudentPortalConsultDto,
+  StudentPortalResultDto,
+  StudentPortalSchoolDto,
+} from './dto/student-portal.dto';
 import { StudentFacetsDto, StudentListItemDto } from './dto/student-list-item.dto';
 import { StudentsService } from './students.service';
 
@@ -66,6 +72,32 @@ export class StudentsController {
   @ApiOkResponse({ type: StudentFacetsDto })
   findFacets(@CurrentActor() actor: Actor): Promise<StudentFacetsDto> {
     return this.studentsService.findFacets(actor);
+  }
+
+  @Public()
+  @Get('portal/schools')
+  @ApiOperation({
+    summary: 'Escuelas profesionales para el portal publico del estudiante.',
+    description:
+      'No requiere sesion. Devuelve solo escuelas activas y excluye la escuela interna general.',
+  })
+  @ApiOkResponse({ type: [StudentPortalSchoolDto] })
+  findPortalSchools(): Promise<StudentPortalSchoolDto[]> {
+    return this.studentsService.findPortalSchools();
+  }
+
+  @Public()
+  @Post('portal/consult')
+  @ApiOperation({
+    summary: 'Valida un codigo universitario contra su escuela y devuelve sus creditos.',
+    description:
+      'No requiere sesion. Primero verifica que el codigo exista y luego que pertenezca a la escuela seleccionada.',
+  })
+  @ApiOkResponse({ type: StudentPortalResultDto })
+  @ApiBadRequestResponse({ description: 'El codigo no pertenece a la escuela seleccionada.' })
+  @ApiNotFoundResponse({ description: 'El codigo universitario no existe.' })
+  consultPortal(@Body() dto: StudentPortalConsultDto): Promise<StudentPortalResultDto> {
+    return this.studentsService.consultPortal(dto);
   }
 
   @Get(':id')

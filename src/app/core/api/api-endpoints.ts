@@ -85,6 +85,8 @@ export const API_ENDPOINTS = {
   studentParticipations: (id: number) => `${API_BASE_URL}/students/${id}/participations`,
   studentCredits: (id: number) => `${API_BASE_URL}/students/${id}/credits`,
   studentImport: `${API_BASE_URL}/students/import`,
+  studentPortalSchools: `${API_BASE_URL}/students/portal/schools`,
+  studentPortalConsult: `${API_BASE_URL}/students/portal/consult`,
 
   events: `${API_BASE_URL}/events`,
   eventsImport: `${API_BASE_URL}/events/import`,

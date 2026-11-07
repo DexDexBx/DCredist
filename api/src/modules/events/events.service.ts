@@ -522,6 +522,13 @@ export class EventsService {
       dto.startDate !== undefined &&
       startOfUtcDay(startDate).getTime() !== startOfUtcDay(current.startDate).getTime();
 
+    // Los creditos del evento son la fuente de verdad: si cambian, las
+    // participaciones ya registradas deben reflejar el mismo valor. Sin esto,
+    // los totales del estudiante y del dashboard seguian sumando los creditos
+    // antiguos guardados en cada participacion.
+    const nextCredits = dto.credits ?? 1;
+    const creditsChanged = dto.credits !== undefined && nextCredits !== current.credits;
+
     try {
       const updated = await this.prisma.$transaction(async (tx) => {
         const event = await tx.event.update({
@@ -566,6 +573,13 @@ export class EventsService {
               },
             },
             data: { participationDate: startDate },
+          });
+        }
+
+        if (creditsChanged) {
+          await tx.participation.updateMany({
+            where: { eventId: id },
+            data: { credits: nextCredits },
           });
         }
 

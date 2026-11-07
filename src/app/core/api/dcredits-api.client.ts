@@ -24,6 +24,9 @@ import {
   ApiStudentImportResult,
   ApiStudentImportRow,
   ApiStudentPayload,
+  ApiStudentPortalConsultPayload,
+  ApiStudentPortalResult,
+  ApiStudentPortalSchool,
   ApiModule,
   ApiUser,
   ApiUserCreatePayload,
@@ -187,6 +190,18 @@ export class DcreditsApiClient {
 
   importStudents(rows: ApiStudentImportRow[]): Observable<ApiStudentImportResult> {
     return this.http.post<ApiStudentImportResult>(API_ENDPOINTS.studentImport, { rows });
+  }
+
+  // --- Portal publico del estudiante ---
+
+  listStudentPortalSchools(): Observable<ApiStudentPortalSchool[]> {
+    return this.http.get<ApiStudentPortalSchool[]>(API_ENDPOINTS.studentPortalSchools);
+  }
+
+  consultStudentPortal(
+    payload: ApiStudentPortalConsultPayload
+  ): Observable<ApiStudentPortalResult> {
+    return this.http.post<ApiStudentPortalResult>(API_ENDPOINTS.studentPortalConsult, payload);
   }
 
   // --- Participaciones ---

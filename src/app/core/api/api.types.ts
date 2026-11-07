@@ -176,6 +176,61 @@ export interface ApiStudentImportResult {
   issues: ApiStudentImportIssue[];
 }
 
+/** Escuela profesional del portal publico del estudiante. */
+export interface ApiStudentPortalSchool {
+  id: number;
+  name: string;
+}
+
+/** Cuerpo de la consulta publica del estudiante. */
+export interface ApiStudentPortalConsultPayload {
+  universityCode: string;
+  professionalSchoolId: number;
+}
+
+/** Participacion del estudiante con los datos publicos de su evento. */
+export interface ApiStudentPortalHistoryItem {
+  id: number;
+  eventId: number;
+  eventCode: string;
+  eventName: string;
+  eventTypeName: string;
+  eventDateType: 'LONG' | 'SHORT';
+  eventStartDate: string;
+  eventEndDate: string;
+  modality: string;
+  location: string;
+  participationDate: string;
+  credits: number;
+  grade: string;
+  status: string;
+  origin: string;
+  descriptionStatus: string;
+  verificationCode: string;
+}
+
+/** Resultado de validar el codigo y la escuela del estudiante. */
+export interface ApiStudentPortalResult {
+  id: number;
+  universityCode: string;
+  lastName: string;
+  firstName: string;
+  professionalSchoolId: number;
+  professionalSchool: string;
+  locationId: number;
+  location: string;
+  status: string;
+  totalCredits: number;
+  creditsTarget: number;
+  progress: number;
+  remainingCredits: number;
+  completed: boolean;
+  totalParticipations: number;
+  validParticipations: number;
+  cancelledParticipations: number;
+  history: ApiStudentPortalHistoryItem[];
+}
+
 export type ApiEventType = 'SINGLE_DAY' | 'MULTI_DAY';
 export type ApiEventModality = 'PRESENTIAL' | 'VIRTUAL' | 'HYBRID' | 'UNSPECIFIED';
 export type ApiEventStatus = 'DRAFT' | 'SCHEDULED' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
