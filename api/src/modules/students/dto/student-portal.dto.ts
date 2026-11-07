@@ -60,7 +60,11 @@ export class StudentPortalHistoryItemDto {
 export class StudentPortalResultDto {
   @ApiProperty({ example: 1 }) id!: number;
   @ApiProperty({ example: '2213271' }) universityCode!: string;
-  @ApiProperty({ example: 'AGUILAR PEREZ' }) lastName!: string;
+  @ApiProperty({
+    example: 'AGU*** PER***',
+    description: 'Apellidos enmascarados: 3 letras por palabra y ***.',
+  })
+  lastName!: string;
   @ApiProperty({ example: 'MARISOL SONIA' }) firstName!: string;
 
   @ApiProperty({ example: 1 }) professionalSchoolId!: number;

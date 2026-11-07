@@ -14,6 +14,7 @@ import {
 } from '../../../../models/student-portal.model';
 import { eventTypeLabel } from '../../../../models/academic-event.model';
 import { formatDateRange, parseCalendarDate } from '../../../../shared/utils/date.utils';
+import { maskSurnames } from '../../../../shared/utils/text.utils';
 
 /**
  * PORTAL DEL ESTUDIANTE.
@@ -204,7 +205,7 @@ export class StudentPortalComponent {
   }
 
   studentName(student: StudentPortalProfile): string {
-    return `${student.lastName}, ${student.firstName}`;
+    return `${maskSurnames(student.lastName)}, ${student.firstName}`;
   }
 
   /** Fecha del evento respetando los eventos de solo mes/anio. */

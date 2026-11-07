@@ -8,6 +8,7 @@ import {
 } from '../../models/student-portal.model';
 import { ApiStudentPortalResult } from '../api/api.types';
 import { DcreditsApiClient } from '../api/dcredits-api.client';
+import { maskSurnames } from '../../shared/utils/text.utils';
 
 /**
  * PORTAL PUBLICO DEL ESTUDIANTE.
@@ -58,7 +59,7 @@ function mapProfile(row: ApiStudentPortalResult): StudentPortalProfile {
   return {
     id: row.id,
     universityCode: row.universityCode,
-    lastName: row.lastName,
+    lastName: maskSurnames(row.lastName),
     firstName: row.firstName,
     professionalSchoolId: row.professionalSchoolId,
     professionalSchool: row.professionalSchool,

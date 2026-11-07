@@ -141,3 +141,18 @@ export function readExtendedNumber(props: Record<string, unknown>, key: string):
   const value = props[key];
   return typeof value === 'number' ? value : null;
 }
+
+/**
+ * Enmascara apellidos para la consulta publica del estudiante.
+ *
+ * Cada palabra conserva sus 3 primeras letras y el resto se reemplaza por ***.
+ * Es idempotente: si el API ya devolvio "ELM*** LAL***", el resultado no cambia.
+ */
+export function maskSurnames(value: string): string {
+  return (value ?? '')
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((word) => `${word.replace(/\*+$/, '').slice(0, 3)}***`)
+    .join(' ');
+}

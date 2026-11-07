@@ -280,7 +280,8 @@ export class StudentsService {
     return {
       id: student.id,
       universityCode: student.universityCode,
-      lastName: student.lastName,
+      // La consulta es publica: nombre completo y apellidos enmascarados.
+      lastName: maskSurnames(student.lastName),
       firstName: student.firstName,
       professionalSchoolId: student.professionalSchoolId,
       professionalSchool: student.professionalSchool.name,
@@ -840,6 +841,20 @@ function summarize(participations: ParticipationForSummary[]) {
     eventsParticipated: new Set(valid.map((item) => item.eventId)).size,
     pendingGrades: valid.filter((item) => item.grade === 'sin nota').length,
   };
+}
+
+/**
+ * Enmascara los apellidos en la consulta publica del estudiante.
+ * Cada palabra conserva sus 3 primeras letras y el resto se reemplaza por ***.
+ * Ejemplo: "AGUILAR PEREZ" -> "AGU*** PER***".
+ */
+function maskSurnames(lastName: string): string {
+  return lastName
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((word) => `${word.slice(0, 3)}***`)
+    .join(' ');
 }
 
 /** Evita errores de coma flotante al sumar creditos (1.5 + 2 + 1 = 4.5). */
