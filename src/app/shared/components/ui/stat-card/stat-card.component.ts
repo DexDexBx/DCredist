@@ -44,6 +44,10 @@ export class StatCardComponent {
   /** Icono opcional de la tarjeta (de la coleccion de iconos del proyecto). */
   readonly icon = input<IconName>();
 
+  /** Muestra un boton para desplegar el contenido proyectado como desglose. */
+  readonly collapsible = input(false);
+  readonly expanded = signal(false);
+
   /** Valor mostrado. Es el animado mientras corre, y el real al terminar. */
   readonly displayValue = signal<string | number>('');
 
@@ -94,6 +98,10 @@ export class StatCardComponent {
         this.animate(0, target);
       }
     });
+  }
+
+  toggleDetails(): void {
+    this.expanded.update((value) => !value);
   }
 
   toneBar(): string {

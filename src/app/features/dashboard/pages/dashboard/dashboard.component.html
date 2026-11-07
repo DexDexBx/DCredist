@@ -42,7 +42,23 @@
     [value]="totalParticipations()"
     tone="accent"
     hint="Histórico completo"
-  />
+    [collapsible]="true"
+  >
+    <dl class="grid grid-cols-2 gap-2 text-xs">
+      <div class="rounded-lg bg-success-50 px-2.5 py-2 dark:bg-success-500/10">
+        <dt class="font-medium text-success-700 dark:text-success-400">Válidas</dt>
+        <dd class="mt-0.5 text-lg font-bold tabular-nums text-success-700 dark:text-success-400">
+          {{ validParticipations() }}
+        </dd>
+      </div>
+      <div class="rounded-lg bg-error-50 px-2.5 py-2 dark:bg-error-500/10">
+        <dt class="font-medium text-error-700 dark:text-error-400">Canceladas</dt>
+        <dd class="mt-0.5 text-lg font-bold tabular-nums text-error-700 dark:text-error-400">
+          {{ cancelledParticipations() }}
+        </dd>
+      </div>
+    </dl>
+  </dc-stat-card>
   <dc-stat-card
     label="Créditos entregados"
     [value]="totalCredits()"

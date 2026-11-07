@@ -53,6 +53,25 @@ export class DashboardComponent {
   readonly activeEvents = computed(() => this.eventService.activeEvents().length);
   readonly totalStudents = computed(() => this.studentService.totalCount());
   readonly totalParticipations = computed(() => this.participationService.participations().length);
+
+  private readonly participationCounts = computed(() => {
+    let valid = 0;
+    let cancelled = 0;
+
+    for (const participation of this.participationService.participations()) {
+      if (participation.status === 'VALID') {
+        valid++;
+      } else if (participation.status === 'CANCELLED') {
+        cancelled++;
+      }
+    }
+
+    return { valid, cancelled };
+  });
+
+  readonly validParticipations = computed(() => this.participationCounts().valid);
+  readonly cancelledParticipations = computed(() => this.participationCounts().cancelled);
+
   readonly totalCredits = this.creditService.globalTotalCredits;
 
   /** Avance global hacia la meta institucional de creditos. */

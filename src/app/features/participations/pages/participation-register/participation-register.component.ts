@@ -270,14 +270,17 @@ export class ParticipationRegisterComponent {
   );
 
   readonly eventOptions = computed<DcSelectOption[]>(() =>
-    this.openEvents().map((event) => ({
-      value: String(event.id),
-      label: `${event.code} · ${event.name}`,
-      description: [event.organizer, `${event.credits} crd.`]
-        .filter((part): part is string => Boolean(part))
-        .join(' · '),
-      search: `${event.code} ${event.name} ${event.organizer ?? ''} ${event.modality}`,
-    }))
+    [...this.openEvents()]
+      // Orden natural del catalogo: 1, 2, 3... sin depender del orden del API.
+      .sort((a, b) => a.id - b.id)
+      .map((event) => ({
+        value: String(event.id),
+        label: `${event.code} · ${event.name}`,
+        description: [event.organizer, `${event.credits} crd.`]
+          .filter((part): part is string => Boolean(part))
+          .join(' · '),
+        search: `${event.code} ${event.name} ${event.organizer ?? ''} ${event.modality}`,
+      }))
   );
 
   /**
@@ -301,11 +304,13 @@ export class ParticipationRegisterComponent {
       .filter((student) => !registered.has(student.id))
       .map((student) => ({
         value: String(student.id),
-        label: `${student.universityCode} · ${student.lastName}, ${student.firstName}`,
+        // La escuela va en el texto principal para que tambien se vea al
+        // seleccionar al estudiante, no solo en el desplegable.
+        label: `${student.universityCode} · ${student.lastName}, ${student.firstName}${
+          student.professionalSchool ? ` · ${student.professionalSchool}` : ''
+        }`,
         search: `${student.universityCode} ${student.lastName} ${student.firstName} ${student.professionalSchool} ${student.location}`,
-        description: student.professionalSchool
-          ? `${student.professionalSchool}${student.location ? ' · ' + student.location : ''}`
-          : student.location,
+        description: student.location,
       }));
   });
 
