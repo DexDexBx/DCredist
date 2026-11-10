@@ -191,5 +191,10 @@ export class EventImportResultDto {
   @ApiProperty({ example: 120 }) total!: number;
   @ApiProperty({ example: 115 }) registered!: number;
   @ApiProperty({ example: 5 }) skipped!: number;
+  @ApiPropertyOptional({
+    example: 115,
+    description: 'Filas que pasaron la validacion (no necesariamente insertadas).',
+  })
+  valid?: number;
   @ApiProperty({ type: [EventImportIssueDto] }) issues!: EventImportIssueDto[];
 }

@@ -305,6 +305,7 @@ export class ParticipationsService {
 
       const taken = await this.prisma.participation.findFirst({
         where: {
+          eventId: dto.eventId,
           verificationCode: { equals: historicalCode, mode: 'insensitive' },
         },
         select: { id: true },
@@ -597,6 +598,7 @@ export class ParticipationsService {
           (
             await this.prisma.participation.findMany({
               where: {
+                eventId: event.id,
                 verificationCode: {
                   in: pending.map((item) => item.verificationCode as string),
                   mode: 'insensitive',
@@ -662,7 +664,7 @@ export class ParticipationsService {
           row: item.index + 1,
           universityCode: item.code,
           code: 'DUPLICATE_VERIFICATION_CODE',
-          message: `El codigo de verificacion "${item.verificationCode}" ya esta asignado a otra participacion.`,
+          message: `El codigo de verificacion "${item.verificationCode}" ya esta asignado a otra participacion de este evento.`,
         });
         continue;
       }
@@ -826,7 +828,7 @@ export class ParticipationsService {
               message: duplicateStudent
                 ? `No se pudo registrar ${code}: el registro ya existe.`
                 : duplicateCode
-                  ? `No se pudo registrar ${code}: el codigo de verificacion ya esta asignado.`
+                  ? `No se pudo registrar ${code}: el codigo de verificacion ya esta asignado en este evento.`
                   : `No se pudo registrar ${code}: error de base de datos.`,
             });
           }

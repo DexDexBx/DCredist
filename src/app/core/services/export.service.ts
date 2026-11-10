@@ -240,7 +240,7 @@ export class ExportService {
    */
   exportParticipationList(query: ParticipationQuery = {}): ExportResult {
     const rows = this.participationService
-      .getParticipations({ ...query, sort: 'student' })
+      .getParticipations({ ...query, sort: 'studentCode', sortDirection: 'asc' })
       .filter((participation) => this.isExportable(participation.status))
       .map((participation) => this.participationService.context(participation));
 

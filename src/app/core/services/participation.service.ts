@@ -318,7 +318,11 @@ export class ParticipationService {
   );
 
 getParticipations(query: ParticipationQuery = {}): Participation[] {
-    return this.selectParticipations(query, this.resolveSearch(query.search));
+    const items = this.selectParticipations(query, this.resolveSearch(query.search));
+    const sort = query.sort ?? 'recent';
+    return sort === 'recent'
+      ? items
+      : this.sortMatches(items, sort, query.sortDirection);
   }
 
   /**
@@ -333,12 +337,36 @@ getParticipations(query: ParticipationQuery = {}): Participation[] {
     // El texto se resuelve UNA vez y se comparte con el conteo y con la pagina.
     // Resolverlo en los dos seria recorrer el historial dos veces por pulsacion.
     const search = this.resolveSearch(query.search);
-    const total = this.countMatching(query, search);
+    const sort = query.sort ?? 'recent';
+
+    if (sort === 'recent') {
+      const total = this.countMatching(query, search);
+      const pageCount = Math.max(1, Math.ceil(total / pageSize));
+      const page = Math.min(Math.max(1, query.page ?? 1), pageCount);
+      const items = this.selectParticipations({ ...query, page, pageSize }, search);
+      const from = total === 0 || items.length === 0 ? 0 : (page - 1) * pageSize + 1;
+
+      return {
+        items,
+        total,
+        page,
+        pageSize,
+        pageCount,
+        from,
+        to: items.length === 0 ? 0 : from + items.length - 1,
+      };
+    }
+
+    // Para ordenar por una columna se ordena TODO lo filtrado y recien despues
+    // se corta la pagina. Ordenar solo la pagina visible daria un resultado
+    // incorrecto en las paginas siguientes.
+    const all = this.selectParticipations(withoutPaging(query), search);
+    const sorted = this.sortMatches(all, sort, query.sortDirection);
+    const total = sorted.length;
     const pageCount = Math.max(1, Math.ceil(total / pageSize));
     const page = Math.min(Math.max(1, query.page ?? 1), pageCount);
-
-    const items = this.selectParticipations({ ...query, page, pageSize }, search);
-    const from = total === 0 || items.length === 0 ? 0 : (page - 1) * pageSize + 1;
+    const start = (page - 1) * pageSize;
+    const items = sorted.slice(start, start + pageSize);
 
     return {
       items,
@@ -346,8 +374,8 @@ getParticipations(query: ParticipationQuery = {}): Participation[] {
       page,
       pageSize,
       pageCount,
-      from,
-      to: items.length === 0 ? 0 : from + items.length - 1,
+      from: total === 0 || items.length === 0 ? 0 : start + 1,
+      to: items.length === 0 ? 0 : start + items.length,
     };
   }
 
@@ -439,8 +467,7 @@ getParticipations(query: ParticipationQuery = {}): Participation[] {
       scanned++;
     }
 
-    const sort = query.sort ?? 'recent';
-    return sort === 'recent' ? matches : this.sortMatches(matches, sort);
+    return matches;
   }
 
   /**
@@ -592,17 +619,42 @@ getParticipations(query: ParticipationQuery = {}): Participation[] {
    * Solo se ordena lo que ya cumplio los filtros. En el peor caso son 1 200 000
    * filas, asi que se hace bajo demanda y no en cada pulsacion del buscador.
    */
-  private sortMatches(matches: Participation[], sort: ParticipationSortKey): Participation[] {
+  private sortMatches(
+    matches: Participation[],
+    sort: ParticipationSortKey,
+    direction?: 'asc' | 'desc'
+  ): Participation[] {
+    const descending =
+      direction !== undefined
+        ? direction === 'desc'
+        : sort === 'credits' || sort === 'recent';
+    const sign = descending ? -1 : 1;
+    const byDateDesc = (a: Participation, b: Participation): number =>
+      b.participationDate.localeCompare(a.participationDate);
+
     switch (sort) {
-      case 'student':
+      case 'date':
+        return matches.sort(
+          (a, b) =>
+            sign * a.participationDate.localeCompare(b.participationDate) || byDateDesc(a, b)
+        );
+      case 'studentName':
+        return matches.sort((a, b) => {
+          const first = this.studentService.findById(a.studentId);
+          const second = this.studentService.findById(b.studentId);
+          const byName = NAME_COLLATOR.compare(
+            `${first?.lastName ?? ''} ${first?.firstName ?? ''}`,
+            `${second?.lastName ?? ''} ${second?.firstName ?? ''}`
+          );
+          return byName !== 0 ? sign * byName : byDateDesc(a, b);
+        });
+      case 'studentCode':
         return matches.sort((a, b) => {
           const byCode = collateCodes(
             this.studentService.findById(a.studentId)?.universityCode,
             this.studentService.findById(b.studentId)?.universityCode
           );
-          return byCode !== 0
-            ? byCode
-            : b.participationDate.localeCompare(a.participationDate);
+          return byCode !== 0 ? sign * byCode : byDateDesc(a, b);
         });
       case 'event':
         return matches.sort((a, b) => {
@@ -610,13 +662,11 @@ getParticipations(query: ParticipationQuery = {}): Participation[] {
             this.eventService.findById(a.eventId)?.name ?? '',
             this.eventService.findById(b.eventId)?.name ?? ''
           );
-          return byName !== 0
-            ? byName
-            : b.participationDate.localeCompare(a.participationDate);
+          return byName !== 0 ? sign * byName : byDateDesc(a, b);
         });
       case 'credits':
         return matches.sort(
-          (a, b) => b.credits - a.credits || b.participationDate.localeCompare(a.participationDate)
+          (a, b) => sign * (a.credits - b.credits) || byDateDesc(a, b)
         );
       default:
         return matches;
@@ -680,12 +730,36 @@ getParticipations(query: ParticipationQuery = {}): Participation[] {
    * cambio nunca coincide por coincidir un fragmento suelto.
    */
   findByCertificateCode(code: string): Participation | undefined {
+    return this.findAllByCertificateCode(code)[0];
+  }
+
+  /**
+   * Todas las participaciones que comparten un codigo de certificado.
+   *
+   * Un codigo historico puede repetirse en eventos distintos; por eso la
+   * verificacion ya no puede asumir un unico resultado.
+   */
+  findAllByCertificateCode(code: string): Participation[] {
     const needle = code.trim();
     if (!needle) {
-      return undefined;
+      return [];
     }
 
-    return this.participationsState().find(
+    const upper = needle.toUpperCase();
+    const exact = this.participationsState().filter(
+      (participation) =>
+        (participation.verificationCode ?? '').trim().toUpperCase() === upper ||
+        (participation.legacyCode ?? '').trim().toUpperCase() === upper
+    );
+
+    // Primero se respeta el codigo tal cual. Solo si no hay coincidencia exacta
+    // se aplica la comparacion tolerante (espacios/guiones), para no mezclar
+    // dos documentos distintos que casualmente normalizan igual.
+    if (exact.length > 0) {
+      return exact;
+    }
+
+    return this.participationsState().filter(
       (participation) =>
         sameCertificateCode(participation.verificationCode, needle) ||
         sameCertificateCode(participation.legacyCode, needle)
@@ -751,7 +825,7 @@ getParticipations(query: ParticipationQuery = {}): Participation[] {
         };
       }
 
-      if (this.codeTaken(verificationCode)) {
+      if (this.codeTaken(verificationCode, draft.eventId)) {
         return {
           valid: false,
           error: 'VERIFICATION_CODE_TAKEN',
@@ -859,7 +933,7 @@ getParticipations(query: ParticipationQuery = {}): Participation[] {
     const origin = draft.origin ?? 'CURRENT';
     const historicalCode = normalizeLegacyCode(draft.verificationCode);
 
-    if (legacyCode && this.codeTaken(legacyCode)) {
+    if (legacyCode && this.codeTaken(legacyCode, draft.eventId)) {
       return {
         ok: false,
         error: 'INVALID_CERTIFICATE',
@@ -1129,8 +1203,16 @@ getParticipations(query: ParticipationQuery = {}): Participation[] {
 
     // En una carga historica el codigo original hace de identificador: no
     // puede repetirse dentro del archivo ni existir ya en el historial.
+    // En historicos, la unicidad del codigo es por evento. El mismo codigo
+    // puede existir en otro evento sin bloquear la carga.
     const historicalKeys = isLegacy
-      ? new Set<string>([...this.existingCodes()].map((code) => compactCode(code)))
+      ? new Set<string>(
+          (this.participationsByEvent().get(eventId) ?? [])
+            .map((participation) =>
+              compactCode(participation.verificationCode ?? participation.legacyCode ?? '')
+            )
+            .filter(Boolean)
+        )
       : new Set<string>();
 
     let validCount = 0;
@@ -1244,11 +1326,11 @@ getParticipations(query: ParticipationQuery = {}): Participation[] {
         continue;
       }
 
-      if (!isRegistrationOpen(event)) {
+      // La importacion masiva no depende del cierre de la primera carga.
+      // Solo se bloquea un evento cancelado.
+      if (!acceptsParticipations(event)) {
         item.valid = false;
-        item.error = event.status === 'Cancelado'
-          ? 'El evento no acepta más participaciones'
-          : 'El registro del evento está cerrado. Habilita las cargas extemporáneas.';
+        item.error = 'El evento no acepta más participaciones';
         errors.push({ row: item.row, code, reason: item.error });
         invalidCount++;
         continue;
@@ -1517,17 +1599,24 @@ getParticipations(query: ParticipationQuery = {}): Participation[] {
    * Un codigo de certificado identifica UNA participacion: no puede repetirse
    * ni entre codigos DC ni entre codigos del sistema anterior.
    */
-  /** Indica si un codigo de verificacion ya esta asignado a otra participacion. */
-  isVerificationCodeTaken(code: string | null | undefined): boolean {
+  /**
+   * Indica si un codigo de verificacion ya esta asignado dentro del evento.
+   * Los codigos historicos pueden repetirse en eventos distintos.
+   */
+  isVerificationCodeTaken(
+    code: string | null | undefined,
+    eventId: number
+  ): boolean {
     const normalized = normalizeLegacyCode(code);
-    return normalized ? this.codeTaken(normalized) : false;
+    return normalized ? this.codeTaken(normalized, eventId) : false;
   }
 
-  private codeTaken(code: string): boolean {
+  private codeTaken(code: string, eventId: number): boolean {
     return this.participationsState().some(
       (participation) =>
-        sameCertificateCode(participation.verificationCode, code) ||
-        sameCertificateCode(participation.legacyCode, code)
+        participation.eventId === eventId &&
+        (sameCertificateCode(participation.verificationCode, code) ||
+          sameCertificateCode(participation.legacyCode, code))
     );
   }
 

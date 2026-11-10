@@ -11,6 +11,12 @@ export interface VerificationResult {
   student: Student | undefined;
 }
 
+/** Coincidencia individual de un codigo de participacion. */
+export interface VerificationMatch extends VerificationResult {
+  /** Creditos del estudiante en el momento de la verificacion. */
+  credits: StudentCreditSummary | null;
+}
+
 /**
  * Resultado de VerificationService.verifyConstancy(code).
  *

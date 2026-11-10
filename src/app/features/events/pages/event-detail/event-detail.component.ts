@@ -1,5 +1,7 @@
 import { Component, computed, inject, input, linkedSignal, signal } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
+import { toObservable, toSignal } from '@angular/core/rxjs-interop';
+import { debounceTime, distinctUntilChanged } from 'rxjs';
 import { EventService } from '../../../../core/services/event.service';
 import { AuthService } from '../../../../core/services/auth.service';
 import { ExportService } from '../../../../core/services/export.service';
@@ -31,6 +33,11 @@ import { PanelComponent } from '../../../../shared/components/ui/panel/panel.com
 import { isHistoricalEventDate } from '../../../../models';
 import { PARTICIPATION_STATUS_COLOR } from '../../../../shared/constants/status-ui';
 import { formatLongDate as formatLongDateValue } from '../../../../shared/utils/date.utils';
+import {
+  matchesTokens,
+  normalizeForSearch,
+  searchTokens,
+} from '../../../../shared/utils/text.utils';
 import { EventStatusBadgeComponent } from '../../components/event-status-badge/event-status-badge.component';
 
 @Component({
@@ -120,6 +127,47 @@ export class EventDetailComponent {
     this.participationService.getEventTable(this.eventIdNumber())
   );
 
+  /** Texto que la persona escribe en el buscador de participantes. */
+  readonly searchInput = signal('');
+
+  /** Texto ya estabilizado: evita filtrar en cada tecla. */
+  readonly search = toSignal(
+    toObservable(this.searchInput).pipe(debounceTime(200), distinctUntilChanged()),
+    { initialValue: '' }
+  );
+
+  readonly filteredRows = computed<ParticipationContext[]>(() => {
+    const tokens = searchTokens(this.search());
+    if (tokens.length === 0) {
+      return this.rows();
+    }
+
+    return this.rows().filter((row) => {
+      const student = row.student;
+      const haystack = normalizeForSearch(
+        [
+          student?.universityCode,
+          student?.lastName,
+          student?.firstName,
+          student?.professionalSchool,
+          student?.location,
+          row.participation.verificationCode,
+          row.participation.legacyCode,
+          row.participation.grade,
+          this.statusLabel[row.participation.status],
+        ]
+          .filter(Boolean)
+          .join(' ')
+      );
+
+      return matchesTokens(haystack, tokens);
+    });
+  });
+
+  clearSearch(): void {
+    this.searchInput.set('');
+  }
+
   readonly pageSizes = [10, 20, 50];
   readonly pageSize = signal(10);
 
@@ -128,12 +176,12 @@ export class EventDetailComponent {
    * tamaño de página, para no quedar en una página vacía.
    */
   readonly page = linkedSignal({
-    source: () => `${this.eventId()}|${this.pageSize()}`,
+    source: () => `${this.eventId()}|${this.pageSize()}|${this.search()}`,
     computation: () => 1,
   });
 
   readonly pageData = computed(() => {
-    const items = this.rows();
+    const items = this.filteredRows();
     const total = items.length;
     const pageSize = this.pageSize();
     const pageCount = Math.max(1, Math.ceil(total / pageSize));

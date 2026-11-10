@@ -5,6 +5,7 @@ import {
   ConstancyVerificationResult,
   Participation,
   StudentCreditSummary,
+  VerificationMatch,
   VerificationResult,
   isValidVerificationCode,
   primaryCertificateCode,
@@ -20,14 +21,15 @@ export type VerificationOutcome =
   | 'INVALID_FORMAT'
   | 'NOT_FOUND'
   | 'CANCELLED'
+  /** El codigo existe en varias participaciones (codigo historico repetido). */
+  | 'MULTIPLE'
   /** El codigo existe, pero el estudiante ya no alcanza los creditos: la constancia no esta vigente. */
   | 'NOT_ISSUED';
 
 export interface VerificationResponse {
   outcome: VerificationOutcome;
   message: string;
-  result: VerificationResult | null;
-  credits: StudentCreditSummary | null;
+  matches: VerificationMatch[];
 }
 
 /** Respuesta de la verificacion a nivel CONSTANCIA (documento de creditos). */
@@ -97,44 +99,58 @@ export class VerificationService {
       return {
         outcome: 'INVALID_FORMAT',
         message: 'Ingresa un código de participación para verificar.',
-        result: null,
-        credits: null,
+        matches: [],
       };
     }
 
-    const participation = this.participationService.findByCertificateCode(code);
+    const participations = this.participationService.findAllByCertificateCode(code);
 
-    if (!participation) {
+    if (participations.length === 0) {
       return {
         outcome: 'NOT_FOUND',
         message: 'No encontramos ninguna participación con ese código.',
-        result: null,
-        credits: null,
+        matches: [],
       };
     }
 
-    const result: VerificationResult = {
-      participation,
-      event: this.eventService.findById(participation.eventId),
-      student: this.studentService.findById(participation.studentId),
-    };
+    const matches: VerificationMatch[] = participations.map((participation) => {
+      const result: VerificationResult = {
+        participation,
+        event: this.eventService.findById(participation.eventId),
+        student: this.studentService.findById(participation.studentId),
+      };
 
-    if (participation.status === 'CANCELLED') {
+      return {
+        ...result,
+        credits:
+          participation.status === 'CANCELLED' || !result.student
+            ? null
+            : this.creditService.getStudentCreditSummary(result.student.id),
+      };
+    });
+
+    if (matches.length > 1) {
+      return {
+        outcome: 'MULTIPLE',
+        message: `Se encontraron ${matches.length} participaciones con este código. Revisa el evento para identificar la correcta.`,
+        matches,
+      };
+    }
+
+    const match = matches[0];
+
+    if (match.participation.status === 'CANCELLED') {
       return {
         outcome: 'CANCELLED',
         message: 'La participación existe, pero fue anulada y no otorga créditos.',
-        result,
-        credits: null,
+        matches,
       };
     }
 
     return {
       outcome: 'VALID',
       message: 'Participación verificada correctamente.',
-      result,
-      credits: result.student
-        ? this.creditService.getStudentCreditSummary(result.student.id)
-        : null,
+      matches,
     };
   }
 

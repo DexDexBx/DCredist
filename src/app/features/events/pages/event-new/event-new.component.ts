@@ -9,7 +9,12 @@ import {
   Validators,
 } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
-import { EventService, EventImportResult, EventImportRow } from '../../../../core/services/event.service';
+import {
+  EventService,
+  EventImportResult,
+  EventImportRow,
+  EventImportValidation,
+} from '../../../../core/services/event.service';
 import { AuthService } from '../../../../core/services/auth.service';
 import { CatalogService } from '../../../../core/services/catalog.service';
 import { EventTypeService } from '../../../../core/services/event-type.service';
@@ -254,12 +259,13 @@ export class EventNewComponent {
   readonly importOpen = signal(false);
   readonly importOrigin = signal<EventOrigin>('CURRENT');
   readonly isLegacyImport = computed(() => this.importOrigin() === 'LEGACY');
-  readonly importStep = signal<1 | 2>(1);
+  readonly importStep = signal<1 | 2 | 3>(1);
   readonly importText = signal('');
   readonly importFileName = signal<string | null>(null);
   readonly isDragging = signal(false);
   readonly importError = signal<string | null>(null);
   readonly importResult = signal<EventImportResult | null>(null);
+  readonly importValidation = signal<EventImportValidation | null>(null);
   readonly fileAccept = IMPORT_FILE_ACCEPT;
 
   constructor() {
@@ -497,6 +503,7 @@ export class EventNewComponent {
     }
     this.importOrigin.set(origin);
     this.importResult.set(null);
+    this.importValidation.set(null);
     this.importStep.set(1);
     this.importError.set(null);
   }
@@ -506,6 +513,7 @@ export class EventNewComponent {
     this.importFileName.set(null);
     this.importError.set(null);
     this.importResult.set(null);
+    this.importValidation.set(null);
     this.importStep.set(1);
   }
 
@@ -572,6 +580,25 @@ export class EventNewComponent {
     });
   }
 
+  async validateImport(): Promise<void> {
+    this.importError.set(null);
+
+    const rows = this.parseImportRows(this.importText());
+    if (rows.length === 0) {
+      this.importError.set('No se detectaron filas para importar.');
+      return;
+    }
+
+    const validation = await this.eventService.validateImport(rows, this.importOrigin());
+    if (validation.error) {
+      this.importError.set(validation.error);
+      return;
+    }
+
+    this.importValidation.set(validation);
+    this.importStep.set(2);
+  }
+
   async confirmImport(): Promise<void> {
     this.importError.set(null);
 
@@ -583,12 +610,18 @@ export class EventNewComponent {
 
     const result = await this.eventService.importEvents(rows, this.importOrigin());
     this.importResult.set(result);
-    this.importStep.set(2);
+    this.importStep.set(3);
 
     if (result.registered > 0) {
       this.createdCode.set(null);
       this.createdId.set(null);
     }
+  }
+
+  backToImport(): void {
+    this.importValidation.set(null);
+    this.importResult.set(null);
+    this.importStep.set(1);
   }
 
   private parseImportRows(text: string): EventImportRow[] {

@@ -144,9 +144,12 @@ export class StudentService {
   }
 
   /** Pagina de estudiantes + totales reales. Es lo que consume la interfaz. */
-  getStudentsPage(query: StudentQuery = {}): StudentPage {
+  getStudentsPage(
+    query: StudentQuery = {},
+    order?: readonly number[]
+  ): StudentPage {
     const students = this.studentsState();
-    const matches = this.matchIndices(query);
+    const matches = this.matchIndices(query, order);
     const pageSize = this.resolvePageSize(query.pageSize);
     const total = matches.length;
     const pageCount = Math.max(1, Math.ceil(total / pageSize));
@@ -224,6 +227,14 @@ export class StudentService {
     switch (sort) {
       case 'code':
         return this.codeOrder();
+      case 'school':
+        return this.schoolOrder();
+      case 'location':
+        return this.locationOrder();
+      case 'credits':
+        // El orden por creditos vive en CreditService, que conoce las
+        // participaciones. Si no se envia un orden explicito, se usa nombre.
+        return this.nameOrder();
       case 'recent':
         return this.recentOrder();
       default:
@@ -231,12 +242,32 @@ export class StudentService {
     }
   }
 
+  /** Orden base (ascendente) de un criterio, para que la vista lo invierta. */
+  ordering(sort: StudentSortKey): readonly number[] {
+    return this.orderFor(sort);
+  }
+
+  /** Posicion de cada estudiante en el arreglo del padron, por id. */
+  readonly studentIndexById = computed(() => {
+    const index = new Map<number, number>();
+    this.studentsState().forEach((student, position) => index.set(student.id, position));
+    return index;
+  });
+
   private readonly nameOrder = computed(() =>
     this.sortIndices(this.allIndices(), this.studentsState(), 'name')
   );
 
   private readonly codeOrder = computed(() =>
     this.sortIndices(this.allIndices(), this.studentsState(), 'code')
+  );
+
+  private readonly schoolOrder = computed(() =>
+    this.sortIndices(this.allIndices(), this.studentsState(), 'school')
+  );
+
+  private readonly locationOrder = computed(() =>
+    this.sortIndices(this.allIndices(), this.studentsState(), 'location')
   );
 
   private readonly recentOrder = computed(() =>
@@ -252,6 +283,23 @@ export class StudentService {
       case 'code':
         return indices.sort((a, b) =>
           CODE_COLLATOR.compare(students[a].universityCode, students[b].universityCode)
+        );
+      case 'school':
+        return indices.sort(
+          (a, b) =>
+            NAME_COLLATOR.compare(
+              students[a].professionalSchool,
+              students[b].professionalSchool
+            ) ||
+            NAME_COLLATOR.compare(students[a].lastName, students[b].lastName) ||
+            NAME_COLLATOR.compare(students[a].firstName, students[b].firstName)
+        );
+      case 'location':
+        return indices.sort(
+          (a, b) =>
+            NAME_COLLATOR.compare(students[a].location, students[b].location) ||
+            NAME_COLLATOR.compare(students[a].lastName, students[b].lastName) ||
+            NAME_COLLATOR.compare(students[a].firstName, students[b].firstName)
         );
       case 'recent':
         return indices.sort((a, b) => students[b].id - students[a].id);

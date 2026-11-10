@@ -41,6 +41,7 @@ const OUTCOME_STYLES: Record<VerificationOutcome, string> = {
   VALID: 'border-success-200 bg-success-50 dark:border-success-500/20 dark:bg-success-500/10',
   CANCELLED: 'border-gray-200 bg-gray-50 dark:border-gray-800 dark:bg-white/[0.03]',
   NOT_FOUND: 'border-error-200 bg-error-50 dark:border-error-500/20 dark:bg-error-500/10',
+  MULTIPLE: 'border-warning-200 bg-warning-50 dark:border-warning-500/20 dark:bg-warning-500/10',
   INVALID_FORMAT:
     'border-warning-200 bg-warning-50 dark:border-warning-500/20 dark:bg-warning-500/10',
   NOT_ISSUED: 'border-warning-200 bg-warning-50 dark:border-warning-500/20 dark:bg-warning-500/10',
@@ -50,6 +51,7 @@ const OUTCOME_ICON: Record<VerificationOutcome, 'check' | 'close' | 'info'> = {
   VALID: 'check',
   CANCELLED: 'info',
   NOT_FOUND: 'close',
+  MULTIPLE: 'info',
   INVALID_FORMAT: 'info',
   NOT_ISSUED: 'info',
 };
@@ -193,7 +195,7 @@ export class VerificationComponent {
 
   /** Creditos acumulados del estudiante verificado, no solo los del evento. */
   totalCredits(): number {
-    const student = this.response()?.result?.student;
+    const student = this.response()?.matches[0]?.student;
     return student ? this.creditService.getStudentCreditSummary(student.id).totalCredits : 0;
   }
 }

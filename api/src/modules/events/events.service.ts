@@ -618,7 +618,11 @@ export class EventsService {
    * de creacion: una cuenta global puede cargar cualquier escuela real; una de
    * escuela solo la suya. El codigo se genera con la misma secuencia EVT-AAAA-NNN.
    */
-  async importEvents(dto: ImportEventsDto, actor: Actor): Promise<EventImportResultDto> {
+  async importEvents(
+    dto: ImportEventsDto,
+    actor: Actor,
+    validateOnly = false
+  ): Promise<EventImportResultDto> {
     const origin = dto.origin ?? EventOrigin.CURRENT;
     const isHistorical = origin === EventOrigin.LEGACY;
     const defaultDateType = dto.dateType ?? EventDateType.LONG;
@@ -879,6 +883,16 @@ export class EventsService {
       });
     }
 
+    if (validateOnly) {
+      return {
+        total: dto.rows.length,
+        registered: 0,
+        skipped: dto.rows.length - data.length,
+        valid: data.length,
+        issues,
+      };
+    }
+
     let registered = 0;
 
     for (let start = 0; start < data.length; start += BULK_INSERT_BATCH_SIZE) {
@@ -920,6 +934,7 @@ export class EventsService {
       total: dto.rows.length,
       registered,
       skipped,
+      valid: data.length,
       issues,
     };
   }

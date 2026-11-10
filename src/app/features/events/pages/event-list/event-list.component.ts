@@ -24,8 +24,17 @@ import { PageHeaderComponent } from '../../../../shared/components/ui/page-heade
 import { PaginationComponent } from '../../../../shared/components/ui/pagination/pagination.component';
 import { PanelComponent } from '../../../../shared/components/ui/panel/panel.component';
 import { EventStatusBadgeComponent } from '../../components/event-status-badge/event-status-badge.component';
+import { CODE_COLLATOR } from '../../../../shared/utils/text.utils';
 
-type EventSortKey = 'name' | 'date' | 'type' | 'modality' | 'credits' | 'capacity' | 'status';
+type EventSortKey =
+  | 'name'
+  | 'code'
+  | 'date'
+  | 'type'
+  | 'modality'
+  | 'credits'
+  | 'capacity'
+  | 'status';
 type SortDirection = 'asc' | 'desc';
 
 /** Compara dos eventos por la columna pedida. */
@@ -33,6 +42,8 @@ function compareEvents(a: AcademicEvent, b: AcademicEvent, key: EventSortKey): n
   switch (key) {
     case 'name':
       return a.name.localeCompare(b.name);
+    case 'code':
+      return CODE_COLLATOR.compare(a.code, b.code);
     case 'date':
       return a.startDate.localeCompare(b.startDate);
     case 'type':
@@ -92,6 +103,16 @@ export class EventListComponent {
     { key: 'capacity', label: 'Cupo' },
     { key: 'status', label: 'Estado' },
   ];
+
+  /** Opciones del desplegable de ordenacion de la columna Evento. */
+  readonly eventSortOptions: { key: 'name' | 'code'; label: string }[] = [
+    { key: 'name', label: 'Nombre' },
+    { key: 'code', label: 'Código' },
+  ];
+  readonly eventSortMenuOpen = signal(false);
+  readonly eventSortActive = computed(
+    () => this.sortKey() === 'name' || this.sortKey() === 'code'
+  );
 
   readonly selectedStatus = signal<EventStatus | 'Todos'>('Todos');
   readonly selectedModality = signal<EventModality | 'Todas'>('Todas');
@@ -279,7 +300,29 @@ export class EventListComponent {
   }
 
   /** Clic en el encabezado: alterna dirección si ya era la columna activa. */
+  toggleEventSortMenu(event: MouseEvent): void {
+    event.stopPropagation();
+    this.eventSortMenuOpen.update((open) => !open);
+  }
+
+  closeEventSortMenu(): void {
+    this.eventSortMenuOpen.set(false);
+  }
+
+  selectEventSort(key: 'name' | 'code'): void {
+    if (this.sortKey() === key) {
+      this.sortDir.update((direction) => (direction === 'asc' ? 'desc' : 'asc'));
+    } else {
+      this.sortKey.set(key);
+      this.sortDir.set('asc');
+    }
+
+    this.eventSortMenuOpen.set(false);
+  }
+
   sortBy(key: EventSortKey): void {
+    this.eventSortMenuOpen.set(false);
+
     if (this.sortKey() === key) {
       this.sortDir.set(this.sortDir() === 'asc' ? 'desc' : 'asc');
       return;

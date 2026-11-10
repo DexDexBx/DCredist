@@ -186,12 +186,138 @@
         <tr
           class="border-b border-gray-200 bg-gray-50 text-xs font-semibold tracking-wide text-gray-500 uppercase dark:border-gray-800 dark:bg-white/[0.02] dark:text-gray-400"
         >
-          <th scope="col" class="px-5 py-3">Código</th>
-          <th scope="col" class="px-5 py-3">Estudiante</th>
-          <th scope="col" class="px-5 py-3">Escuela profesional</th>
-          <th scope="col" class="px-5 py-3">Sede</th>
+          <th
+            scope="col"
+            class="px-5 py-3"
+            [attr.aria-sort]="
+              isActiveSort('code') ? (sortDir() === 'asc' ? 'ascending' : 'descending') : 'none'
+            "
+          >
+            <button
+              type="button"
+              (click)="onSortChange('code')"
+              class="inline-flex items-center gap-1 uppercase tracking-wide transition-colors hover:text-gray-700 dark:hover:text-gray-200"
+              [class.text-brand-600]="isActiveSort('code')"
+              [class.dark:text-brand-300]="isActiveSort('code')"
+            >
+              Código
+              <span
+                aria-hidden="true"
+                class="transition-transform"
+                [class.opacity-0]="!isActiveSort('code')"
+                [class.rotate-180]="isActiveSort('code') && sortDir() === 'asc'"
+              >
+                <dc-icon name="chevron-down" [size]="14" />
+              </span>
+            </button>
+          </th>
+
+          <th
+            scope="col"
+            class="px-5 py-3"
+            [attr.aria-sort]="
+              isActiveSort('name') ? (sortDir() === 'asc' ? 'ascending' : 'descending') : 'none'
+            "
+          >
+            <button
+              type="button"
+              (click)="onSortChange('name')"
+              class="inline-flex items-center gap-1 uppercase tracking-wide transition-colors hover:text-gray-700 dark:hover:text-gray-200"
+              [class.text-brand-600]="isActiveSort('name')"
+              [class.dark:text-brand-300]="isActiveSort('name')"
+            >
+              Estudiante
+              <span
+                aria-hidden="true"
+                class="transition-transform"
+                [class.opacity-0]="!isActiveSort('name')"
+                [class.rotate-180]="isActiveSort('name') && sortDir() === 'asc'"
+              >
+                <dc-icon name="chevron-down" [size]="14" />
+              </span>
+            </button>
+          </th>
+
+          <th
+            scope="col"
+            class="px-5 py-3"
+            [attr.aria-sort]="
+              isActiveSort('school') ? (sortDir() === 'asc' ? 'ascending' : 'descending') : 'none'
+            "
+          >
+            <button
+              type="button"
+              (click)="onSortChange('school')"
+              class="inline-flex items-center gap-1 uppercase tracking-wide transition-colors hover:text-gray-700 dark:hover:text-gray-200"
+              [class.text-brand-600]="isActiveSort('school')"
+              [class.dark:text-brand-300]="isActiveSort('school')"
+            >
+              Escuela profesional
+              <span
+                aria-hidden="true"
+                class="transition-transform"
+                [class.opacity-0]="!isActiveSort('school')"
+                [class.rotate-180]="isActiveSort('school') && sortDir() === 'asc'"
+              >
+                <dc-icon name="chevron-down" [size]="14" />
+              </span>
+            </button>
+          </th>
+
+          <th
+            scope="col"
+            class="px-5 py-3"
+            [attr.aria-sort]="
+              isActiveSort('location') ? (sortDir() === 'asc' ? 'ascending' : 'descending') : 'none'
+            "
+          >
+            <button
+              type="button"
+              (click)="onSortChange('location')"
+              class="inline-flex items-center gap-1 uppercase tracking-wide transition-colors hover:text-gray-700 dark:hover:text-gray-200"
+              [class.text-brand-600]="isActiveSort('location')"
+              [class.dark:text-brand-300]="isActiveSort('location')"
+            >
+              Sede
+              <span
+                aria-hidden="true"
+                class="transition-transform"
+                [class.opacity-0]="!isActiveSort('location')"
+                [class.rotate-180]="isActiveSort('location') && sortDir() === 'asc'"
+              >
+                <dc-icon name="chevron-down" [size]="14" />
+              </span>
+            </button>
+          </th>
+
           <th scope="col" class="px-5 py-3 text-right">Eventos</th>
-          <th scope="col" class="px-5 py-3 text-right">Créditos</th>
+
+          <th
+            scope="col"
+            class="px-5 py-3 text-right"
+            [attr.aria-sort]="
+              isActiveSort('credits') ? (sortDir() === 'asc' ? 'ascending' : 'descending') : 'none'
+            "
+          >
+            <button
+              type="button"
+              (click)="onSortChange('credits')"
+              class="inline-flex items-center justify-end gap-1 uppercase tracking-wide transition-colors hover:text-gray-700 dark:hover:text-gray-200"
+              [class.text-brand-600]="isActiveSort('credits')"
+              [class.dark:text-brand-300]="isActiveSort('credits')"
+            >
+              Créditos
+              <span
+                aria-hidden="true"
+                class="transition-transform"
+                [class.opacity-0]="!isActiveSort('credits')"
+                [class.rotate-180]="isActiveSort('credits') && sortDir() === 'asc'"
+              >
+                <dc-icon name="chevron-down" [size]="14" />
+              </span>
+            </button>
+          </th>
+
           <th scope="col" class="px-5 py-3">Estado</th>
           <th scope="col" class="px-5 py-3"><span class="sr-only">Acciones</span></th>
         </tr>

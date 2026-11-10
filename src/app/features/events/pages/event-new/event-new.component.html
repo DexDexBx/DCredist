@@ -620,6 +620,54 @@
         </span>
       </div>
     </div>
+    } @else if (importStep() === 2) {
+    @if (importValidation(); as validation) {
+    <div class="flex flex-col gap-5">
+      <div class="grid grid-cols-3 gap-2 sm:gap-3">
+        <div class="rounded-xl border border-gray-200 bg-gray-50 px-3 py-3 sm:px-4 dark:border-gray-800 dark:bg-white/[0.03]">
+          <p class="text-xs font-medium text-gray-500 dark:text-gray-400">Total</p>
+          <p class="mt-1 text-xl font-semibold tabular-nums sm:text-2xl text-gray-900 dark:text-white/90">{{ validation.total }}</p>
+        </div>
+        <div class="rounded-xl border border-success-200 bg-success-50 px-3 py-3 sm:px-4 dark:border-success-500/20 dark:bg-success-500/10">
+          <p class="text-xs font-medium text-success-700 dark:text-success-400">Válidos</p>
+          <p class="mt-1 text-xl font-semibold tabular-nums sm:text-2xl text-success-700 dark:text-success-400">{{ validation.valid }}</p>
+        </div>
+        <div class="rounded-xl border border-error-200 bg-error-50 px-3 py-3 sm:px-4 dark:border-error-500/20 dark:bg-error-500/10">
+          <p class="text-xs font-medium text-error-700 dark:text-error-500">Inválidos</p>
+          <p class="mt-1 text-xl font-semibold tabular-nums sm:text-2xl text-error-700 dark:text-error-500">{{ validation.total - validation.valid }}</p>
+        </div>
+      </div>
+
+      @if (validation.issues.length === 0) {
+      <div class="rounded-xl border border-success-200 bg-success-50 px-4 py-3.5 text-sm text-success-700 dark:border-success-500/20 dark:bg-success-500/10 dark:text-success-400">
+        Todas las filas son válidas. Puedes confirmar la importación.
+      </div>
+      } @else {
+      <div class="overflow-hidden rounded-xl border border-gray-200 dark:border-gray-800">
+        <div class="max-h-72 overflow-auto">
+          <table class="w-full min-w-[640px] text-left text-sm">
+            <thead class="sticky top-0 bg-gray-50 dark:bg-gray-900">
+              <tr class="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                <th class="px-3 py-2.5 font-medium">Fila</th>
+                <th class="px-3 py-2.5 font-medium">Evento</th>
+                <th class="px-3 py-2.5 font-medium">Motivo</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-200 dark:divide-gray-800">
+              @for (issue of validation.issues; track issue.row + issue.name + issue.message) {
+              <tr class="align-top">
+                <td class="px-3 py-2.5 text-gray-500 dark:text-gray-400">{{ issue.row }}</td>
+                <td class="px-3 py-2.5 text-gray-700 dark:text-gray-300">{{ issue.name || '—' }}</td>
+                <td class="px-3 py-2.5 text-error-600 dark:text-error-500">{{ issue.message }}</td>
+              </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      </div>
+      }
+    </div>
+    }
     } @else {
     @if (importResult(); as result) {
     <div class="flex flex-col gap-5">
@@ -696,12 +744,29 @@
     @if (importStep() === 1) {
     <button
       type="button"
-      (click)="confirmImport()"
+      (click)="validateImport()"
       [disabled]="importPreviewCount() === 0"
       class="inline-flex items-center gap-2 rounded-xl bg-brand-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-50"
     >
       <dc-icon name="check" [size]="18" />
-      Importar eventos
+      Validar eventos
+    </button>
+    } @else if (importStep() === 2) {
+    <button
+      type="button"
+      (click)="backToImport()"
+      class="rounded-xl border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-100 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-white/[0.05]"
+    >
+      Volver
+    </button>
+    <button
+      type="button"
+      (click)="confirmImport()"
+      [disabled]="(importValidation()?.valid ?? 0) === 0"
+      class="inline-flex items-center gap-2 rounded-xl bg-brand-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-50"
+    >
+      <dc-icon name="check" [size]="18" />
+      Importar {{ importValidation()?.valid ?? 0 }} evento(s)
     </button>
     }
   </div>

@@ -383,6 +383,45 @@ export class EventService {
    * En modo API delega en POST /events/import y recarga el listado. Sin API
    * resuelve organizador y escuela por nombre y crea los eventos en memoria.
    */
+  /**
+   * Valida la carga masiva sin insertar eventos.
+   *
+   * La validacion real vive en el backend para que use exactamente las mismas
+   * reglas que la importacion definitiva.
+   */
+  async validateImport(
+    rows: EventImportRow[],
+    origin: EventOrigin = 'CURRENT',
+    dateType: EventDateType = 'LONG'
+  ): Promise<EventImportValidation> {
+    if (!this.dataMode.isApi) {
+      return {
+        total: rows.length,
+        valid: 0,
+        issues: [],
+        error: 'La validación previa requiere que el API esté disponible.',
+      };
+    }
+
+    try {
+      const result = await firstValueFrom(
+        this.api.validateEventsImport(rows, origin, dateType)
+      );
+      return {
+        total: result.total,
+        valid: result.valid ?? 0,
+        issues: result.issues,
+      };
+    } catch (error) {
+      return {
+        total: rows.length,
+        valid: 0,
+        issues: [],
+        error: this.importErrorMessage(error),
+      };
+    }
+  }
+
   async importEvents(
     rows: EventImportRow[],
     origin: EventOrigin = 'CURRENT',
@@ -771,8 +810,17 @@ export interface EventImportResult {
   total: number;
   registered: number;
   skipped: number;
+  valid?: number;
   issues: { row: number; name: string; code: string; message: string }[];
   /** Error global del API (por ejemplo, migracion pendiente o validacion). */
+  error?: string;
+}
+
+/** Resultado de validar una carga masiva sin insertar eventos. */
+export interface EventImportValidation {
+  total: number;
+  valid: number;
+  issues: { row: number; name: string; code: string; message: string }[];
   error?: string;
 }
 

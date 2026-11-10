@@ -341,6 +341,7 @@ export interface ApiEventImportResult {
   total: number;
   registered: number;
   skipped: number;
+  valid?: number;
   issues: { row: number; name: string; code: string; message: string }[];
 }
 

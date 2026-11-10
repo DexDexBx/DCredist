@@ -105,6 +105,22 @@ export class EventsController {
     return this.eventsService.create(dto, actor);
   }
 
+  @Post('import/validate')
+  @ApiOperation({
+    summary: 'Valida una carga masiva de eventos sin insertarlos.',
+    description:
+      'Aplica las mismas reglas que la importacion real y devuelve las filas validas y todos los errores.',
+  })
+  @ApiBody({ type: ImportEventsDto })
+  @ApiCreatedResponse({ type: EventImportResultDto })
+  @ApiBadRequestResponse({ description: 'Archivo vacio o datos invalidos.' })
+  validateImport(
+    @Body() dto: ImportEventsDto,
+    @CurrentActor() actor: Actor
+  ): Promise<EventImportResultDto> {
+    return this.eventsService.importEvents(dto, actor, true);
+  }
+
   @Post('import')
   @ApiOperation({
     summary: 'Carga masiva de eventos (actuales o historicos).',

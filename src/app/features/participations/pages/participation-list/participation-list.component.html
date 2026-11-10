@@ -139,10 +139,153 @@
         <tr
           class="border-b border-gray-200 bg-gray-50 text-xs font-semibold tracking-wide text-gray-500 uppercase dark:border-gray-800 dark:bg-white/[0.02] dark:text-gray-400"
         >
-          <th scope="col" class="px-5 py-3">Fecha</th>
-          <th scope="col" class="px-5 py-3">Estudiante</th>
-          <th scope="col" class="px-5 py-3">Evento</th>
-          <th scope="col" class="px-5 py-3 text-right">Créditos</th>
+          <th
+            scope="col"
+            class="px-5 py-3"
+            [attr.aria-sort]="
+              isActiveSort('date') ? (sortDir() === 'asc' ? 'ascending' : 'descending') : 'none'
+            "
+          >
+            <button
+              type="button"
+              (click)="onSortChange('date')"
+              class="inline-flex items-center gap-1 uppercase tracking-wide transition-colors hover:text-gray-700 dark:hover:text-gray-200"
+              [class.text-brand-600]="isActiveSort('date')"
+              [class.dark:text-brand-300]="isActiveSort('date')"
+            >
+              Fecha
+              <span
+                aria-hidden="true"
+                class="transition-transform"
+                [class.opacity-0]="!isActiveSort('date')"
+                [class.rotate-180]="isActiveSort('date') && sortDir() === 'asc'"
+              >
+                <dc-icon name="chevron-down" [size]="14" />
+              </span>
+            </button>
+          </th>
+
+          <th
+            scope="col"
+            class="px-5 py-3"
+            [attr.aria-sort]="
+              studentSortActive() ? (sortDir() === 'asc' ? 'ascending' : 'descending') : 'none'
+            "
+          >
+            <div class="relative inline-block">
+              <button
+                type="button"
+                (click)="toggleStudentSortMenu($event)"
+                [attr.aria-expanded]="studentSortMenuOpen()"
+                aria-haspopup="menu"
+                class="inline-flex items-center gap-1 uppercase tracking-wide transition-colors hover:text-gray-700 dark:hover:text-gray-200"
+                [class.text-brand-600]="studentSortActive()"
+                [class.dark:text-brand-300]="studentSortActive()"
+              >
+                Estudiante
+                <span
+                  aria-hidden="true"
+                  class="transition-transform"
+                  [class.rotate-180]="studentSortActive() && sortDir() === 'asc'"
+                >
+                  <dc-icon name="chevron-down" [size]="14" />
+                </span>
+              </button>
+
+              @if (studentSortMenuOpen()) {
+              <button
+                type="button"
+                class="fixed inset-0 z-30 cursor-default"
+                (click)="closeStudentSortMenu()"
+                aria-label="Cerrar menú de ordenación"
+                tabindex="-1"
+              ></button>
+
+              <div
+                role="menu"
+                class="absolute top-full left-0 z-40 mt-2 w-44 overflow-hidden rounded-xl border border-gray-200 bg-white py-1 shadow-theme-lg dark:border-gray-700 dark:bg-gray-900"
+              >
+                <p
+                  class="px-3 pt-2 pb-1 text-[10px] font-semibold tracking-wide text-gray-400 uppercase dark:text-gray-500"
+                >
+                  Ordenar por
+                </p>
+                @for (option of studentSortOptions; track option.key) {
+                <button
+                  type="button"
+                  role="menuitem"
+                  (click)="selectStudentSort(option.key)"
+                  class="flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-xs font-medium transition-colors hover:bg-gray-50 dark:hover:bg-white/5"
+                  [class.text-brand-700]="sort() === option.key"
+                  [class.dark:text-brand-300]="sort() === option.key"
+                >
+                  <span>{{ option.label }}</span>
+                  @if (sort() === option.key) {
+                  <dc-icon
+                    name="chevron-down"
+                    [size]="14"
+                    class="transition-transform"
+                    [class.rotate-180]="sortDir() === 'asc'"
+                  />
+                  }
+                </button>
+                }
+              </div>
+              }
+            </div>
+          </th>
+
+          <th
+            scope="col"
+            class="px-5 py-3"
+            [attr.aria-sort]="
+              isActiveSort('event') ? (sortDir() === 'asc' ? 'ascending' : 'descending') : 'none'
+            "
+          >
+            <button
+              type="button"
+              (click)="onSortChange('event')"
+              class="inline-flex items-center gap-1 uppercase tracking-wide transition-colors hover:text-gray-700 dark:hover:text-gray-200"
+              [class.text-brand-600]="isActiveSort('event')"
+              [class.dark:text-brand-300]="isActiveSort('event')"
+            >
+              Evento
+              <span
+                aria-hidden="true"
+                class="transition-transform"
+                [class.opacity-0]="!isActiveSort('event')"
+                [class.rotate-180]="isActiveSort('event') && sortDir() === 'asc'"
+              >
+                <dc-icon name="chevron-down" [size]="14" />
+              </span>
+            </button>
+          </th>
+
+          <th
+            scope="col"
+            class="px-5 py-3 text-right"
+            [attr.aria-sort]="
+              isActiveSort('credits') ? (sortDir() === 'asc' ? 'ascending' : 'descending') : 'none'
+            "
+          >
+            <button
+              type="button"
+              (click)="onSortChange('credits')"
+              class="inline-flex items-center justify-end gap-1 uppercase tracking-wide transition-colors hover:text-gray-700 dark:hover:text-gray-200"
+              [class.text-brand-600]="isActiveSort('credits')"
+              [class.dark:text-brand-300]="isActiveSort('credits')"
+            >
+              Créditos
+              <span
+                aria-hidden="true"
+                class="transition-transform"
+                [class.opacity-0]="!isActiveSort('credits')"
+                [class.rotate-180]="isActiveSort('credits') && sortDir() === 'asc'"
+              >
+                <dc-icon name="chevron-down" [size]="14" />
+              </span>
+            </button>
+          </th>
           <th scope="col" class="px-5 py-3 text-right">Nota</th>
           <th scope="col" class="px-5 py-3">C&#243;digo del certificado</th>
           <th scope="col" class="px-5 py-3">Estado</th>

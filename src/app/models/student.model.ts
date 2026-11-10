@@ -42,7 +42,13 @@ export interface StudentQuery {
   sort?: StudentSortKey;
 }
 
-export type StudentSortKey = 'name' | 'code' | 'recent';
+export type StudentSortKey =
+  | 'name'
+  | 'code'
+  | 'school'
+  | 'location'
+  | 'credits'
+  | 'recent';
 
 /** Tamaños de página ofrecidos en la interfaz. El backend define el máximo. */
 export const STUDENT_PAGE_SIZES = [25, 50, 100, 200] as const;

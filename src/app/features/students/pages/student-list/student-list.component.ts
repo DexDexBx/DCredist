@@ -145,6 +145,7 @@ export class StudentListComponent {
   readonly site = signal('');
   readonly status = signal<StudentStatus | 'Todos'>('Todos');
   readonly sort = signal<StudentSortKey>('name');
+  readonly sortDir = signal<'asc' | 'desc'>('asc');
   readonly pageSize = signal(25);
 
   /**
@@ -157,7 +158,7 @@ export class StudentListComponent {
    */
   readonly page = linkedSignal({
     source: () =>
-      `${this.search()}|${this.school()}|${this.site()}|${this.status()}|${this.sort()}`,
+      `${this.search()}|${this.school()}|${this.site()}|${this.status()}|${this.sort()}|${this.sortDir()}`,
     computation: () => 1,
   });
 
@@ -220,8 +221,28 @@ export class StudentListComponent {
     };
   });
 
+  /**
+   * Orden base del padron para el criterio activo.
+   *
+   * Nombre, codigo, escuela y sede vienen ascendentes. Créditos y "reciente"
+   * vienen descendentes; la dirección elegida decide si se invierte.
+   */
+  readonly sortOrder = computed<readonly number[]>(() => {
+    const key = this.sort();
+    const base =
+      key === 'credits'
+        ? this.creditService.creditSortedIndices()
+        : this.studentService.ordering(key);
+    const baseIsDescending = key === 'credits' || key === 'recent';
+    const wantDescending = this.sortDir() === 'desc';
+
+    return wantDescending === baseIsDescending ? base : [...base].reverse();
+  });
+
   /** La pagina que se pinta: 25 filas, nunca el padron completo. */
-  readonly pageData = computed(() => this.studentService.getStudentsPage(this.query()));
+  readonly pageData = computed(() =>
+    this.studentService.getStudentsPage(this.query(), this.sortOrder())
+  );
 
   readonly rows = computed<StudentRow[]>(() => {
     const { items } = this.pageData();
@@ -278,7 +299,13 @@ export class StudentListComponent {
   }
 
   onSortChange(sort: StudentSortKey): void {
+    if (this.sort() === sort) {
+      this.sortDir.update((direction) => (direction === 'asc' ? 'desc' : 'asc'));
+      return;
+    }
+
     this.sort.set(sort);
+    this.sortDir.set(sort === 'credits' || sort === 'recent' ? 'desc' : 'asc');
   }
 
   isActiveSort(value: StudentSortKey): boolean {

@@ -156,6 +156,18 @@ export class DcreditsApiClient {
     });
   }
 
+  validateEventsImport(
+    rows: ApiEventImportRow[],
+    origin: ApiEventOrigin = 'CURRENT',
+    dateType: ApiEventDateType = 'LONG'
+  ): Observable<ApiEventImportResult> {
+    return this.http.post<ApiEventImportResult>(API_ENDPOINTS.eventsImportValidate, {
+      origin,
+      dateType,
+      rows,
+    });
+  }
+
   listEventTypes(): Observable<ApiEventTypeEntry[]> {
     return this.http.get<ApiEventTypeEntry[]>(API_ENDPOINTS.eventTypes);
   }

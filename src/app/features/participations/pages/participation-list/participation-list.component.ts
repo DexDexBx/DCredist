@@ -90,7 +90,18 @@ export class ParticipationListComponent {
 
   readonly eventId = signal('');
   readonly sort = signal<ParticipationSortKey>('recent');
+  readonly sortDir = signal<'asc' | 'desc'>('desc');
   readonly pageSize = signal(DEFAULT_PARTICIPATION_PAGE_SIZE);
+
+  /** Desplegable del encabezado Estudiante: nombre o codigo. */
+  readonly studentSortOptions: { key: 'studentName' | 'studentCode'; label: string }[] = [
+    { key: 'studentName', label: 'Nombre' },
+    { key: 'studentCode', label: 'Código' },
+  ];
+  readonly studentSortMenuOpen = signal(false);
+  readonly studentSortActive = computed(
+    () => this.sort() === 'studentName' || this.sort() === 'studentCode'
+  );
 
   /**
    * Pagina visible.
@@ -101,7 +112,7 @@ export class ParticipationListComponent {
    */
   readonly page = linkedSignal({
     source: () =>
-      `${this.search()}|${this.eventId()}|${this.sort()}`,
+      `${this.search()}|${this.eventId()}|${this.sort()}|${this.sortDir()}`,
     computation: () => 1,
   });
 
@@ -131,6 +142,7 @@ export class ParticipationListComponent {
       search: this.search(),
       eventId: this.eventId() ? Number(this.eventId()) : undefined,
       sort: this.sort(),
+      sortDirection: this.sortDir(),
       page: this.page(),
       pageSize: this.pageSize(),
     };
@@ -236,8 +248,41 @@ export class ParticipationListComponent {
     this.page.set(1);
   }
 
+  isActiveSort(sort: ParticipationSortKey): boolean {
+    return this.sort() === sort;
+  }
+
   onSortChange(sort: ParticipationSortKey): void {
+    this.studentSortMenuOpen.set(false);
+
+    if (this.sort() === sort) {
+      this.sortDir.update((direction) => (direction === 'asc' ? 'desc' : 'asc'));
+      return;
+    }
+
     this.sort.set(sort);
+    this.sortDir.set(sort === 'recent' || sort === 'credits' ? 'desc' : 'asc');
+  }
+
+  toggleStudentSortMenu(event: MouseEvent): void {
+    event.stopPropagation();
+    this.studentSortMenuOpen.update((open) => !open);
+  }
+
+  closeStudentSortMenu(): void {
+    this.studentSortMenuOpen.set(false);
+  }
+
+  selectStudentSort(key: 'studentName' | 'studentCode'): void {
+    this.studentSortMenuOpen.set(false);
+
+    if (this.sort() === key) {
+      this.sortDir.update((direction) => (direction === 'asc' ? 'desc' : 'asc'));
+      return;
+    }
+
+    this.sort.set(key);
+    this.sortDir.set('asc');
   }
 
   exportInstitutional(): void {

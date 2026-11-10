@@ -125,6 +125,19 @@ export class CreditService {
       );
   });
 
+  /**
+   * Posiciones del padron ordenadas por creditos descendente.
+   *
+   * La vista de estudiantes la usa para ordenar por la columna Creditos sin
+   * recalcular el historial en cada clic.
+   */
+  readonly creditSortedIndices = computed(() => {
+    const positions = this.studentService.studentIndexById();
+    return this.creditRows()
+      .map((row) => positions.get(row.student.id))
+      .filter((position): position is number => position !== undefined);
+  });
+
   getStudentCreditSummary(studentId: number): StudentCreditSummary {
     const participations = this.participationService.getByStudent(studentId);
     const valid = participations.filter((participation) => participation.status === 'VALID');

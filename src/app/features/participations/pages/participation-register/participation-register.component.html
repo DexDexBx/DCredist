@@ -552,6 +552,13 @@
           </div>
         </div>
 
+        @if (stage2ErrorItems().length === 0) {
+        <div
+          class="rounded-xl border border-success-200 bg-success-50 px-4 py-3.5 text-sm text-success-700 dark:border-success-500/20 dark:bg-success-500/10 dark:text-success-400"
+        >
+          Todas las filas son válidas. No hay errores por corregir.
+        </div>
+        } @else {
         <div class="overflow-hidden rounded-xl border border-gray-200 dark:border-gray-800">
           <div class="max-h-72 overflow-auto">
             <table class="w-full min-w-[640px] text-left text-sm">
@@ -563,11 +570,11 @@
                   <th class="px-3 py-2.5 font-medium">Código de verificación</th>
                   }
                   <th class="px-3 py-2.5 font-medium">Estudiante</th>
-                  <th class="px-3 py-2.5 font-medium">Estado</th>
+                  <th class="px-3 py-2.5 font-medium">Motivo</th>
                 </tr>
               </thead>
               <tbody class="divide-y divide-gray-200 dark:divide-gray-800">
-                @for (item of stage2PreviewItems(); track item.row) {
+                @for (item of stage2ErrorItems(); track item.row) {
                 <tr class="align-top">
                   <td class="px-3 py-2.5 text-gray-500 dark:text-gray-400">{{ item.row }}</td>
                   <td class="px-3 py-2.5 font-mono text-gray-900 dark:text-white/90">{{ item.code || '—' }}</td>
@@ -583,13 +590,8 @@
                     <span class="text-gray-400 dark:text-gray-500">—</span>
                     }
                   </td>
-                  <td class="px-3 py-2.5">
-                    <app-badge [color]="statusColor(item.valid)">
-                      {{ item.valid ? 'Válido' : 'Inválido' }}
-                    </app-badge>
-                    @if (item.error) {
-                    <p class="mt-1 text-xs text-error-600 dark:text-error-500">{{ item.error }}</p>
-                    }
+                  <td class="px-3 py-2.5 text-error-600 dark:text-error-500">
+                    {{ item.error || 'Fila inválida' }}
                   </td>
                 </tr>
                 }
@@ -597,12 +599,6 @@
             </table>
           </div>
         </div>
-
-        @if (stage2.items.length > importPreviewLimit) {
-        <p class="text-xs text-gray-500 dark:text-gray-400">
-          Mostrando las primeras {{ importPreviewLimit }} filas de {{ stage2.total }}. Los totales
-          de arriba incluyen todas.
-        </p>
         }
 
         @if (stage2.valid === 0) {
@@ -689,7 +685,7 @@
                 </tr>
               </thead>
               <tbody class="divide-y divide-gray-200 dark:divide-gray-800">
-                @for (err of importErrorsPreview(); track err.row + err.code + err.reason) {
+                @for (err of importErrors(); track err.row + err.code + err.reason) {
                 <tr>
                   <td class="px-3 py-2 text-gray-500 dark:text-gray-400">{{ err.row }}</td>
                   <td class="px-3 py-2 font-mono text-gray-700 dark:text-gray-300">{{ err.code }}</td>
@@ -699,12 +695,6 @@
               </tbody>
             </table>
           </div>
-          @if (importErrors().length > importPreviewLimit) {
-          <p class="text-xs text-gray-500 dark:text-gray-400">
-            Mostrando los primeros {{ importPreviewLimit }} de {{ importErrors().length }}. Descarga
-            el reporte para verlos todos.
-          </p>
-          }
         </div>
         }
       </div>
@@ -760,7 +750,7 @@
         @case (3) {
         <button
           type="button"
-          (click)="resetImport()"
+          (click)="startNewImport()"
           class="inline-flex items-center gap-2 rounded-xl border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-100 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-white/[0.05]"
         >
           <dc-icon name="refresh" [size]="18" />

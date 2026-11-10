@@ -120,12 +120,9 @@ export class ParticipationRegisterComponent {
    * Una carga de miles de codigos no puede pintar miles de filas de tabla: el
    * navegador se congela. Los totales y el reporte descargable siguen completos.
    */
-  readonly importPreviewLimit = 200;
-  readonly stage2PreviewItems = computed(() =>
-    (this.importStage2()?.items ?? []).slice(0, this.importPreviewLimit)
-  );
-  readonly importErrorsPreview = computed(() =>
-    this.importErrors().slice(0, this.importPreviewLimit)
+  /** Solo las filas con error: son las que la persona necesita corregir. */
+  readonly stage2ErrorItems = computed(() =>
+    (this.importStage2()?.items ?? []).filter((item) => !item.valid)
   );
 
   // --- Modo de la carga y trazabilidad de extemporaneos ---
@@ -446,7 +443,7 @@ export class ParticipationRegisterComponent {
         return;
       }
 
-      if (this.participationService.isVerificationCodeTaken(historicalCode)) {
+      if (this.participationService.isVerificationCodeTaken(historicalCode, event.id)) {
         this.errorMessage.set('Ese código de verificación ya está asignado a otra participación.');
         return;
       }
@@ -742,11 +739,6 @@ export class ParticipationRegisterComponent {
     // Asegura que el combobox del modal muestre el evento ya seleccionado.
     this.modalEventId.setValue(this.form.controls.eventId.value);
 
-    if (event && isImportCompleted(event) && !isLateImportsEnabled(event)) {
-      this.openNewRequest();
-      return;
-    }
-
     this.resetImport();
     this.importOrigin.set(this.registerOrigin());
     this.importMode.set(event && isLateImportsEnabled(event) ? 'LATE' : mode);
@@ -790,14 +782,6 @@ export class ParticipationRegisterComponent {
     const eventId = this.selectedEventId();
     if (!eventId) {
       this.importError.set('Selecciona el evento antes de validar.');
-      return;
-    }
-
-    const event = this.selectedEvent();
-    if (event && !isRegistrationOpen(event)) {
-      this.importError.set(
-        'El registro de este evento está cerrado. Habilita las cargas extemporáneas para subir una lista posterior.'
-      );
       return;
     }
 
@@ -948,6 +932,14 @@ export class ParticipationRegisterComponent {
     this.importSummary.set(null);
     this.importStep.set(1);
     this.importError.set(null);
+  }
+
+  /** Nueva importacion desde cero: limpia tambien el evento del modal. */
+  startNewImport(): void {
+    this.resetImport();
+    this.importMode.set('NORMAL');
+    this.lateUploadedBy.set('');
+    this.modalEventId.setValue('');
   }
 
   downloadErrorReport(): void {

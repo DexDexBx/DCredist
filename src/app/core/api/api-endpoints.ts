@@ -91,6 +91,7 @@ export const API_ENDPOINTS = {
 
   events: `${API_BASE_URL}/events`,
   eventsImport: `${API_BASE_URL}/events/import`,
+  eventsImportValidate: `${API_BASE_URL}/events/import/validate`,
   event: (id: number) => `${API_BASE_URL}/events/${id}`,
   eventSummary: (id: number) => `${API_BASE_URL}/events/${id}/summary`,
   eventParticipations: (id: number) => `${API_BASE_URL}/events/${id}/participations`,

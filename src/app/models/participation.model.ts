@@ -138,14 +138,23 @@ export interface ParticipationQuery {
   page?: number;
   pageSize?: number;
   sort?: ParticipationSortKey;
+  /** Direccion del orden elegido. */
+  sortDirection?: 'asc' | 'desc';
 }
 
 /** Ordenes de la tabla de participaciones. */
-export type ParticipationSortKey = 'recent' | 'student' | 'event' | 'credits';
+export type ParticipationSortKey =
+  | 'recent'
+  | 'date'
+  | 'studentName'
+  | 'studentCode'
+  | 'event'
+  | 'credits';
 
 export const PARTICIPATION_SORT_OPTIONS: { value: ParticipationSortKey; label: string }[] = [
   { value: 'recent', label: 'Más recientes' },
-  { value: 'student', label: 'Estudiante (A-Z)' },
+  { value: 'studentName', label: 'Estudiante (nombre)' },
+  { value: 'studentCode', label: 'Código universitario' },
   { value: 'event', label: 'Evento (A-Z)' },
   { value: 'credits', label: 'Créditos (mayor a menor)' },
 ];

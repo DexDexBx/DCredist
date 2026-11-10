@@ -335,11 +335,11 @@ model Participation {
   /// Creditos otorgados por ESTA participacion. Nunca negativo.
   credits Float @default(0)
 
-  /// Codigo unico de verificacion.
-  /// En registros CURRENT lo genera DCredits ("DC-2026-8F4K2P").
-  /// En registros LEGACY es el codigo original de la data historica y se
-  /// conserva tal cual, sin convertirlo al formato de DCredits.
-  verificationCode String @unique
+  /// Codigo de verificacion.
+  /// En registros CURRENT lo genera DCredits ("DC-2026-8F4K2P") y es unico
+  /// globalmente. En registros LEGACY es el codigo original de la data historica
+  /// y se conserva tal cual: puede repetirse en eventos distintos.
+  verificationCode String
 
   /// Distingue un registro actual de uno historico migrado.
   origin ParticipationOrigin @default(CURRENT)
@@ -363,6 +363,9 @@ model Participation {
   updatedAt DateTime @updatedAt
 
   @@unique([eventId, studentId])
+  /// Un codigo historico solo puede aparecer una vez dentro del mismo evento.
+  @@unique([eventId, verificationCode])
+  @@index([verificationCode])
   @@index([studentId])
   @@index([status])
   @@index([origin])

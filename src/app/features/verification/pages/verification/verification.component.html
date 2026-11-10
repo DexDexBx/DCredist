@@ -269,6 +269,9 @@
         @case ('CANCELLED') {
         Participación anulada
         }
+        @case ('MULTIPLE') {
+        Varias coincidencias
+        }
         @case ('NOT_FOUND') {
         Código no encontrado
         }
@@ -281,7 +284,8 @@
     </div>
   </div>
 
-  @if (result.result; as found) {
+  @if (result.matches.length) {
+  @for (found of result.matches; track found.participation.id) {
   <div class="mt-5 grid gap-4 lg:grid-cols-2">
     <div
       class="rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-white/[0.03]"
@@ -377,7 +381,7 @@
       </div>
       }
 
-      @if (result.credits; as credits) {
+      @if (found.credits; as credits) {
       <div
         class="rounded-xl border border-brand-200 bg-brand-50 px-4 py-3.5 dark:border-brand-500/20 dark:bg-brand-500/10"
       >
@@ -392,6 +396,7 @@
       }
     </div>
   </div>
+  }
   } @else {
   <dc-empty-state
     title="Sin resultado"
