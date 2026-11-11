@@ -51,9 +51,9 @@ export type StudentSortKey =
   | 'recent';
 
 /** Tamaños de página ofrecidos en la interfaz. El backend define el máximo. */
-export const STUDENT_PAGE_SIZES = [25, 50, 100, 200] as const;
+export const STUDENT_PAGE_SIZES = [15, 30, 50, 100] as const;
 
-export const DEFAULT_STUDENT_PAGE_SIZE = 25;
+export const DEFAULT_STUDENT_PAGE_SIZE = 15;
 
 /**
  * Resultado paginado del padrón.

@@ -348,3 +348,20 @@
     }
   </dc-panel>
 </form>
+
+@if (importing()) {
+<div
+  class="fixed inset-0 z-[9999] flex items-center justify-center bg-gray-950/60 p-4 backdrop-blur-sm"
+>
+  <div
+    class="flex flex-col items-center gap-3 rounded-2xl border border-gray-200 bg-white px-8 py-6 shadow-theme-lg dark:border-gray-800 dark:bg-gray-900"
+  >
+    <span
+      class="size-10 animate-spin rounded-full border-4 border-brand-200 border-t-brand-600 dark:border-brand-500/20 dark:border-t-brand-400"
+    ></span>
+    <p class="text-sm font-medium text-gray-600 dark:text-gray-300">
+      Importando estudiantes…
+    </p>
+  </div>
+</div>
+}

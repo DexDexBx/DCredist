@@ -5,6 +5,7 @@ import { RouterLink } from '@angular/router';
 
 import { AuthService } from '../../../../core/services/auth.service';
 import { UserService } from '../../../../core/services/user.service';
+import { ApiHydrationService } from '../../../../core/services/api-hydration.service';
 import {
   MODULES,
   ModuleKey,
@@ -28,6 +29,7 @@ import {
 } from '../../../../shared/components/ui/badge/badge.component';
 import { EmptyStateComponent } from '../../../../shared/components/ui/empty-state/empty-state.component';
 import { IconComponent } from '../../../../shared/components/ui/icon/icon.component';
+import { LoadingStateComponent } from '../../../../shared/components/ui/loading-state/loading-state.component';
 import { ModalComponent } from '../../../../shared/components/ui/modal/modal.component';
 import { PageHeaderComponent } from '../../../../shared/components/ui/page-header/page-header.component';
 import { PaginationComponent } from '../../../../shared/components/ui/pagination/pagination.component';
@@ -51,6 +53,7 @@ const ALL_STATUSES: readonly UserStatus[] = ['ACTIVE', 'INACTIVE'];
     EmptyStateComponent,
     FormsModule,
     IconComponent,
+    LoadingStateComponent,
     ModalComponent,
     NgClass,
     PageHeaderComponent,
@@ -63,6 +66,10 @@ const ALL_STATUSES: readonly UserStatus[] = ['ACTIVE', 'INACTIVE'];
 export class UserListComponent {
   readonly auth = inject(AuthService);
   private readonly userService = inject(UserService);
+  private readonly hydration = inject(ApiHydrationService);
+
+  /** true mientras el modulo siga trayendo datos del API. */
+  readonly loading = computed(() => this.hydration.loadingUsers());
 
   readonly directory = this.userService.users;
   readonly currentUser = this.auth.currentUser;
@@ -93,7 +100,7 @@ export class UserListComponent {
   readonly search = signal('');
   readonly roleFilter = signal<UserRole | 'Todos'>('Todos');
   readonly statusFilter = signal<UserStatus | 'Todos'>('Todos');
-  readonly pageSize = signal(25);
+  readonly pageSize = signal(15);
   readonly page = linkedSignal({
     source: () => `${this.search()}|${this.roleFilter()}|${this.statusFilter()}|${this.pageSize()}`,
     computation: () => 1,

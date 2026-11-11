@@ -112,6 +112,10 @@ export class ParticipationRegisterComponent {
   readonly importStage1 = signal<ParticipationImportStage1Result | null>(null);
   readonly importStage2 = signal<ParticipationImportStage2Result | null>(null);
   readonly importErrors = signal<ParticipationImportError[]>([]);
+  readonly importing = signal(false);
+  readonly importLoadingLabel = computed(() =>
+    this.importStep() === 1 ? 'Validando códigos…' : 'Registrando participación…'
+  );
   readonly importSummary = signal<ParticipationImportSummary | null>(null);
 
   /**
@@ -443,10 +447,7 @@ export class ParticipationRegisterComponent {
         return;
       }
 
-      if (this.participationService.isVerificationCodeTaken(historicalCode, event.id)) {
-        this.errorMessage.set('Ese código de verificación ya está asignado a otra participación.');
-        return;
-      }
+      // El codigo historico puede repetirse: no se bloquea por duplicado.
     }
 
     const studentId = Number(value.studentId);
@@ -775,7 +776,7 @@ export class ParticipationRegisterComponent {
   }
 
   /** Paso 1 -> 2: lee los codigos y los valida contra el padron y el evento. */
-  validateImport(): void {
+  async validateImport(): Promise<void> {
     this.importError.set(null);
     this.importSummary.set(null);
 
@@ -785,36 +786,43 @@ export class ParticipationRegisterComponent {
       return;
     }
 
-    const legacy = this.importOrigin() === 'LEGACY';
-    const parsed = parseDelimitedText(this.importText(), 1);
-    const rows: { code: string; grade?: string; verificationCode?: string }[] = legacy
-      ? parsed
-          .map((row) => ({
-            code: row[0] ?? '',
-            verificationCode: row[1] ?? '',
-            grade: row[2] ?? '',
-          }))
-          .filter((row) => row.code.trim() || row.verificationCode.trim() || row.grade.trim())
-      : parsed
-          .map((row) => ({ code: row[0] ?? '', grade: row[1] ?? '' }))
-          .filter((row) => row.code.trim() || row.grade.trim());
+    this.importing.set(true);
+    await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
 
-    if (rows.length === 0) {
-      this.importError.set('No se detectaron códigos para validar.');
-      return;
+    try {
+      const legacy = this.importOrigin() === 'LEGACY';
+      const parsed = parseDelimitedText(this.importText(), 1);
+      const rows: { code: string; grade?: string; verificationCode?: string }[] = legacy
+        ? parsed
+            .map((row) => ({
+              code: row[0] ?? '',
+              verificationCode: row[1] ?? '',
+              grade: row[2] ?? '',
+            }))
+            .filter((row) => row.code.trim() || row.verificationCode.trim() || row.grade.trim())
+        : parsed
+            .map((row) => ({ code: row[0] ?? '', grade: row[1] ?? '' }))
+            .filter((row) => row.code.trim() || row.grade.trim());
+
+      if (rows.length === 0) {
+        this.importError.set('No se detectaron códigos para validar.');
+        return;
+      }
+
+      const stage1 = this.participationService.importStage1(rows);
+      const stage2 = this.participationService.importStage2(
+        eventId,
+        stage1.items,
+        this.importOrigin()
+      );
+
+      this.importStage1.set(stage1);
+      this.importStage2.set(stage2);
+      this.importErrors.set(stage2.errors);
+      this.importStep.set(2);
+    } finally {
+      this.importing.set(false);
     }
-
-    const stage1 = this.participationService.importStage1(rows);
-    const stage2 = this.participationService.importStage2(
-      eventId,
-      stage1.items,
-      this.importOrigin()
-    );
-
-    this.importStage1.set(stage1);
-    this.importStage2.set(stage2);
-    this.importErrors.set(stage2.errors);
-    this.importStep.set(2);
   }
 
   /** Paso 2 -> 3: confirma el registro de los items validados. */
@@ -834,25 +842,31 @@ export class ParticipationRegisterComponent {
     }
 
     const validItems = stage2.items.filter((item) => item.valid);
-    const summary = await this.participationService.importStage2Commit(eventId, validItems, {
-      mode: this.importMode(),
-      uploadedBy: this.lateUploadedBy(),
-      origin: this.importOrigin(),
-    });
+    this.importing.set(true);
 
-    this.importSummary.set(summary);
-    this.importErrors.set(summary.errors ?? stage2.errors);
-    this.importStep.set(3);
+    try {
+      const summary = await this.participationService.importStage2Commit(eventId, validItems, {
+        mode: this.importMode(),
+        uploadedBy: this.lateUploadedBy(),
+        origin: this.importOrigin(),
+      });
 
-    const prefix =
-      summary.mode === 'LATE'
-        ? 'Carga extemporánea registrada'
-        : this.importOrigin() === 'LEGACY'
-          ? 'Carga histórica completada'
-          : 'Importación completada';
-    this.successMessage.set(
-      `${prefix}: ${summary.registered} registrado(s), ${summary.skipped} omitido(s).`
-    );
+      this.importSummary.set(summary);
+      this.importErrors.set(summary.errors ?? stage2.errors);
+      this.importStep.set(3);
+
+      const prefix =
+        summary.mode === 'LATE'
+          ? 'Carga extemporánea registrada'
+          : this.importOrigin() === 'LEGACY'
+            ? 'Carga histórica completada'
+            : 'Importación completada';
+      this.successMessage.set(
+        `${prefix}: ${summary.registered} registrado(s), ${summary.skipped} omitido(s).`
+      );
+    } finally {
+      this.importing.set(false);
+    }
   }
 
   onFileSelected(event: Event): void {

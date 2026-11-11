@@ -257,6 +257,8 @@ model Event {
   /// Codigo institucional del evento, por ejemplo "EVT-2026-001".
   code String @unique
 
+  /// Nombre unico del evento, sin distinguir mayusculas ni espacios sobrantes.
+  /// La restriccion real es un indice funcional creado por migracion.
   name        String
   description String @default("Sin descripción")
 
@@ -363,8 +365,8 @@ model Participation {
   updatedAt DateTime @updatedAt
 
   @@unique([eventId, studentId])
-  /// Un codigo historico solo puede aparecer una vez dentro del mismo evento.
-  @@unique([eventId, verificationCode])
+  /// El codigo actual es unico globalmente (indice parcial en la migracion).
+  /// El codigo historico puede repetirse: se conserva tal cual.
   @@index([verificationCode])
   @@index([studentId])
   @@index([status])

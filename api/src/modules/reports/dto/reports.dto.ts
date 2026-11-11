@@ -66,6 +66,8 @@ export class DashboardSummaryDto {
   @ApiProperty({ example: 298 }) activeStudents!: number;
 
   @ApiProperty({ example: 1840 }) totalParticipations!: number;
+  @ApiProperty({ example: 1700 }) validParticipations!: number;
+  @ApiProperty({ example: 140 }) cancelledParticipations!: number;
   @ApiProperty({ example: 5120.5, description: 'Creditos vigentes de todo el sistema.' })
   totalCredits!: number;
 

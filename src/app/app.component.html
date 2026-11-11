@@ -1,1 +1,10 @@
+@if (showSplash()) {
+<div
+  class="fixed inset-0 z-[99999] flex flex-col items-center justify-center gap-1 bg-gray-50 dark:bg-gray-950"
+>
+  <p class="text-lg font-semibold tracking-tight text-brand-700 dark:text-brand-300">DCredits</p>
+  <dc-loading-state label="Cargando el sistema…" />
+</div>
+}
+
 <router-outlet></router-outlet>

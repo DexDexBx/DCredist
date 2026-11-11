@@ -1,18 +1,28 @@
 ﻿import { Component, computed, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
+import { firstValueFrom } from 'rxjs';
 import { CreditService } from '../../../../core/services/credit.service';
 import { AuthService } from '../../../../core/services/auth.service';
-import { EventService } from '../../../../core/services/event.service';
-import { ParticipationService } from '../../../../core/services/participation.service';
 import { StudentService } from '../../../../core/services/student.service';
-import { AcademicEvent, eventDateRangeLabel } from '../../../../models';
+import { ApiHydrationService } from '../../../../core/services/api-hydration.service';
+import { DcreditsApiClient } from '../../../../core/api/dcredits-api.client';
+import {
+  ApiDashboardCreditsProgress,
+  ApiDashboardEvent,
+  ApiDashboardReport,
+} from '../../../../core/api/api.types';
+import {
+  AcademicEvent,
+  EventModality,
+  EventStatus,
+  eventDateRangeLabel,
+} from '../../../../models';
 import { IconComponent } from '../../../../shared/components/ui/icon/icon.component';
 import { PageHeaderComponent } from '../../../../shared/components/ui/page-header/page-header.component';
 import { PanelComponent } from '../../../../shared/components/ui/panel/panel.component';
 import { ModalComponent } from '../../../../shared/components/ui/modal/modal.component';
 import { CreditProgressComponent } from '../../../../shared/components/ui/credit-progress/credit-progress.component';
 import { StatCardComponent } from '../../../../shared/components/ui/stat-card/stat-card.component';
-import { isSameDay } from '../../../../shared/utils/date.utils';
 import { EventStatusBadgeComponent } from '../../../events/components/event-status-badge/event-status-badge.component';
 
 /** Evento de la agenda breve: hoy primero, luego los siguientes. */
@@ -21,12 +31,62 @@ interface AgendaItem {
   today: boolean;
 }
 
+const EMPTY_PROGRESS: ApiDashboardCreditsProgress = {
+  creditsTarget: 21,
+  totalCredits: 0,
+  remainingCredits: 0,
+  averageProgress: 0,
+  studentsCompleted: 0,
+  studentsWithCredits: 0,
+  totalStudents: 0,
+};
+
+const EVENT_STATUS: Record<string, EventStatus> = {
+  DRAFT: 'Programado',
+  SCHEDULED: 'Programado',
+  IN_PROGRESS: 'En curso',
+  COMPLETED: 'Finalizado',
+  CANCELLED: 'Cancelado',
+};
+
+const EVENT_MODALITY: Record<string, EventModality> = {
+  PRESENTIAL: 'Presencial',
+  VIRTUAL: 'Virtual',
+  HYBRID: 'Híbrido',
+  UNSPECIFIED: 'No especificado',
+};
+
+function mapDashboardEvent(row: ApiDashboardEvent): AcademicEvent {
+  return {
+    id: row.id,
+    code: row.code,
+    name: row.name,
+    description: '',
+    eventTypeId: row.eventTypeId,
+    eventTypeName: row.eventTypeName,
+    startDate: row.startDate.slice(0, 10),
+    endDate: row.endDate.slice(0, 10),
+    dateType: 'LONG',
+    modality: EVENT_MODALITY[row.modality] ?? 'No especificado',
+    location: row.location,
+    status: EVENT_STATUS[row.status] ?? 'Programado',
+    capacity: row.capacity,
+    organizerId: row.organizerId,
+    organizer: row.organizer,
+    professionalSchoolId: row.professionalSchoolId,
+    professionalSchool: row.professionalSchool,
+    origin: 'CURRENT',
+    userCreate: '',
+    userUpdate: '',
+    credits: row.credits,
+  };
+}
+
 /**
  * DASHBOARD: resumen compacto.
  *
- * Muestra solo las cifras clave y un par de graficos; las listas largas (ranking
- * de estudiantes, detalle por escuela) viven en modales para que la pantalla se
- * lea de un vistazo. Todas las cifras provienen del dominio real de DCredits.
+ * Las cifras salen del endpoint agregado `/reports/dashboard`; no se cargan
+ * todas las participaciones ni todo el padrón para pintar el inicio.
  */
 @Component({
   selector: 'app-dashboard',
@@ -43,73 +103,66 @@ interface AgendaItem {
   templateUrl: './dashboard.component.html',
 })
 export class DashboardComponent {
-  private readonly eventService = inject(EventService);
+  private readonly api = inject(DcreditsApiClient);
   private readonly studentService = inject(StudentService);
-  private readonly participationService = inject(ParticipationService);
   private readonly creditService = inject(CreditService);
+  private readonly hydration = inject(ApiHydrationService);
   readonly auth = inject(AuthService);
 
-  readonly totalEvents = computed(() => this.eventService.events().length);
-  readonly activeEvents = computed(() => this.eventService.activeEvents().length);
-  readonly totalStudents = computed(() => this.studentService.totalCount());
-  readonly totalParticipations = computed(() => this.participationService.participations().length);
+  readonly report = signal<ApiDashboardReport | null>(null);
+  readonly loading = signal(true);
+  readonly loadError = signal<string | null>(null);
 
-  private readonly participationCounts = computed(() => {
-    let valid = 0;
-    let cancelled = 0;
+  constructor() {
+    void this.loadReport();
+  }
 
-    for (const participation of this.participationService.participations()) {
-      if (participation.status === 'VALID') {
-        valid++;
-      } else if (participation.status === 'CANCELLED') {
-        cancelled++;
-      }
+  private async loadReport(): Promise<void> {
+    this.loading.set(true);
+    this.loadError.set(null);
+
+    try {
+      this.report.set(await firstValueFrom(this.api.getDashboardReport()));
+    } catch {
+      this.loadError.set('No se pudo cargar el resumen del dashboard.');
+    } finally {
+      this.loading.set(false);
+    }
+  }
+
+  readonly totalEvents = computed(() => this.report()?.totalEvents ?? 0);
+  readonly activeEvents = computed(() => this.report()?.activeEvents ?? 0);
+  readonly totalStudents = computed(() => this.report()?.totalStudents ?? 0);
+  readonly totalParticipations = computed(() => this.report()?.totalParticipations ?? 0);
+  readonly validParticipations = computed(() => this.report()?.validParticipations ?? 0);
+  readonly cancelledParticipations = computed(() => this.report()?.cancelledParticipations ?? 0);
+  readonly totalCredits = computed(() => this.report()?.totalCredits ?? 0);
+  readonly creditsProgress = computed<ApiDashboardCreditsProgress>(
+    () => this.report()?.creditsProgress ?? EMPTY_PROGRESS
+  );
+  readonly creditsTarget = computed(() => this.creditsProgress().creditsTarget);
+
+  readonly agenda = computed<AgendaItem[]>(() => {
+    const current = this.report();
+    if (!current) {
+      return [];
     }
 
-    return { valid, cancelled };
+    return [
+      ...current.todayEvents.map((event) => ({
+        event: mapDashboardEvent(event),
+        today: true,
+      })),
+      ...current.nextEvents.map((event) => ({
+        event: mapDashboardEvent(event),
+        today: false,
+      })),
+    ].slice(0, 4);
   });
 
-  readonly validParticipations = computed(() => this.participationCounts().valid);
-  readonly cancelledParticipations = computed(() => this.participationCounts().cancelled);
-
-  readonly totalCredits = this.creditService.globalTotalCredits;
-
-  /** Avance global hacia la meta institucional de creditos. */
-  readonly creditsProgress = this.creditService.creditsProgress;
-
-  /** Meta vigente (21 por defecto). */
-  readonly creditsTarget = this.creditService.creditsTarget;
-
-  readonly todayEvents = computed(() =>
-    this.eventService
-      .events()
-      .filter((event) => isSameDay(event.startDate, new Date()))
-      .sort((a, b) => a.startDate.localeCompare(b.startDate))
-  );
-
-  readonly nextEvents = computed<AcademicEvent[]>(() =>
-    this.eventService
-      .upcomingEvents()
-      .filter((event) => !isSameDay(event.startDate, new Date()))
-      .slice(0, 5)
-  );
-
-  /** Agenda breve: los eventos de hoy y los mas proximos, acotada a 4 filas. */
-  readonly agenda = computed<AgendaItem[]>(() =>
-    [
-      ...this.todayEvents().map((event) => ({ event, today: true })),
-      ...this.nextEvents().map((event) => ({ event, today: false })),
-    ].slice(0, 4)
-  );
-
-  /** Top 5 de escuelas por creditos: lo que se ve en el grafico resumido. */
-  readonly schoolsTop = computed(() => this.creditService.getSchoolSummaries().slice(0, 5));
-
-  /** Todas las escuelas: contenido del modal de detalle. */
-  readonly schoolsAll = computed(() => this.creditService.getSchoolSummaries());
-
-  /** Ranking de estudiantes: contenido del modal de detalle. */
-  readonly topStudents = computed(() => this.creditService.topStudents(10));
+  readonly schoolsTop = computed(() => this.report()?.schoolSummaries.slice(0, 5) ?? []);
+  readonly schoolsAll = computed(() => this.report()?.schoolSummaries ?? []);
+  readonly topStudents = computed(() => this.report()?.topStudents ?? []);
 
   /** Estudiantes que ya alcanzaron la meta, para el modal de detalle. */
   readonly graduatedStudents = computed(() =>
@@ -126,8 +179,16 @@ export class DashboardComponent {
   readonly creditsDetailOpen = signal(false);
   readonly schoolsDetailOpen = signal(false);
 
+  readonly graduatedLoading = computed(
+    () => this.hydration.loadingStudents() || this.hydration.loadingParticipations()
+  );
+
   openCreditsDetail(): void {
     this.creditsDetailOpen.set(true);
+    void Promise.all([
+      this.hydration.ensureStudents(),
+      this.hydration.ensureParticipations(),
+    ]);
   }
 
   closeCreditsDetail(): void {

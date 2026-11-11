@@ -99,7 +99,9 @@
     }
   </div>
 
-  @if (pageData().items.length === 0) {
+  @if (loading()) {
+  <dc-loading-state label="Cargando usuarios…" />
+  } @else if (pageData().items.length === 0) {
   <dc-empty-state
     title="Sin usuarios que coincidan"
     description="Ajusta los filtros o limpia la búsqueda."

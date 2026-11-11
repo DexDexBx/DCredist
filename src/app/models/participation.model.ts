@@ -160,9 +160,9 @@ export const PARTICIPATION_SORT_OPTIONS: { value: ParticipationSortKey; label: s
 ];
 
 /** Tamaños de página ofrecidos. */
-export const PARTICIPATION_PAGE_SIZES = [25, 50, 100, 200] as const;
+export const PARTICIPATION_PAGE_SIZES = [15, 30, 50, 100] as const;
 
-export const DEFAULT_PARTICIPATION_PAGE_SIZE = 25;
+export const DEFAULT_PARTICIPATION_PAGE_SIZE = 15;
 
 /**
  * Resultado paginado de participaciones.

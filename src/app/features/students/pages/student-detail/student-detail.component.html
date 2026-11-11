@@ -136,7 +136,9 @@
       </span>
     </div>
 
-    @if (history().length) {
+    @if (loading()) {
+    <dc-loading-state label="Cargando historial…" />
+    } @else if (history().length) {
     <div class="hidden overflow-x-auto md:block">
       <table class="w-full min-w-[820px] border-collapse text-left text-sm">
         <thead>

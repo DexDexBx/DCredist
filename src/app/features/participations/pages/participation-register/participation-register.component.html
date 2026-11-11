@@ -263,6 +263,19 @@
   [showCloseButton]="false"
   className="flex w-full max-w-3xl flex-col overflow-hidden rounded-3xl p-0"
 >
+  @if (importing()) {
+  <div
+    class="absolute inset-0 z-[1000] flex flex-col items-center justify-center gap-3 rounded-3xl bg-white/85 backdrop-blur-sm dark:bg-gray-900/85"
+  >
+    <span
+      class="size-10 animate-spin rounded-full border-4 border-brand-200 border-t-brand-600 dark:border-brand-500/20 dark:border-t-brand-400"
+    ></span>
+    <p class="text-sm font-medium text-gray-600 dark:text-gray-300">
+      {{ importLoadingLabel() }}
+    </p>
+  </div>
+  }
+
   <!-- Encabezado -->
   <div class="flex items-start justify-between gap-4 border-b border-gray-200 px-5 py-4 dark:border-gray-800 sm:px-6">
     <div class="flex items-start gap-3">

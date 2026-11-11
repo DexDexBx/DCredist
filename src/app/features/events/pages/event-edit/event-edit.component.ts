@@ -407,7 +407,7 @@ export class EventEditComponent {
       origin: isLegacy ? 'LEGACY' : 'CURRENT',
     };
 
-    const validation = this.eventService.validate(draft);
+    const validation = this.eventService.validate(draft, this.eventId());
     if (!validation.valid) {
       this.saving.set(false);
       this.formError.set(Object.values(validation.errors)[0] ?? 'Revisa los datos del evento.');
@@ -423,7 +423,10 @@ export class EventEditComponent {
       this.saved.set(true);
       this.form.markAsPristine();
     } else {
-      this.formError.set('No se pudo actualizar el evento. Intenta nuevamente.');
+      this.formError.set(
+        this.eventService.lastWriteError() ??
+          'No se pudo actualizar el evento. Intenta nuevamente.'
+      );
     }
 
     this.saving.set(false);

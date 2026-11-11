@@ -266,6 +266,11 @@ export class EventsService {
     await this.assertSchoolAssignable(dto.professionalSchoolId, actor);
     await this.assertOrganizerAssignable(dto.organizerId);
 
+    // El nombre identifica al evento: no puede repetirse entre actuales ni
+    // historicos. Se compara sin mayusculas ni espacios sobrantes.
+    const name = normalizeEventName(dto.name);
+    await this.assertEventNameAvailable(name);
+
     // Tipo academico: en un registro actual es obligatorio; en uno historico
     // cae al tipo "No especificado" del catalogo.
     let eventTypeId: number;
@@ -333,7 +338,7 @@ export class EventsService {
       const created = await this.prisma.event.create({
         data: {
           code,
-          name: dto.name.trim(),
+          name,
           description,
           eventTypeId,
           // La duracion no se elige: se deriva de las fechas.
@@ -361,6 +366,9 @@ export class EventsService {
     } catch (error) {
       if (isUniqueViolation(error, 'code')) {
         throw new ConflictException(`Ya existe un evento con el código "${code}".`);
+      }
+      if (isUniqueViolation(error, 'name')) {
+        throw new ConflictException(`Ya existe un evento con el nombre "${name}".`);
       }
       this.logger.error('No se pudo crear el evento.', error);
       throw error;
@@ -519,6 +527,12 @@ export class EventsService {
       }
     }
 
+    // El nombre puede corregirse, pero no duplicarse con otro evento.
+    const nextName = dto.name !== undefined ? normalizeEventName(dto.name) : null;
+    if (nextName !== null) {
+      await this.assertEventNameAvailable(nextName, id);
+    }
+
     // Si cambia el dia de inicio, las participaciones que heredaron la fecha
     // del evento deben reflejar la correccion. Solo se tocan las que estaban en
     // el dia anterior del evento: una fecha personalizada no se pisa.
@@ -549,7 +563,7 @@ export class EventsService {
           where: { id },
           data: {
           ...(dto.code !== undefined ? { code: dto.code.trim() } : {}),
-          ...(dto.name !== undefined ? { name: dto.name.trim() } : {}),
+          ...(nextName !== null ? { name: nextName } : {}),
           ...(dto.description !== undefined
             ? { description: dto.description.trim() || DEFAULT_DESCRIPTION }
             : {}),
@@ -606,6 +620,9 @@ export class EventsService {
       if (isUniqueViolation(error, 'code')) {
         throw new ConflictException(`Ya existe un evento con el código "${dto.code?.trim()}".`);
       }
+      if (isUniqueViolation(error, 'name') && nextName !== null) {
+        throw new ConflictException(`Ya existe un evento con el nombre "${nextName}".`);
+      }
       this.logger.error(`No se pudo actualizar el evento "${id}".`, error);
       throw error;
     }
@@ -660,16 +677,35 @@ export class EventsService {
       }
     }
 
+    // Nombres ya usados: la unicidad del nombre es global y aplica a
+    // historicos y actuales.
+    const existingNames = await this.prisma.event.findMany({
+      select: { name: true },
+    });
+    const takenNames = new Set(existingNames.map((row) => eventNameKey(row.name)));
+
     const data: Prisma.EventCreateManyInput[] = [];
     let skipped = 0;
 
     for (let index = 0; index < dto.rows.length; index++) {
       const row = dto.rows[index];
       const line = index + 1;
-      const name = row.name?.trim() ?? '';
+      const name = normalizeEventName(row.name);
 
       if (!name) {
         issues.push({ row: line, name: '', code: 'MISSING_NAME', message: 'La fila no tiene nombre de evento.' });
+        skipped++;
+        continue;
+      }
+
+      const nameKey = eventNameKey(name);
+      if (takenNames.has(nameKey)) {
+        issues.push({
+          row: line,
+          name,
+          code: 'DUPLICATE_NAME',
+          message: `Ya existe un evento con el nombre "${name}".`,
+        });
         skipped++;
         continue;
       }
@@ -861,6 +897,8 @@ export class EventsService {
         code = candidate;
       }
 
+      takenNames.add(nameKey);
+
       data.push({
         code,
         name,
@@ -911,6 +949,7 @@ export class EventsService {
           } catch (rowError) {
             skipped++;
             const duplicate = isUniqueViolation(rowError, 'code');
+            const duplicateName = isUniqueViolation(rowError, 'name');
             const detail =
               rowError instanceof Error && rowError.message
                 ? rowError.message.slice(0, 240)
@@ -918,10 +957,12 @@ export class EventsService {
             issues.push({
               row: 0,
               name: item.name,
-              code: duplicate ? 'DUPLICATE_CODE' : 'DB_ERROR',
+              code: duplicate ? 'DUPLICATE_CODE' : duplicateName ? 'DUPLICATE_NAME' : 'DB_ERROR',
               message: duplicate
                 ? `Ya existe un evento con el codigo "${item.code}".`
-                : `No se pudo registrar el evento: ${detail}`,
+                : duplicateName
+                  ? `Ya existe un evento con el nombre "${item.name}".`
+                  : `No se pudo registrar el evento: ${detail}`,
             });
           }
         }
@@ -967,6 +1008,25 @@ export class EventsService {
       throw new BadRequestException(
         'La fecha de término (endDate) no puede ser anterior a la de inicio (startDate).'
       );
+    }
+  }
+
+  /**
+   * Un nombre de evento es unico en todo el sistema, sin distinguir mayusculas.
+   * Aplica tanto a eventos actuales como historicos; en la edicion se excluye
+   * el propio evento.
+   */
+  private async assertEventNameAvailable(name: string, exceptId?: number): Promise<void> {
+    const existing = await this.prisma.event.findFirst({
+      where: {
+        ...(exceptId ? { id: { not: exceptId } } : {}),
+        name: { equals: name, mode: 'insensitive' },
+      },
+      select: { id: true },
+    });
+
+    if (existing) {
+      throw new ConflictException(`Ya existe un evento con el nombre "${name}".`);
     }
   }
 
@@ -1102,6 +1162,20 @@ function normalizeLookup(value: string): string {
     .toLowerCase()
     .normalize('NFD')
     .replace(/[̀-ͯ]/g, '');
+}
+
+/**
+ * Nombre visible del evento, sin espacios sobrantes.
+ *
+ * La unicidad se evalua sin distinguir mayusculas: ese mismo criterio usa el
+ * indice funcional de la base (`LOWER(REGEXP_REPLACE(BTRIM(name), ...))`).
+ */
+function normalizeEventName(value: string | null | undefined): string {
+  return (value ?? '').trim().replace(/\s+/g, ' ');
+}
+
+function eventNameKey(value: string | null | undefined): string {
+  return normalizeEventName(value).toLowerCase();
 }
 
 function isMonthYear(value: string): boolean {

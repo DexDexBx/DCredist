@@ -178,7 +178,9 @@
 </dc-panel>
 
 <dc-panel class="mt-6" [bodyClass]="'px-0 py-0'">
-  @if (hasResults()) {
+  @if (loading()) {
+  <dc-loading-state label="Cargando estudiantes…" />
+  } @else if (hasResults()) {
   <!-- Tabla: a partir de la中型, donde hay ancho para las columnas. -->
   <div class="hidden overflow-x-auto lg:block">
     <table class="w-full min-w-[900px] border-collapse text-left text-sm">

@@ -345,6 +345,72 @@ export interface ApiEventImportResult {
   issues: { row: number; name: string; code: string; message: string }[];
 }
 
+/** Evento resumido que devuelve el dashboard. */
+export interface ApiDashboardEvent {
+  id: number;
+  code: string;
+  name: string;
+  eventTypeId: number;
+  eventTypeName: string;
+  startDate: string;
+  endDate: string;
+  modality: string;
+  location: string;
+  capacity: number;
+  organizerId: number;
+  organizer: string;
+  professionalSchoolId: number;
+  professionalSchool: string;
+  credits: number;
+  status: string;
+  registeredCount: number;
+}
+
+export interface ApiDashboardTopStudent {
+  studentId: number;
+  name: string;
+  universityCode: string;
+  credits: number;
+  participations: number;
+}
+
+export interface ApiDashboardSchoolSummary {
+  professionalSchool: string;
+  students: number;
+  activeStudents: number;
+  participations: number;
+  validParticipations: number;
+  totalCredits: number;
+}
+
+export interface ApiDashboardCreditsProgress {
+  creditsTarget: number;
+  totalCredits: number;
+  remainingCredits: number;
+  averageProgress: number;
+  studentsCompleted: number;
+  studentsWithCredits: number;
+  totalStudents: number;
+}
+
+export interface ApiDashboardReport {
+  totalEvents: number;
+  activeEvents: number;
+  scheduledEvents: number;
+  completedEvents: number;
+  totalStudents: number;
+  activeStudents: number;
+  totalParticipations: number;
+  validParticipations: number;
+  cancelledParticipations: number;
+  totalCredits: number;
+  todayEvents: ApiDashboardEvent[];
+  nextEvents: ApiDashboardEvent[];
+  topStudents: ApiDashboardTopStudent[];
+  schoolSummaries: ApiDashboardSchoolSummary[];
+  creditsProgress: ApiDashboardCreditsProgress;
+}
+
 export type ApiParticipationStatus = 'VALID' | 'CANCELLED' | 'PENDING';
 
 export interface ApiParticipationStudent {

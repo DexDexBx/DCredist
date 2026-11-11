@@ -37,6 +37,8 @@ import { PARTICIPATION_STATUS_COLOR } from '../../../../shared/constants/status-
 import { formatMediumDate } from '../../../../shared/utils/date.utils';
 import { ExportService } from '../../../../core/services/export.service';
 import { AuthService } from '../../../../core/services/auth.service';
+import { ApiHydrationService } from '../../../../core/services/api-hydration.service';
+import { LoadingStateComponent } from '../../../../shared/components/ui/loading-state/loading-state.component';
 
 /**
  * CONSULTA DE PARTICIPACIONES.
@@ -54,6 +56,7 @@ import { AuthService } from '../../../../core/services/auth.service';
     EmptyStateComponent,
     FormsModule,
     IconComponent,
+    LoadingStateComponent,
     ModalComponent,
     PageHeaderComponent,
     PaginationComponent,
@@ -68,11 +71,20 @@ export class ParticipationListComponent {
   private readonly eventService = inject(EventService);
   private readonly studentService = inject(StudentService);
   private readonly exportService = inject(ExportService);
+  private readonly hydration = inject(ApiHydrationService);
   readonly auth = inject(AuthService);
+
+  /** true mientras el modulo siga trayendo datos del API. */
+  readonly loading = computed(
+    () =>
+      this.hydration.loadingParticipations() ||
+      this.hydration.loadingStudents() ||
+      this.hydration.loadingEvents()
+  );
 
   readonly statusLabel = PARTICIPATION_STATUS_LABEL;
   readonly sortOptions = PARTICIPATION_SORT_OPTIONS;
-  readonly pageSizes = [25, 50, 100, 200];
+  readonly pageSizes = [15, 30, 50, 100];
 
   /** Lo que la persona escribe. Se escribe aqui, se busca alli. */
   readonly searchInput = signal('');

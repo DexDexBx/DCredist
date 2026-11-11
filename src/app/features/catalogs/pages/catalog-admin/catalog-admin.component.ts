@@ -4,6 +4,7 @@ import { Router, RouterLink, RouterLinkActive } from '@angular/router';
 
 import { AuthService } from '../../../../core/services/auth.service';
 import { CatalogService } from '../../../../core/services/catalog.service';
+import { ApiHydrationService } from '../../../../core/services/api-hydration.service';
 import {
   CATALOGS,
   CATALOG_STATUS_LABEL,
@@ -15,6 +16,7 @@ import {
 import { BadgeComponent } from '../../../../shared/components/ui/badge/badge.component';
 import { EmptyStateComponent } from '../../../../shared/components/ui/empty-state/empty-state.component';
 import { IconComponent } from '../../../../shared/components/ui/icon/icon.component';
+import { LoadingStateComponent } from '../../../../shared/components/ui/loading-state/loading-state.component';
 import { PageHeaderComponent } from '../../../../shared/components/ui/page-header/page-header.component';
 import { PaginationComponent } from '../../../../shared/components/ui/pagination/pagination.component';
 import { PanelComponent } from '../../../../shared/components/ui/panel/panel.component';
@@ -43,6 +45,7 @@ interface CatalogRow {
     EmptyStateComponent,
     FormsModule,
     IconComponent,
+    LoadingStateComponent,
     PageHeaderComponent,
     PaginationComponent,
     PanelComponent,
@@ -55,8 +58,12 @@ interface CatalogRow {
 export class CatalogAdminComponent {
   private readonly catalogService = inject(CatalogService);
   private readonly router = inject(Router);
+  private readonly hydration = inject(ApiHydrationService);
 
   readonly auth = inject(AuthService);
+
+  /** true mientras los catalogos se esten cargando del API. */
+  readonly loading = computed(() => this.hydration.loadingReference());
 
   /** Nombre del catalogo tomado de la ruta /catalogs/:kind. */
   readonly kind = input<string>('organizers', { alias: 'kind' });
@@ -100,7 +107,7 @@ export class CatalogAdminComponent {
       .map((entry) => ({ entry, usage: entry.usageCount }));
   });
 
-  readonly pageSize = signal(25);
+  readonly pageSize = signal(15);
 
   /** Al cambiar de catalogo, busqueda o tamano de pagina se vuelve a la 1. */
   readonly page = linkedSignal({

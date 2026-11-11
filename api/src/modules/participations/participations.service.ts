@@ -24,7 +24,6 @@ import {
   MAX_VERIFICATION_CODE_LENGTH,
   generateUniqueVerificationCode,
   generateUniqueVerificationCodes,
-  historicalCodeKey,
   normalizeHistoricalCode,
 } from '../../common/verification-code';
 import {
@@ -303,19 +302,6 @@ export class ParticipationsService {
         );
       }
 
-      const taken = await this.prisma.participation.findFirst({
-        where: {
-          eventId: dto.eventId,
-          verificationCode: { equals: historicalCode, mode: 'insensitive' },
-        },
-        select: { id: true },
-      });
-
-      if (taken) {
-        throw new ConflictException(
-          `El codigo de verificacion "${historicalCode}" ya esta asignado a otra participacion.`
-        );
-      }
     } else if (historicalCode) {
       // Un registro actual no puede imponer su codigo: lo genera el sistema.
       throw new BadRequestException(
@@ -507,7 +493,6 @@ export class ParticipationsService {
     const seen = new Set<string>();
     const origin = dto.origin ?? ParticipationOrigin.CURRENT;
     const isLegacy = origin === ParticipationOrigin.LEGACY;
-    const legacyCodesSeen = new Set<string>();
     /** Indices de `rows` que quedan por registrar, en orden de archivo. */
     const pending: { index: number; code: string; verificationCode?: string }[] = [];
 
@@ -558,19 +543,7 @@ export class ParticipationsService {
           return;
         }
 
-        const legacyKey = historicalCodeKey(historicalCode);
-
-        if (legacyCodesSeen.has(legacyKey)) {
-          issues.push({
-            row: index + 1,
-            universityCode: code,
-            code: 'DUPLICATE_VERIFICATION_CODE',
-            message: `El codigo de verificacion "${historicalCode}" se repite en el archivo.`,
-          });
-          return;
-        }
-
-        legacyCodesSeen.add(legacyKey);
+        // En historicos el codigo puede repetirse, incluso dentro del archivo.
         seen.add(code);
         pending.push({ index, code, verificationCode: historicalCode });
         return;
@@ -590,25 +563,6 @@ export class ParticipationsService {
       seen.add(code);
       pending.push({ index, code });
     });
-
-    // Un codigo historico no puede existir ya en otra participacion. Se
-    // resuelve en UNA consulta para toda la carga.
-    const storedLegacyCodes = isLegacy
-      ? new Set(
-          (
-            await this.prisma.participation.findMany({
-              where: {
-                eventId: event.id,
-                verificationCode: {
-                  in: pending.map((item) => item.verificationCode as string),
-                  mode: 'insensitive',
-                },
-              },
-              select: { verificationCode: true },
-            })
-          ).map((row) => historicalCodeKey(row.verificationCode))
-        )
-      : new Set<string>();
 
     const students = await this.prisma.student.findMany({
       where: { universityCode: { in: pending.map((item) => item.code) } },
@@ -658,16 +612,6 @@ export class ParticipationsService {
       }
 
       found++;
-
-      if (isLegacy && storedLegacyCodes.has(historicalCodeKey(item.verificationCode))) {
-        issues.push({
-          row: item.index + 1,
-          universityCode: item.code,
-          code: 'DUPLICATE_VERIFICATION_CODE',
-          message: `El codigo de verificacion "${item.verificationCode}" ya esta asignado a otra participacion de este evento.`,
-        });
-        continue;
-      }
 
       if (student.status !== 'ACTIVE') {
         issues.push({

@@ -257,8 +257,12 @@ Reglas:
   recalculan las constancias afectadas.
 - Solo las participaciones `VALID` suman créditos.
 - Un estudiante no puede registrarse dos veces en el mismo evento.
-- El código de participación es único y estable.
-- En registros históricos se conserva el código original de participación.
+- Un evento no puede repetir nombre, sin distinguir mayúsculas ni espacios
+  sobrantes. La regla aplica a eventos actuales e históricos.
+- El código de participación generado por DCredits (`CURRENT`) es único y estable.
+- En registros históricos se conserva el código original tal cual llegó: puede
+  repetirse, incluso dentro del mismo evento. La identidad de esas
+  participaciones es su `id`, no el código.
 - Anular o reactivar una participación exige un motivo.
 - Los eventos actuales usan fechas completas; los históricos pueden usar fecha
   completa o solo mes/año.

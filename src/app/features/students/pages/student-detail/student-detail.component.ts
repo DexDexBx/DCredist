@@ -4,6 +4,7 @@ import { CreditService } from '../../../../core/services/credit.service';
 import { AuthService } from '../../../../core/services/auth.service';
 import { EventService } from '../../../../core/services/event.service';
 import { StudentService } from '../../../../core/services/student.service';
+import { ApiHydrationService } from '../../../../core/services/api-hydration.service';
 import {
   AcademicEvent,
   EventStatus,
@@ -26,6 +27,7 @@ import {
 import { CertificateCodeComponent } from '../../../../shared/components/ui/certificate-code/certificate-code.component';
 import { EmptyStateComponent } from '../../../../shared/components/ui/empty-state/empty-state.component';
 import { IconComponent } from '../../../../shared/components/ui/icon/icon.component';
+import { LoadingStateComponent } from '../../../../shared/components/ui/loading-state/loading-state.component';
 import { PageHeaderComponent } from '../../../../shared/components/ui/page-header/page-header.component';
 import { PanelComponent } from '../../../../shared/components/ui/panel/panel.component';
 import { StatCardComponent } from '../../../../shared/components/ui/stat-card/stat-card.component';
@@ -51,6 +53,7 @@ interface HistoryRow {
     CertificateModalComponent,
     EmptyStateComponent,
     IconComponent,
+    LoadingStateComponent,
     PageHeaderComponent,
     PanelComponent,
     RouterLink,
@@ -62,7 +65,16 @@ export class StudentDetailComponent {
   private readonly studentService = inject(StudentService);
   private readonly eventService = inject(EventService);
   private readonly creditService = inject(CreditService);
+  private readonly hydration = inject(ApiHydrationService);
   readonly auth = inject(AuthService);
+
+  /** true mientras la ficha siga trayendo datos del API. */
+  readonly loading = computed(
+    () =>
+      this.hydration.loadingStudents() ||
+      this.hydration.loadingParticipations() ||
+      this.hydration.loadingEvents()
+  );
 
   /** Identificador tomado de la ruta /students/:id. */
   readonly id = input.required<string>();

@@ -105,6 +105,7 @@ export class ReportsService {
         by: ['status'],
         where: this.participationWhere(actor),
         _sum: { credits: true },
+        _count: { _all: true },
       }),
     ]);
 
@@ -113,6 +114,10 @@ export class ReportsService {
         .filter((row) => row.status === ParticipationStatus.VALID)
         .reduce((total, row) => total + (row._sum.credits ?? 0), 0)
     );
+    const validParticipations =
+      creditsGrouped.find((row) => row.status === ParticipationStatus.VALID)?._count._all ?? 0;
+    const cancelledParticipations =
+      creditsGrouped.find((row) => row.status === ParticipationStatus.CANCELLED)?._count._all ?? 0;
 
     const now = new Date();
     const todayStart = beginOfDay(now);
@@ -135,6 +140,8 @@ export class ReportsService {
       totalStudents,
       activeStudents,
       totalParticipations,
+      validParticipations,
+      cancelledParticipations,
       totalCredits,
       todayEvents,
       nextEvents,

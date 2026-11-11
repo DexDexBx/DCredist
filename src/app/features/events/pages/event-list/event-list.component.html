@@ -126,7 +126,9 @@ class="mb-6 grid gap-3 rounded-2xl border border-gray-200 bg-white p-4 shadow-th
   }
 </div>
 
-@if (events().length === 0) {
+@if (loading()) {
+<dc-loading-state label="Cargando eventos…" />
+} @else if (events().length === 0) {
 <dc-empty-state
   title="Sin eventos que coincidan"
   description="Ajusta los filtros o crea un nuevo evento académico."

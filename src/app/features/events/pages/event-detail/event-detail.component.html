@@ -309,7 +309,9 @@
       </p>
     </div>
 
-    @if (filteredRows().length === 0) {
+    @if (loading()) {
+    <dc-loading-state label="Cargando participantes…" />
+    } @else if (filteredRows().length === 0) {
     <div class="px-5 py-8">
       <dc-empty-state
         title="Sin coincidencias"

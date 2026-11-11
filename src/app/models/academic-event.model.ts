@@ -10,6 +10,16 @@ export const EVENT_MODALITIES = [
 export const EVENT_STATUSES = ['Programado', 'En curso', 'Finalizado', 'Cancelado'] as const;
 
 /**
+ * Nombre visible del evento, sin espacios sobrantes.
+ *
+ * La unicidad de nombres se evalua sin distinguir mayusculas: el backend y la
+ * base aplican el mismo criterio.
+ */
+export function normalizeEventName(value: string | null | undefined): string {
+  return (value ?? '').trim().replace(/\s+/g, ' ');
+}
+
+/**
  * Procedencia de un evento.
  *
  * CURRENT: registro nuevo con sus datos completos. LEGACY: data historica

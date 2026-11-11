@@ -25,6 +25,25 @@
   }
 </dc-page-header>
 
+@if (loading()) {
+<div class="flex min-h-[50vh] flex-col items-center justify-center gap-4">
+  <span
+    class="inline-flex size-12 animate-spin items-center justify-center rounded-full border-4 border-brand-200 border-t-brand-600 dark:border-brand-500/20 dark:border-t-brand-400"
+  ></span>
+  <p class="text-sm font-medium text-gray-500 dark:text-gray-400">
+    Cargando resumen del dashboard…
+  </p>
+</div>
+} @else {
+@if (loadError(); as message) {
+<div
+  class="mb-5 flex items-start gap-3 rounded-xl border border-error-200 bg-error-50 px-4 py-3 dark:border-error-500/20 dark:bg-error-500/10"
+>
+  <dc-icon name="info" [size]="18" class="mt-0.5 text-error-600 dark:text-error-500" />
+  <p class="text-sm font-medium text-error-700 dark:text-error-500">{{ message }}</p>
+</div>
+}
+
 <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
   <dc-stat-card
     label="Estudiantes en el padrón"
@@ -63,7 +82,7 @@
     label="Créditos entregados"
     [value]="totalCredits()"
     tone="warning"
-    [hint]="'Meta: ' + creditsTarget + ' por estudiante'"
+    [hint]="'Meta: ' + creditsTarget() + ' por estudiante'"
   />
 </div>
 
@@ -208,6 +227,7 @@
     }
   </dc-panel>
 </div>
+}
 
 <!-- Detalle de créditos -->
 <app-modal
@@ -217,7 +237,7 @@
 >
   <h2 class="text-lg font-semibold text-gray-900 dark:text-white/90">Detalle de créditos</h2>
   <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
-    Avance hacia la meta de {{ creditsTarget }} créditos por estudiante.
+    Avance hacia la meta de {{ creditsTarget() }} créditos por estudiante.
   </p>
 
   <dc-credit-progress
@@ -227,7 +247,14 @@
     label="Créditos vigentes en todo el sistema"
   />
 
-  @if (graduatedStudents().length > 0) {
+  @if (graduatedLoading()) {
+  <div class="mt-6 flex items-center justify-center gap-3 border-t border-gray-200 pt-5 dark:border-gray-800">
+    <span
+      class="size-5 animate-spin rounded-full border-2 border-brand-200 border-t-brand-600 dark:border-brand-500/20 dark:border-t-brand-400"
+    ></span>
+    <p class="text-sm text-gray-500 dark:text-gray-400">Cargando estudiantes…</p>
+  </div>
+  } @else if (graduatedStudents().length > 0) {
   <div class="mt-6 border-t border-gray-200 pt-4 dark:border-gray-800">
     <p class="mb-3 text-sm font-semibold text-gray-900 dark:text-white/90">
       Estudiantes con la meta completa

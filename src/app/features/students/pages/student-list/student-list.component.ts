@@ -16,10 +16,12 @@ import { AuthService } from '../../../../core/services/auth.service';
 import { CatalogService } from '../../../../core/services/catalog.service';
 import { ExportService } from '../../../../core/services/export.service';
 import { ParticipationService } from '../../../../core/services/participation.service';
+import { ApiHydrationService } from '../../../../core/services/api-hydration.service';
 import { StudentService } from '../../../../core/services/student.service';
 import { BadgeComponent } from '../../../../shared/components/ui/badge/badge.component';
 import { EmptyStateComponent } from '../../../../shared/components/ui/empty-state/empty-state.component';
 import { IconComponent } from '../../../../shared/components/ui/icon/icon.component';
+import { LoadingStateComponent } from '../../../../shared/components/ui/loading-state/loading-state.component';
 import { ModalComponent } from '../../../../shared/components/ui/modal/modal.component';
 import { PageHeaderComponent } from '../../../../shared/components/ui/page-header/page-header.component';
 import { PaginationComponent } from '../../../../shared/components/ui/pagination/pagination.component';
@@ -59,6 +61,7 @@ const SORT_OPTIONS: { value: StudentSortKey; label: string }[] = [
     EmptyStateComponent,
     FormsModule,
     IconComponent,
+    LoadingStateComponent,
     ModalComponent,
     PageHeaderComponent,
     PaginationComponent,
@@ -73,8 +76,17 @@ export class StudentListComponent {
   private readonly creditService = inject(CreditService);
   private readonly exportService = inject(ExportService);
   private readonly participationService = inject(ParticipationService);
+  private readonly hydration = inject(ApiHydrationService);
   readonly auth = inject(AuthService);
   private readonly catalogService = inject(CatalogService);
+
+  /** true mientras el modulo siga trayendo datos del API. */
+  readonly loading = computed(
+    () =>
+      this.hydration.loadingStudents() ||
+      this.hydration.loadingParticipations() ||
+      this.hydration.loadingEvents()
+  );
 
   readonly statusLabel = STUDENT_STATUS_LABEL;
   readonly sortOptions = SORT_OPTIONS;
@@ -146,7 +158,7 @@ export class StudentListComponent {
   readonly status = signal<StudentStatus | 'Todos'>('Todos');
   readonly sort = signal<StudentSortKey>('name');
   readonly sortDir = signal<'asc' | 'desc'>('asc');
-  readonly pageSize = signal(25);
+  readonly pageSize = signal(15);
 
   /**
    * Pagina visible.

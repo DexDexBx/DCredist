@@ -132,7 +132,9 @@
     </div>
   </div>
 
-  @if (rows().length) {
+  @if (loading()) {
+  <dc-loading-state label="Cargando participaciones…" />
+  } @else if (rows().length) {
   <div class="hidden overflow-x-auto lg:block">
     <table class="w-full min-w-[1000px] border-collapse text-left text-sm">
       <thead>

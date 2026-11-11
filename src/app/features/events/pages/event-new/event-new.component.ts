@@ -266,6 +266,10 @@ export class EventNewComponent {
   readonly importError = signal<string | null>(null);
   readonly importResult = signal<EventImportResult | null>(null);
   readonly importValidation = signal<EventImportValidation | null>(null);
+  readonly importing = signal(false);
+  readonly importLoadingLabel = computed(() =>
+    this.importStep() === 1 ? 'Validando eventos…' : 'Importando eventos…'
+  );
   readonly fileAccept = IMPORT_FILE_ACCEPT;
 
   constructor() {
@@ -450,7 +454,10 @@ export class EventNewComponent {
         professionalSchoolId: '',
       });
     } else {
-      this.formError.set('No se pudo registrar el evento. Intenta nuevamente.');
+      this.formError.set(
+        this.eventService.lastWriteError() ??
+          'No se pudo registrar el evento. Intenta nuevamente.'
+      );
     }
 
     this.submitting.set(false);
@@ -589,14 +596,19 @@ export class EventNewComponent {
       return;
     }
 
-    const validation = await this.eventService.validateImport(rows, this.importOrigin());
-    if (validation.error) {
-      this.importError.set(validation.error);
-      return;
-    }
+    this.importing.set(true);
+    try {
+      const validation = await this.eventService.validateImport(rows, this.importOrigin());
+      if (validation.error) {
+        this.importError.set(validation.error);
+        return;
+      }
 
-    this.importValidation.set(validation);
-    this.importStep.set(2);
+      this.importValidation.set(validation);
+      this.importStep.set(2);
+    } finally {
+      this.importing.set(false);
+    }
   }
 
   async confirmImport(): Promise<void> {
@@ -608,13 +620,18 @@ export class EventNewComponent {
       return;
     }
 
-    const result = await this.eventService.importEvents(rows, this.importOrigin());
-    this.importResult.set(result);
-    this.importStep.set(3);
+    this.importing.set(true);
+    try {
+      const result = await this.eventService.importEvents(rows, this.importOrigin());
+      this.importResult.set(result);
+      this.importStep.set(3);
 
-    if (result.registered > 0) {
-      this.createdCode.set(null);
-      this.createdId.set(null);
+      if (result.registered > 0) {
+        this.createdCode.set(null);
+        this.createdId.set(null);
+      }
+    } finally {
+      this.importing.set(false);
     }
   }
 

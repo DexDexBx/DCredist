@@ -4,6 +4,7 @@ import { Observable } from 'rxjs';
 import { API_ENDPOINTS } from './api-endpoints';
 import {
   ApiCatalogEntry,
+  ApiDashboardReport,
   ApiConstancy,
   ApiConstancyVerificationResult,
   ApiCatalogKind,
@@ -88,6 +89,12 @@ export class DcreditsApiClient {
 
   listModules(): Observable<ApiModule[]> {
     return this.http.get<ApiModule[]>(API_ENDPOINTS.modules);
+  }
+
+  // --- Reportes ---
+
+  getDashboardReport(): Observable<ApiDashboardReport> {
+    return this.http.get<ApiDashboardReport>(API_ENDPOINTS.reportsDashboard);
   }
 
   // --- Catalogos ---

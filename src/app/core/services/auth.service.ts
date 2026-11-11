@@ -10,7 +10,7 @@ import {
 } from '../../models/permission.model';
 import { ROLE_DESCRIPTIONS, UserProfile } from '../../models/user.model';
 import { initialsOf } from '../../shared/utils/text.utils';
-import { mapApiPermissions } from '../api/api.mappers';
+import { mapApiPermissions, mapApiUser } from '../api/api.mappers';
 import { ApiLoginResponse } from '../api/api.types';
 import { DcreditsApiClient } from '../api/dcredits-api.client';
 import { SESSION_STORAGE_KEY } from '../auth/session-storage';
@@ -142,6 +142,10 @@ export class AuthService {
    * sesión (por ejemplo, porque otro administrador cambió el rol). Si la cuenta
    * ya no existe o está inactiva se cierra la sesión; si el API no responde se
    * conserva la caché para no expulsar a nadie por un fallo de red.
+   *
+   * El directorio de usuarios se carga por módulo, así que al arrancar puede
+   * estar vacío. Por eso la ficha se pide directamente al API: depender de la
+   * lista hidratada cerraba sesiones válidas al recargar o abrir otra pestaña.
    */
   async revalidateSession(): Promise<void> {
     const current = this.currentUserState();
@@ -149,7 +153,16 @@ export class AuthService {
       return;
     }
 
-    const profile = this.userService.findById(current.id);
+    let profile: UserProfile | null | undefined = this.userService.findById(current.id);
+
+    if (!profile) {
+      const fetched = await this.fetchSessionProfile(current.id);
+      if (fetched === 'error') {
+        // Sin respuesta del API se conserva la sesión en caché.
+        return;
+      }
+      profile = fetched;
+    }
 
     if (!profile || profile.status !== 'ACTIVE') {
       this.logout();
@@ -162,6 +175,27 @@ export class AuthService {
     }
 
     this.setSession({ ...profile, permissions });
+  }
+
+  /**
+   * Ficha del usuario de la sesión pedida al API.
+   *
+   * Devuelve `null` cuando el API confirma que la cuenta ya no existe y
+   * `'error'` cuando no fue posible consultarla (red, servidor caído, etc.).
+   */
+  private async fetchSessionProfile(id: number): Promise<UserProfile | null | 'error'> {
+    try {
+      const account = await firstValueFrom(this.api.getUser(id));
+      return mapApiUser(account);
+    } catch (error) {
+      if (
+        error instanceof HttpErrorResponse &&
+        (error.status === 404 || error.status === 401)
+      ) {
+        return null;
+      }
+      return 'error';
+    }
   }
 
   private setSession(profile: UserProfile): void {

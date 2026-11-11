@@ -5,6 +5,15 @@ import { accessGuard } from './core/guards/access.guard';
 import { authGuard } from './core/guards/auth.guard';
 import { guestGuard } from './core/guards/guest.guard';
 import { permissionGuard } from './core/guards/permission.guard';
+import {
+  catalogsDataGuard,
+  eventsCoreGuard,
+  eventsDataGuard,
+  participationsDataGuard,
+  studentsCoreGuard,
+  studentsDataGuard,
+  usersDataGuard,
+} from './core/guards/module-data.guard';
 
 /**
  * RUTAS DE DCREDITS.
@@ -55,7 +64,7 @@ export const routes: Routes = [
             (module) => module.EventListComponent
           ),
         title: 'Eventos | DCredits',
-        canActivate: [permissionGuard('events', 'VIEW')],
+        canActivate: [permissionGuard('events', 'VIEW'), eventsDataGuard],
       },
       {
         // events/new antes de events/:id para que "new" no se tome como id.
@@ -65,7 +74,7 @@ export const routes: Routes = [
             (module) => module.EventNewComponent
           ),
         title: 'Nuevo evento | DCredits',
-        canActivate: [permissionGuard('events', 'MANAGE')],
+        canActivate: [permissionGuard('events', 'MANAGE'), eventsCoreGuard],
       },
       {
         path: 'events/calendar',
@@ -74,7 +83,7 @@ export const routes: Routes = [
             (module) => module.EventCalendarComponent
           ),
         title: 'Calendario | DCredits',
-        canActivate: [permissionGuard('calendar', 'VIEW')],
+        canActivate: [permissionGuard('calendar', 'VIEW'), eventsCoreGuard],
       },
       {
         path: 'events/:id/edit',
@@ -83,7 +92,7 @@ export const routes: Routes = [
             (module) => module.EventEditComponent
           ),
         title: 'Editar evento | DCredits',
-        canActivate: [permissionGuard('events', 'MANAGE')],
+        canActivate: [permissionGuard('events', 'MANAGE'), eventsDataGuard],
       },
       {
         path: 'events/:id',
@@ -92,7 +101,7 @@ export const routes: Routes = [
             (module) => module.EventDetailComponent
           ),
         title: 'Detalle del evento | DCredits',
-        canActivate: [permissionGuard('events', 'VIEW')],
+        canActivate: [permissionGuard('events', 'VIEW'), eventsDataGuard],
       },
       {
         path: 'students',
@@ -101,7 +110,7 @@ export const routes: Routes = [
             (module) => module.StudentListComponent
           ),
         title: 'Padrón de estudiantes | DCredits',
-        canActivate: [permissionGuard('students', 'VIEW')],
+        canActivate: [permissionGuard('students', 'VIEW'), studentsDataGuard],
       },
       {
         path: 'students/new',
@@ -110,7 +119,7 @@ export const routes: Routes = [
             (module) => module.StudentNewComponent
           ),
         title: 'Nuevo estudiante | DCredits',
-        canActivate: [permissionGuard('students', 'MANAGE')],
+        canActivate: [permissionGuard('students', 'MANAGE'), studentsCoreGuard],
       },
       {
         path: 'students/:id/edit',
@@ -119,7 +128,7 @@ export const routes: Routes = [
             (module) => module.StudentEditComponent
           ),
         title: 'Editar estudiante | DCredits',
-        canActivate: [permissionGuard('students', 'MANAGE')],
+        canActivate: [permissionGuard('students', 'MANAGE'), studentsCoreGuard],
       },
       {
         path: 'students/:id',
@@ -128,7 +137,7 @@ export const routes: Routes = [
             (module) => module.StudentDetailComponent
           ),
         title: 'Ficha del estudiante | DCredits',
-        canActivate: [permissionGuard('students', 'VIEW')],
+        canActivate: [permissionGuard('students', 'VIEW'), studentsDataGuard],
       },
       {
         path: 'students/:id/constancy',
@@ -137,7 +146,7 @@ export const routes: Routes = [
             (module) => module.StudentConstancyComponent
           ),
         title: 'Constancia de avance | DCredits',
-        canActivate: [permissionGuard('students', 'VIEW')],
+        canActivate: [permissionGuard('students', 'VIEW'), studentsDataGuard],
       },
       {
         path: 'students/:id/certificate',
@@ -146,7 +155,7 @@ export const routes: Routes = [
             (module) => module.StudentCertificateComponent
           ),
         title: 'Constancia de créditos | DCredits',
-        canActivate: [permissionGuard('students', 'VIEW')],
+        canActivate: [permissionGuard('students', 'VIEW'), studentsDataGuard],
       },
       {
         path: 'participations',
@@ -155,7 +164,7 @@ export const routes: Routes = [
             (module) => module.ParticipationListComponent
           ),
         title: 'Participaciones | DCredits',
-        canActivate: [permissionGuard('participations', 'VIEW')],
+        canActivate: [permissionGuard('participations', 'VIEW'), participationsDataGuard],
       },
       {
         path: 'participations/register',
@@ -164,7 +173,7 @@ export const routes: Routes = [
             (module) => module.ParticipationRegisterComponent
           ),
         title: 'Registrar participación | DCredits',
-        canActivate: [permissionGuard('participations', 'MANAGE')],
+        canActivate: [permissionGuard('participations', 'MANAGE'), participationsDataGuard],
       },
       {
         path: 'verify',
@@ -173,7 +182,7 @@ export const routes: Routes = [
             (module) => module.VerificationComponent
           ),
         title: 'Verificar código | DCredits',
-        canActivate: [permissionGuard('verification', 'VIEW')],
+        canActivate: [permissionGuard('verification', 'VIEW'), participationsDataGuard],
       },
       {
         path: 'users',
@@ -182,7 +191,7 @@ export const routes: Routes = [
             (module) => module.UserListComponent
           ),
         title: 'Usuarios y perfiles | DCredits',
-        canActivate: [permissionGuard('users', 'VIEW')],
+        canActivate: [permissionGuard('users', 'VIEW'), usersDataGuard],
       },
       {
         // users/new antes de users/:id para que "new" no se tome como id.
@@ -192,7 +201,7 @@ export const routes: Routes = [
             (module) => module.UserNewComponent
           ),
         title: 'Nuevo usuario | DCredits',
-        canActivate: [permissionGuard('users', 'MANAGE')],
+        canActivate: [permissionGuard('users', 'MANAGE'), usersDataGuard],
       },
       {
         path: 'users/:id',
@@ -201,7 +210,7 @@ export const routes: Routes = [
             (module) => module.UserDetailComponent
           ),
         title: 'Ficha del usuario | DCredits',
-        canActivate: [permissionGuard('users', 'VIEW')],
+        canActivate: [permissionGuard('users', 'VIEW'), usersDataGuard],
       },
       {
         path: 'catalogs',
@@ -215,7 +224,7 @@ export const routes: Routes = [
             (module) => module.CatalogAdminComponent
           ),
         title: 'Catálogos | DCredits',
-        canActivate: [permissionGuard('catalogs', 'VIEW')],
+        canActivate: [permissionGuard('catalogs', 'VIEW'), catalogsDataGuard],
       },
     ],
   },

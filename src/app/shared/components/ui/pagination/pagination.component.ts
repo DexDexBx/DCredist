@@ -32,7 +32,7 @@ export class PaginationComponent {
   readonly pageSize = input.required<number>();
 
   /** Tamaños ofrecidos. El backend puede fijar un maximo. */
-  readonly pageSizes = input<readonly number[]>([25, 50, 100, 200]);
+  readonly pageSizes = input<readonly number[]>([15, 30, 50, 100]);
 
   readonly pageChange = output<number>();
   readonly pageSizeChange = output<number>();

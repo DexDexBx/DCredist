@@ -6,6 +6,7 @@ import { EventService } from '../../../../core/services/event.service';
 import { AuthService } from '../../../../core/services/auth.service';
 import { ExportService } from '../../../../core/services/export.service';
 import { ParticipationService } from '../../../../core/services/participation.service';
+import { ApiHydrationService } from '../../../../core/services/api-hydration.service';
 import {
   AcademicEvent,
   ExportResult,
@@ -26,6 +27,7 @@ import {
 import { CertificateCodeComponent } from '../../../../shared/components/ui/certificate-code/certificate-code.component';
 import { EmptyStateComponent } from '../../../../shared/components/ui/empty-state/empty-state.component';
 import { IconComponent } from '../../../../shared/components/ui/icon/icon.component';
+import { LoadingStateComponent } from '../../../../shared/components/ui/loading-state/loading-state.component';
 import { ModalComponent } from '../../../../shared/components/ui/modal/modal.component';
 import { PageHeaderComponent } from '../../../../shared/components/ui/page-header/page-header.component';
 import { PaginationComponent } from '../../../../shared/components/ui/pagination/pagination.component';
@@ -48,6 +50,7 @@ import { EventStatusBadgeComponent } from '../../components/event-status-badge/e
     CertificateCodeComponent,
     EmptyStateComponent,
     IconComponent,
+    LoadingStateComponent,
     ModalComponent,
     PageHeaderComponent,
     PaginationComponent,
@@ -61,7 +64,16 @@ export class EventDetailComponent {
   private readonly participationService = inject(ParticipationService);
   private readonly router = inject(Router);
   private readonly exportService = inject(ExportService);
+  private readonly hydration = inject(ApiHydrationService);
   readonly auth = inject(AuthService);
+
+  /** true mientras el modulo siga trayendo datos del API. */
+  readonly loading = computed(
+    () =>
+      this.hydration.loadingEvents() ||
+      this.hydration.loadingParticipations() ||
+      this.hydration.loadingStudents()
+  );
 
   /**
    * Identificador del evento tomado de la ruta /events/:id.
@@ -168,8 +180,8 @@ export class EventDetailComponent {
     this.searchInput.set('');
   }
 
-  readonly pageSizes = [10, 20, 50];
-  readonly pageSize = signal(10);
+  readonly pageSizes = [15, 30, 50, 100];
+  readonly pageSize = signal(15);
 
   /**
    * Página visible de participantes. Vuelve a 1 al cambiar de evento o de

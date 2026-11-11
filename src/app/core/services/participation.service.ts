@@ -825,13 +825,8 @@ getParticipations(query: ParticipationQuery = {}): Participation[] {
         };
       }
 
-      if (this.codeTaken(verificationCode, draft.eventId)) {
-        return {
-          valid: false,
-          error: 'VERIFICATION_CODE_TAKEN',
-          message: 'Ese código de verificación ya está asignado a otra participación.',
-        };
-      }
+      // El codigo historico puede repetirse: se conserva tal cual y la
+      // identidad tecnica de la participacion es su id.
     } else if (verificationCode) {
       return {
         valid: false,
@@ -932,14 +927,6 @@ getParticipations(query: ParticipationQuery = {}): Participation[] {
     const legacyCode = normalizeLegacyCode(draft.legacyCode);
     const origin = draft.origin ?? 'CURRENT';
     const historicalCode = normalizeLegacyCode(draft.verificationCode);
-
-    if (legacyCode && this.codeTaken(legacyCode, draft.eventId)) {
-      return {
-        ok: false,
-        error: 'INVALID_CERTIFICATE',
-        message: 'Ese código ya está asignado a otra participación.',
-      };
-    }
 
     if (this.dataMode.isApi) {
       try {
@@ -1201,20 +1188,6 @@ getParticipations(query: ParticipationQuery = {}): Participation[] {
     const items: ParticipationImportStagedItem[] = stagedItems.map((item) => ({ ...item }));
     const isLegacy = origin === 'LEGACY';
 
-    // En una carga historica el codigo original hace de identificador: no
-    // puede repetirse dentro del archivo ni existir ya en el historial.
-    // En historicos, la unicidad del codigo es por evento. El mismo codigo
-    // puede existir en otro evento sin bloquear la carga.
-    const historicalKeys = isLegacy
-      ? new Set<string>(
-          (this.participationsByEvent().get(eventId) ?? [])
-            .map((participation) =>
-              compactCode(participation.verificationCode ?? participation.legacyCode ?? '')
-            )
-            .filter(Boolean)
-        )
-      : new Set<string>();
-
     let validCount = 0;
     let invalidCount = 0;
 
@@ -1268,17 +1241,8 @@ getParticipations(query: ParticipationQuery = {}): Participation[] {
           continue;
         }
 
-        const historicalKey = compactCode(historicalCode);
-
-        if (historicalKeys.has(historicalKey)) {
-          item.valid = false;
-          item.error = `El código de verificación ${historicalCode} ya está asignado`;
-          errors.push({ row: item.row, code, reason: item.error });
-          invalidCount++;
-          continue;
-        }
-
-        historicalKeys.add(historicalKey);
+        // En historicos el codigo puede repetirse, incluso dentro del archivo
+        // o respecto de otra participacion del mismo evento.
         item.verificationCode = historicalCode;
       } else if (historicalCode) {
         item.valid = false;
@@ -1599,27 +1563,6 @@ getParticipations(query: ParticipationQuery = {}): Participation[] {
    * Un codigo de certificado identifica UNA participacion: no puede repetirse
    * ni entre codigos DC ni entre codigos del sistema anterior.
    */
-  /**
-   * Indica si un codigo de verificacion ya esta asignado dentro del evento.
-   * Los codigos historicos pueden repetirse en eventos distintos.
-   */
-  isVerificationCodeTaken(
-    code: string | null | undefined,
-    eventId: number
-  ): boolean {
-    const normalized = normalizeLegacyCode(code);
-    return normalized ? this.codeTaken(normalized, eventId) : false;
-  }
-
-  private codeTaken(code: string, eventId: number): boolean {
-    return this.participationsState().some(
-      (participation) =>
-        participation.eventId === eventId &&
-        (sameCertificateCode(participation.verificationCode, code) ||
-          sameCertificateCode(participation.legacyCode, code))
-    );
-  }
-
   private resolveParticipationDate(eventId: number): string {
     const event = this.eventService.findById(eventId);
     // Fecha calendario, sin hora: evita que al formatearla en zona local se

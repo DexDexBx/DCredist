@@ -15,6 +15,7 @@ import {
   eventTypeLabel,
   isImportCompleted,
   isLateImportsEnabled,
+  normalizeEventName,
 } from '../../models';
 import { mapApiEvent, toApiEventPatch, toApiEventPayload } from '../api/api.mappers';
 import { DcreditsApiClient } from '../api/dcredits-api.client';
@@ -46,7 +47,11 @@ export class EventService {
   private readonly auth = inject(AuthService);
   private readonly eventsState = signal<AcademicEvent[]>([]);
 
+  /** Ultimo error de escritura (alta o edicion), para mostrarlo en el formulario. */
+  private readonly writeErrorState = signal<string | null>(null);
+
   readonly events = this.eventsState.asReadonly();
+  readonly lastWriteError = this.writeErrorState.asReadonly();
 
   /**
    * Reemplaza el listado con el que devuelve el API (hidratacion al arrancar).
@@ -134,11 +139,21 @@ export class EventService {
     return computed(() => this.eventsState().filter((event) => acceptsParticipations(event)));
   }
 
-  validate(draft: EventDraft): EventValidation {
+  validate(draft: EventDraft, exceptId?: number): EventValidation {
     const errors: EventValidation['errors'] = {};
 
-    if (!draft.name.trim()) {
+    const name = normalizeEventName(draft.name);
+    if (!name) {
       errors.name = 'El nombre del evento es obligatorio.';
+    } else if (
+      this.eventsState().some(
+        (event) =>
+          event.id !== exceptId &&
+          normalizeEventName(event.name).toLowerCase() === name.toLowerCase()
+      )
+    ) {
+      // Comparacion tolerante a mayusculas y espacios, igual que el backend.
+      errors.name = 'Ya existe un evento con este nombre.';
     }
 
     // La descripcion es opcional; si se envia debe tener al menos 3 caracteres.
@@ -214,6 +229,8 @@ export class EventService {
   }
 
   async create(draft: EventDraft): Promise<AcademicEvent | null> {
+    this.writeErrorState.set(null);
+
     if (!this.validate(draft).valid) {
       return null;
     }
@@ -224,7 +241,10 @@ export class EventService {
         const event = mapApiEvent(created);
         this.eventsState.update((current) => [...current, event]);
         return event;
-      } catch {
+      } catch (error) {
+        this.writeErrorState.set(
+          this.writeErrorMessage(error, 'No se pudo registrar el evento. Intenta nuevamente.')
+        );
         return null;
       }
     }
@@ -253,7 +273,7 @@ export class EventService {
     const event: AcademicEvent = {
       id: sequence,
       code: draft.code?.trim() || `EVT-${new Date().getFullYear()}-${String(sequence).padStart(3, '0')}`,
-      name: draft.name.trim(),
+      name: normalizeEventName(draft.name),
       description: draft.description.trim() || 'Sin descripción',
       eventTypeId: draft.eventTypeId ?? 0,
       eventTypeName: this.eventTypeService.nameOf(draft.eventTypeId),
@@ -316,8 +336,10 @@ export class EventService {
   }
 
   async update(id: number, draft: EventDraft): Promise<AcademicEvent | null> {
+    this.writeErrorState.set(null);
+
     const current = this.findById(id);
-    if (!current || !this.validate(draft).valid) {
+    if (!current || !this.validate(draft, id).valid) {
       return null;
     }
 
@@ -334,7 +356,10 @@ export class EventService {
         const event = mapApiEvent(updated);
         this.eventsState.update((list) => list.map((item) => (item.id === id ? event : item)));
         return event;
-      } catch {
+      } catch (error) {
+        this.writeErrorState.set(
+          this.writeErrorMessage(error, 'No se pudo actualizar el evento. Intenta nuevamente.')
+        );
         return null;
       }
     }
@@ -342,12 +367,26 @@ export class EventService {
     return this.updateLocal(id, draft);
   }
 
+  /** Mensaje legible del API para mostrarlo en el formulario. */
+  private writeErrorMessage(error: unknown, fallback: string): string {
+    if (error instanceof HttpErrorResponse) {
+      const body = error.error as { message?: string | string[] } | null;
+      const detail = Array.isArray(body?.message) ? body.message.join('. ') : body?.message;
+
+      if (typeof detail === 'string' && detail.trim()) {
+        return detail;
+      }
+    }
+
+    return fallback;
+  }
+
   private updateLocal(id: number, draft: EventDraft): AcademicEvent {
     const current = this.findById(id) as AcademicEvent;
     const dates = this.localDates(draft);
     const event: AcademicEvent = {
       ...current,
-      name: draft.name.trim(),
+      name: normalizeEventName(draft.name),
       description: draft.description.trim() || 'Sin descripción',
       eventTypeId: draft.eventTypeId ?? current.eventTypeId,
       eventTypeName:
@@ -489,10 +528,26 @@ export class EventService {
     for (let index = 0; index < rows.length; index++) {
       const row = rows[index];
       const line = index + 1;
-      const name = (row.name ?? '').trim();
+      const name = normalizeEventName(row.name);
 
       if (!name) {
         issues.push({ row: line, name: '', code: 'MISSING_NAME', message: 'La fila no tiene nombre.' });
+        skipped++;
+        continue;
+      }
+
+      // El nombre es unico en todo el sistema, igual que en el API.
+      if (
+        this.eventsState().some(
+          (event) => normalizeEventName(event.name).toLowerCase() === name.toLowerCase()
+        )
+      ) {
+        issues.push({
+          row: line,
+          name,
+          code: 'DUPLICATE_NAME',
+          message: `Ya existe un evento con el nombre "${name}".`,
+        });
         skipped++;
         continue;
       }
