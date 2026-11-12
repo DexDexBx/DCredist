@@ -26,18 +26,29 @@
         </span>
       </a>
 
-      <button
-        type="button"
-        (click)="onToggleTheme()"
-        class="inline-flex size-10 items-center justify-center rounded-xl border border-gray-200 bg-white text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700 dark:border-gray-800 dark:bg-white/[0.03] dark:text-gray-400 dark:hover:bg-white/5 dark:hover:text-white"
-        [attr.aria-label]="themeService.isDark() ? 'Usar tema claro' : 'Usar tema oscuro'"
-      >
-        @if (themeService.isDark()) {
-        <dc-icon name="sun" [size]="19" />
-        } @else {
-        <dc-icon name="moon" [size]="19" />
-        }
-      </button>
+      <div class="flex items-center gap-2">
+        <a
+          routerLink="/welcome"
+          title="Volver al inicio"
+          aria-label="Volver al inicio"
+          class="inline-flex size-10 items-center justify-center rounded-xl border border-gray-200 bg-white text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700 dark:border-gray-800 dark:bg-white/[0.03] dark:text-gray-400 dark:hover:bg-white/5 dark:hover:text-white"
+        >
+          <dc-icon name="arrow-left" [size]="19" />
+        </a>
+
+        <button
+          type="button"
+          (click)="onToggleTheme()"
+          class="inline-flex size-10 items-center justify-center rounded-xl border border-gray-200 bg-white text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700 dark:border-gray-800 dark:bg-white/[0.03] dark:text-gray-400 dark:hover:bg-white/5 dark:hover:text-white"
+          [attr.aria-label]="themeService.isDark() ? 'Usar tema claro' : 'Usar tema oscuro'"
+        >
+          @if (themeService.isDark()) {
+          <dc-icon name="sun" [size]="19" />
+          } @else {
+          <dc-icon name="moon" [size]="19" />
+          }
+        </button>
+      </div>
     </header>
 
     <main class="mx-auto w-full max-w-5xl flex-1 px-5 pt-4 pb-14 sm:px-8">
