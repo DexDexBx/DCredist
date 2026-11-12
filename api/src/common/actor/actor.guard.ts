@@ -1,6 +1,7 @@
 import {
   CanActivate,
   ExecutionContext,
+  ForbiddenException,
   Injectable,
   UnauthorizedException,
 } from '@nestjs/common';
@@ -59,6 +60,7 @@ export class ActorGuard implements CanActivate {
         fullName: true,
         role: { select: { name: true } },
         status: true,
+        mustChangePassword: true,
         professionalSchoolId: true,
         professionalSchool: { select: { name: true } },
       },
@@ -66,6 +68,17 @@ export class ActorGuard implements CanActivate {
 
     if (!user || user.status !== UserStatus.ACTIVE) {
       throw new UnauthorizedException('La sesion no es valida o la cuenta esta inactiva.');
+    }
+
+    // Una cuenta con contraseña temporal solo puede cambiarla. El resto del
+    // API queda bloqueado hasta que `mustChangePassword` pase a false.
+    const isPasswordChange =
+      request.method === 'POST' && request.path.endsWith('/auth/change-password');
+
+    if (user.mustChangePassword && !isPasswordChange) {
+      throw new ForbiddenException(
+        'Debes cambiar tu contraseña inicial antes de continuar.'
+      );
     }
 
     request.actor = {

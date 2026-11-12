@@ -35,6 +35,18 @@ export interface ApiUserBase {
   mustChangePassword: boolean;
 }
 
+/** Cambio de contraseña de la propia cuenta. */
+export interface ApiChangePasswordPayload {
+  currentPassword: string;
+  newPassword: string;
+  confirmPassword: string;
+}
+
+export interface ApiChangePasswordResult {
+  changed: boolean;
+  mustChangePassword: false;
+}
+
 /** Perfil que devuelve POST /auth/login, con su matriz completa de permisos. */
 export interface ApiLoginResponse extends ApiUserBase {
   permissions: ApiUserPermission[];

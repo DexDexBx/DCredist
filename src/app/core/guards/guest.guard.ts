@@ -8,5 +8,10 @@ export const guestGuard: CanActivateFn = () => {
   const auth = inject(AuthService);
   const router = inject(Router);
 
-  return auth.isAuthenticated() ? router.createUrlTree(['/']) : true;
+  if (!auth.isAuthenticated()) {
+    return true;
+  }
+
+  // Una cuenta con contraseña temporal no puede volver al acceso ni al panel.
+  return router.createUrlTree([auth.mustChangePassword() ? '/change-password' : '/']);
 };

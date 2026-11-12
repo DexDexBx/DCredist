@@ -45,6 +45,11 @@ export class AuthService {
   readonly isAuthenticated = computed(() => this.currentUserState() !== null);
   readonly isAdmin = computed(() => this.currentUserState()?.role === 'ADMIN');
 
+  /** true mientras la cuenta siga con la contraseña inicial. */
+  readonly mustChangePassword = computed(
+    () => this.currentUserState()?.mustChangePassword === true
+  );
+
   /** true si la sesión tiene al menos un módulo con acceso (VIEW o MANAGE). */
   readonly hasAnyAccess = computed(() => {
     const permissions = this.currentUserState()?.permissions;
@@ -92,6 +97,54 @@ export class AuthService {
     }
 
     return 'El correo o la contraseña no son correctos.';
+  }
+
+  /**
+   * Cambia la contraseña de la sesión activa.
+   *
+   * El API valida la contraseña actual y la confirmación. Al terminar, la
+   * sesión local deja de estar pendiente de cambio.
+   */
+  async changePassword(
+    currentPassword: string,
+    newPassword: string,
+    confirmPassword: string
+  ): Promise<LoginResult> {
+    try {
+      await firstValueFrom(
+        this.api.changePassword({ currentPassword, newPassword, confirmPassword })
+      );
+
+      const user = this.currentUserState();
+      if (user) {
+        this.setSession({ ...user, mustChangePassword: false });
+      }
+
+      return { ok: true };
+    } catch (error) {
+      return { ok: false, message: this.changePasswordErrorMessage(error) };
+    }
+  }
+
+  private changePasswordErrorMessage(error: unknown): string {
+    if (error instanceof HttpErrorResponse) {
+      const body = error.error as { message?: unknown } | null;
+      const message = body?.message;
+
+      if (typeof message === 'string' && message.trim()) {
+        return message;
+      }
+
+      if (Array.isArray(message) && typeof message[0] === 'string') {
+        return message[0];
+      }
+
+      if (error.status === 0) {
+        return 'No se pudo conectar con el API. Verifica que esté en ejecución.';
+      }
+    }
+
+    return 'No se pudo cambiar la contraseña. Inténtalo nuevamente.';
   }
 
   logout(): void {
@@ -232,7 +285,7 @@ export class AuthService {
         return null;
       }
 
-      return profile;
+      return { ...profile, mustChangePassword: profile.mustChangePassword === true };
     } catch {
       return null;
     }
@@ -251,6 +304,7 @@ export class AuthService {
       description: ROLE_DESCRIPTIONS[account.role],
       permissions: mapApiPermissions(account.permissions ?? []),
       permissionsOverridden: 0,
+      mustChangePassword: account.mustChangePassword === true,
     };
   }
 }

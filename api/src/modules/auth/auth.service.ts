@@ -1,7 +1,12 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { PrismaService } from '../../common/prisma/prisma.service';
-import { verifyPassword } from '../../common/password';
+import { hashPassword, verifyPassword } from '../../common/password';
 import { UserRole, UserStatus } from '../../generated/prisma/client';
+import { ChangePasswordDto } from './dto/change-password.dto';
 import { UsersService } from '../users/users.service';
 import { LoginResponseDto } from './dto/login-response.dto';
 import { LoginDto } from './dto/login.dto';
@@ -22,6 +27,49 @@ export class AuthService {
     private readonly prisma: PrismaService,
     private readonly usersService: UsersService
   ) {}
+
+  /**
+   * Cambia la contraseña de la propia cuenta.
+   *
+   * Se exige la contraseña actual aunque la cuenta tenga una temporal: evita
+   * que una sesión olvidada cambie la clave sin conocerla. Al terminar,
+   * `mustChangePassword` queda en false y la cuenta opera con normalidad.
+   */
+  async changePassword(
+    userId: number,
+    dto: ChangePasswordDto
+  ): Promise<{ changed: boolean; mustChangePassword: false }> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { passwordHash: true, status: true },
+    });
+
+    if (!user || user.status !== UserStatus.ACTIVE) {
+      throw new UnauthorizedException('La sesión no es válida o la cuenta está inactiva.');
+    }
+
+    if (!verifyPassword(dto.currentPassword, user.passwordHash)) {
+      throw new BadRequestException('La contraseña actual no es correcta.');
+    }
+
+    if (dto.newPassword !== dto.confirmPassword) {
+      throw new BadRequestException('La confirmación no coincide con la nueva contraseña.');
+    }
+
+    if (dto.newPassword === dto.currentPassword) {
+      throw new BadRequestException('La nueva contraseña debe ser diferente a la actual.');
+    }
+
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        passwordHash: hashPassword(dto.newPassword),
+        mustChangePassword: false,
+      },
+    });
+
+    return { changed: true, mustChangePassword: false };
+  }
 
   async login(dto: LoginDto): Promise<LoginResponseDto> {
     const email = dto.email.trim().toLowerCase();

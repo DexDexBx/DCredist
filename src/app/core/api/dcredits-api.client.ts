@@ -4,6 +4,8 @@ import { Observable } from 'rxjs';
 import { API_ENDPOINTS } from './api-endpoints';
 import {
   ApiCatalogEntry,
+  ApiChangePasswordPayload,
+  ApiChangePasswordResult,
   ApiDashboardReport,
   ApiConstancy,
   ApiConstancyVerificationResult,
@@ -51,6 +53,13 @@ export class DcreditsApiClient {
   private readonly http = inject(HttpClient);
 
   // --- Autenticacion ---
+
+  changePassword(payload: ApiChangePasswordPayload): Observable<ApiChangePasswordResult> {
+    return this.http.post<ApiChangePasswordResult>(
+      API_ENDPOINTS.authChangePassword,
+      payload
+    );
+  }
 
   login(email: string, password: string): Observable<ApiLoginResponse> {
     return this.http.post<ApiLoginResponse>(API_ENDPOINTS.authLogin, { email, password });

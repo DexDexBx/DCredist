@@ -25,7 +25,10 @@ export class LoginResponseDto {
   @ApiProperty({ example: 'Ingenieria de Sistemas' })
   professionalSchoolName!: string;
 
-  @ApiProperty()
+  @ApiProperty({
+    description:
+      'true: la contraseña es temporal; el frontend debe exigir el cambio antes de entrar al panel.',
+  })
   mustChangePassword!: boolean;
 
   @ApiProperty({

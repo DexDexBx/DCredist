@@ -8,6 +8,7 @@ import {
 } from '@angular/router';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { filter, map } from 'rxjs';
+import { ThemeService } from './core/services/theme.service';
 import { LoadingStateComponent } from './shared/components/ui/loading-state/loading-state.component';
 
 /**
@@ -28,6 +29,12 @@ import { LoadingStateComponent } from './shared/components/ui/loading-state/load
 export class AppComponent {
   title = 'DCredits';
 
+  /**
+   * Se inyecta aqui para que el tema se aplique incluso mientras se muestra el
+   * splash y el header aun no existe. La eleccion inicial ya la adelanta el
+   * script de index.html antes del primer pintado.
+   */
+  private readonly themeService = inject(ThemeService);
   private readonly router = inject(Router);
   private readonly firstNavigationDone = toSignal(
     this.router.events.pipe(

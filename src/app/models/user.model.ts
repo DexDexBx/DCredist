@@ -62,6 +62,11 @@ export interface UserProfile {
   permissions: PermissionMap | null;
   /** Módulos que difieren del preset del rol. Lo calcula el API. */
   permissionsOverridden: number;
+  /**
+   * true cuando la cuenta sigue con la contraseña inicial asignada por un
+   * administrador. Mientras esté activo, el sistema obliga a cambiarla.
+   */
+  mustChangePassword: boolean;
 }
 
 /** Datos de un usuario tal como llegan desde el formulario de alta o edición. */

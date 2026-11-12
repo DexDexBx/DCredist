@@ -83,8 +83,9 @@ export class UsersService {
             fullName: normalizeName(dto.fullName),
             email: normalizeEmail(dto.email),
             passwordHash: hashPassword(dto.password),
-            // La contraseña la elige quien crea la cuenta: no es temporal.
-            mustChangePassword: false,
+            // La contraseña la define quien delega la cuenta. La persona debe
+            // cambiarla en su primer inicio de sesión.
+            mustChangePassword: true,
             role: { connect: { id: role.id } },
             status: dto.status ?? UserStatus.ACTIVE,
             professionalSchool: { connect: { id: dto.professionalSchoolId } },
@@ -131,7 +132,9 @@ export class UsersService {
     }
     if (dto.password !== undefined) {
       data.passwordHash = hashPassword(dto.password);
-      data.mustChangePassword = false;
+      // Si un administrador restablece la clave de otra persona, queda
+      // temporal. Si es su propia clave, ya la conoce y no se le bloquea.
+      data.mustChangePassword = id !== actor.id;
     }
     if (dto.role !== undefined) {
       const role = await this.resolveRole(dto.role);

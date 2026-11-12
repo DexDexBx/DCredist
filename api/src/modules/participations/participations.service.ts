@@ -338,18 +338,13 @@ export class ParticipationsService {
       await this.syncConstancy(dto.studentId);
       return created;
     } catch (error) {
-      if (isUniqueViolation(error, 'eventId,studentId') || isUniqueViolation(error, 'eventId')) {
-        throw new ConflictException(
-          `El estudiante ${student.universityCode} ya esta registrado en el evento ${event.code}.`
-        );
-      }
-
+      // En historicos el codigo puede repetirse: si la base aun rechaza es
+      // porque conserva el indice compuesto antiguo y falta la migracion.
       if (isUniqueViolation(error, 'verificationCode')) {
-        // En un registro historico el codigo lo eligio la institucion: no se
-        // regenera, porque eso alteraria la data antigua.
         if (origin === ParticipationOrigin.LEGACY) {
           throw new ConflictException(
-            `El codigo de verificacion "${historicalCode}" ya esta asignado a otra participacion.`
+            `El codigo de verificacion "${historicalCode}" sigue restringido por la base de datos. ` +
+              'Aplica las migraciones pendientes (npm run prisma:deploy) para permitir codigos historicos repetidos.'
           );
         }
 
@@ -377,6 +372,12 @@ export class ParticipationsService {
 
         await this.syncConstancy(dto.studentId);
         return created;
+      }
+
+      if (isUniqueViolation(error, 'eventId,studentId')) {
+        throw new ConflictException(
+          `El estudiante ${student.universityCode} ya esta registrado en el evento ${event.code}.`
+        );
       }
 
       this.logger.error('No se pudo crear la participacion.', error);

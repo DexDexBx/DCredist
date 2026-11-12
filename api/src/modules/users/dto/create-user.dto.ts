@@ -19,8 +19,8 @@ export const MIN_PASSWORD_LENGTH = 8;
  * ALTA DE USUARIOS.
  *
  * La contraseña la define quien crea la cuenta y se guarda como hash scrypt.
- * `mustChangePassword` queda en false: la persona conoce la contraseña desde el
- * primer inicio de sesión.
+ * `mustChangePassword` queda en true: la clave es temporal y la persona debe
+ * cambiarla en su primer inicio de sesión.
  *
  * `professionalSchoolId` es obligatorio: la escuela define el alcance del
  * usuario. La escuela `general` identifica a las cuentas globales.
@@ -70,7 +70,7 @@ export class CreateUserDto {
  *
  * Todos los campos son opcionales: solo se actualiza lo enviado. Si se envia
  * `password`, se reemplaza el hash y la cuenta vuelve a `mustChangePassword`
- * en false.
+ * en true: la nueva clave es temporal hasta que la persona la cambie.
  */
 export class UpdateUserDto extends PartialType(CreateUserDto) {}
 
@@ -97,7 +97,10 @@ export class UserDto {
   @ApiProperty({ example: 'Ingenieria de Sistemas' })
   professionalSchoolName!: string;
 
-  @ApiProperty()
+  @ApiProperty({
+    description:
+      'true: la cuenta conserva una contraseña temporal y debe cambiarla antes de usar el sistema.',
+  })
   mustChangePassword!: boolean;
 
   @ApiProperty({

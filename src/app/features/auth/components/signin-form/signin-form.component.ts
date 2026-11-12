@@ -45,6 +45,12 @@ export class SigninFormComponent {
       return;
     }
 
+    // La cuenta con contraseña temporal no entra al panel todavia.
+    if (this.auth.mustChangePassword()) {
+      void this.router.navigateByUrl('/change-password', { replaceUrl: true });
+      return;
+    }
+
     // El API exige X-User-Id: los datos se cargan despues del login.
     await this.hydration.refresh();
     this.redirectAfterLogin();

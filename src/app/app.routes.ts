@@ -4,6 +4,10 @@ import { AppLayoutComponent } from './layout/app-layout/app-layout.component';
 import { accessGuard } from './core/guards/access.guard';
 import { authGuard } from './core/guards/auth.guard';
 import { guestGuard } from './core/guards/guest.guard';
+import {
+  passwordChangeGuard,
+  passwordChangePageGuard,
+} from './core/guards/password-change.guard';
 import { permissionGuard } from './core/guards/permission.guard';
 import {
   catalogsDataGuard,
@@ -43,7 +47,7 @@ export const routes: Routes = [
   {
     path: '',
     component: AppLayoutComponent,
-    canActivate: [authGuard],
+    canActivate: [authGuard, passwordChangeGuard],
     // Sin ningun modulo habilitado no se entra al panel: se muestra la pantalla
     // de acceso pendiente.
     canActivateChild: [accessGuard],
@@ -229,6 +233,16 @@ export const routes: Routes = [
     ],
   },
   {
+    // Fuera del layout: la cuenta existe, pero debe reemplazar su clave temporal.
+    path: 'change-password',
+    loadComponent: () =>
+      import('./features/auth/pages/change-password/change-password.component').then(
+        (module) => module.ChangePasswordComponent
+      ),
+    title: 'Cambiar contraseña | DCredits',
+    canActivate: [passwordChangePageGuard],
+  },
+  {
     path: 'signin',
     loadComponent: () =>
       import('./features/auth/pages/sign-in/sign-in.component').then(
@@ -254,7 +268,7 @@ export const routes: Routes = [
         (module) => module.NoAccessComponent
       ),
     title: 'Sin acceso | DCredits',
-    canActivate: [authGuard],
+    canActivate: [authGuard, passwordChangeGuard],
   },
   {
     path: '**',

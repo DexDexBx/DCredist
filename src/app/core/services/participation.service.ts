@@ -85,7 +85,9 @@ export type ParticipationErrorCode =
   | 'INVALID_GRADE'
   | 'INVALID_CERTIFICATE'
   | 'INVALID_VERIFICATION_CODE'
-  | 'VERIFICATION_CODE_TAKEN';
+  | 'VERIFICATION_CODE_TAKEN'
+  | 'SERVER_ERROR'
+  | 'NETWORK_ERROR';
 
 export interface ParticipationResult {
   ok: boolean;
@@ -989,8 +991,29 @@ getParticipations(query: ParticipationQuery = {}): Participation[] {
       if (error.status === 400 || error.status === 422) {
         return { ok: false, error: 'EVENT_FULL', message: detail ?? 'No se pudo registrar la participación.' };
       }
+      if (error.status === 403) {
+        return {
+          ok: false,
+          error: 'EVENT_IMPORT_CLOSED',
+          message: detail ?? 'No tienes permisos para registrar esta participación.',
+        };
+      }
+      if (error.status >= 500) {
+        return {
+          ok: false,
+          error: 'SERVER_ERROR',
+          message:
+            detail ??
+            `El servicio de participaciones falló (HTTP ${error.status}). Revisa los logs del API.`,
+        };
+      }
     }
-    return { ok: false, error: 'STUDENT_NOT_FOUND', message: 'No se pudo contactar el servicio de participaciones.' };
+    return {
+      ok: false,
+      error: 'NETWORK_ERROR',
+      message:
+        'No se pudo conectar con el API de participaciones. Verifica que esté en ejecución y vuelve a intentarlo.',
+    };
   }
 
   async update(id: number, edit: ParticipationEdit): Promise<Participation | null> {

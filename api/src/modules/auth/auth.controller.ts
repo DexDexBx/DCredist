@@ -5,8 +5,11 @@ import {
   ApiTags,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
+import type { Actor } from '../../common/actor/actor.types';
+import { CurrentActor } from '../../common/actor/current-actor.decorator';
 import { Public } from '../../common/actor/public.decorator';
 import { AuthService } from './auth.service';
+import { ChangePasswordDto } from './dto/change-password.dto';
 import { LoginResponseDto } from './dto/login-response.dto';
 import { LoginDto } from './dto/login.dto';
 
@@ -14,6 +17,21 @@ import { LoginDto } from './dto/login.dto';
 @Controller('auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
+
+  @Post('change-password')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Cambia la contraseña de la cuenta autenticada.',
+    description:
+      'Exige la contraseña actual y la confirmación de la nueva. Al completarlo, la cuenta deja de estar pendiente de cambio y puede usar el sistema.',
+  })
+  @ApiOkResponse({ description: 'Contraseña actualizada.' })
+  changePassword(
+    @Body() dto: ChangePasswordDto,
+    @CurrentActor() actor: Actor
+  ): Promise<{ changed: boolean; mustChangePassword: false }> {
+    return this.authService.changePassword(actor.id, dto);
+  }
 
   @Public()
   @Post('login')

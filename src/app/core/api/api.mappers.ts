@@ -133,6 +133,7 @@ export function mapApiUser(row: ApiUser): UserProfile {
     description: ROLE_DESCRIPTIONS[row.role],
     permissions: null,
     permissionsOverridden: row.permissionsOverridden ?? 0,
+    mustChangePassword: row.mustChangePassword === true,
   };
 }
 

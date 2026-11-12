@@ -65,6 +65,7 @@ export const API_BASE_URL = '/api';
 
 export const API_ENDPOINTS = {
   authLogin: `${API_BASE_URL}/auth/login`,
+  authChangePassword: `${API_BASE_URL}/auth/change-password`,
 
   users: `${API_BASE_URL}/users`,
   user: (id: number) => `${API_BASE_URL}/users/${id}`,

@@ -293,6 +293,7 @@ export class UserService {
       description: ROLE_DESCRIPTIONS[draft.role],
       permissions: null,
       permissionsOverridden: 0,
+      mustChangePassword: false,
     };
   }
 

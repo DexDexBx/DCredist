@@ -300,6 +300,12 @@ X-User-Id: <id del usuario>
 El API usa esa cabecera para resolver el usuario y su alcance por escuela. Es un
 mecanismo de la V1; no es JWT ni autenticación fuerte.
 
+Cuando un administrador crea una cuenta o restablece su contraseña, la clave es
+temporal: `mustChangePassword` queda en `true`. La persona debe cambiarla con
+`POST /auth/change-password` antes de usar el resto del sistema. Mientras ese
+indicador siga activo, el API rechaza las demás peticiones y el frontend la
+redirige a `/change-password`.
+
 ## API principal
 
 Todas las rutas cuelgan de `/api`, excepto Swagger.

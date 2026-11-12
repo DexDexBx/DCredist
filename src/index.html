@@ -6,6 +6,32 @@
   <base href="/">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <link rel="icon" type="image/x-icon" href="favicon.ico">
+  <style>
+    /* Fondo base antes de que Angular monte la aplicacion. */
+    html { background-color: #f9fafb; }
+    html.dark { background-color: #0c111d; }
+  </style>
+  <script>
+    /*
+      Aplica el tema antes del primer pintado.
+      Evita que una recarga en modo oscuro muestre el splash y el fondo en claro
+      durante la carga inicial. ThemeService usa la misma clave y la misma regla.
+    */
+    (function () {
+      try {
+        var stored = localStorage.getItem('dcredits-theme');
+        var prefersDark =
+          typeof window.matchMedia === 'function' &&
+          window.matchMedia('(prefers-color-scheme: dark)').matches;
+        var dark = stored === 'dark' || (stored !== 'light' && prefersDark);
+
+        document.documentElement.classList.toggle('dark', dark);
+        document.documentElement.setAttribute('data-color-scheme', dark ? 'dark' : 'light');
+      } catch (error) {
+        /* Sin localStorage se conserva el tema claro por defecto. */
+      }
+    })();
+  </script>
 </head>
 <body>
   <app-root></app-root>
